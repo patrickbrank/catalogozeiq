@@ -16,8 +16,9 @@ export async function verifyAdmin(): Promise<{ isAdmin: boolean; user: any | nul
       return { isAdmin: false, user: null };
     }
 
-    // Se for o e-mail master ou possuir metadata admin
-    if (user.email === 'patrickbrank@outlook.com' || user.user_metadata?.role === 'admin') {
+    // Valida e-mail master ou app_metadata (protegido pelo servidor, não manipulável pelo cliente)
+    const email = user.email?.toLowerCase();
+    if (email === 'patrickbrank@outlook.com' || user.app_metadata?.role === 'admin') {
       return { isAdmin: true, user };
     }
 

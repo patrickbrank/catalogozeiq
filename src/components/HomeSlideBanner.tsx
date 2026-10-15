@@ -67,16 +67,29 @@ export function HomeSlideBanner({
   const [isPaused, setIsPaused] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [slideStepPixels, setSlideStepPixels] = useState(0);
+
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
   useEffect(() => {
-    const handleResize = () => {
+    const updateDimensions = () => {
       setIsMobile(window.innerWidth < 640);
+      if (trackRef.current && trackRef.current.firstElementChild) {
+        const firstEl = trackRef.current.firstElementChild as HTMLElement;
+        const gap = window.innerWidth < 640 ? 12 : 20;
+        setSlideStepPixels(firstEl.offsetWidth + gap);
+      }
     };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    updateDimensions();
+    // Pequeno timeout para garantir medição correta após carregamento de layout
+    const timer = setTimeout(updateDimensions, 100);
+    window.addEventListener('resize', updateDimensions);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateDimensions);
+    };
   }, []);
 
   // Converte banners recebidos (até 5) ou usa os padrões
@@ -210,9 +223,14 @@ export function HomeSlideBanner({
         {/* Trilho de Cartões com Prévia Lateral (Stage Carousel) */}
         <div className="overflow-visible">
           <div
+            ref={trackRef}
             className="flex items-center gap-3 sm:gap-5 transition-transform duration-500 ease-out"
             style={{
-              transform: totalSlides > 1 ? `translateX(-${currentSlide * stepPercent}%)` : 'none',
+              transform: totalSlides > 1 && slideStepPixels > 0
+                ? `translateX(-${currentSlide * slideStepPixels}px)`
+                : totalSlides > 1
+                ? `translateX(-${currentSlide * stepPercent}%)`
+                : 'none',
             }}
           >
             {trackSlides.map((slide, index) => {

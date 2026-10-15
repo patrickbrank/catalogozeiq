@@ -1,40 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { verifyAdmin } from '@/lib/supabase/admin-auth';
-import { Department, DEFAULT_DEPARTMENTS } from '@/lib/data/departments';
-
-function getConfigPath() {
-  return path.join(process.cwd(), 'dados', 'departments-config.json');
-}
-
-function readDepartments(): Department[] {
-  try {
-    const configPath = getConfigPath();
-    if (fs.existsSync(configPath)) {
-      const content = fs.readFileSync(configPath, 'utf8');
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch {}
-  return DEFAULT_DEPARTMENTS;
-}
-
-function saveDepartments(depts: Department[]) {
-  const configPath = getConfigPath();
-  const dir = path.dirname(configPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  fs.writeFileSync(configPath, JSON.stringify(depts, null, 2), 'utf8');
-}
+import { Department } from '@/lib/data/departments';
+import { getDepartments, saveDepartments } from '@/lib/data/departments-server';
 
 // GET: Retorna lista de departamentos e categorias vinculadas
 export async function GET(request: NextRequest) {
   try {
-    const departments = readDepartments();
+    const departments = await getDepartments();
     return NextResponse.json({ success: true, departments });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -63,7 +35,7 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    const current = readDepartments();
+    const current = await getDepartments();
     if (current.some((d) => d.id === id)) {
       return NextResponse.json({ success: false, error: 'Já existe um departamento com este identificador.' }, { status: 400 });
     }
@@ -76,7 +48,7 @@ export async function POST(request: NextRequest) {
     };
 
     const updated = [...current, newDept];
-    saveDepartments(updated);
+    await saveDepartments(updated);
 
     return NextResponse.json({ success: true, department: newDept, departments: updated });
   } catch (err: any) {
@@ -99,7 +71,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ID do departamento é obrigatório.' }, { status: 400 });
     }
 
-    let current = readDepartments();
+    let current = await getDepartments();
 
     // Caso de uso rápido: Mover uma categoria específica de um departamento para outro
     if (moveCategory && moveCategory.categoryName && moveCategory.targetDepartmentId) {
@@ -120,7 +92,7 @@ export async function PUT(request: NextRequest) {
         return { ...d, categoryNames: cleaned };
       });
 
-      saveDepartments(current);
+      await saveDepartments(current);
       return NextResponse.json({ success: true, departments: current });
     }
 
@@ -137,7 +109,7 @@ export async function PUT(request: NextRequest) {
       categoryNames: Array.isArray(categoryNames) ? categoryNames : current[index].categoryNames,
     };
 
-    saveDepartments(current);
+    await saveDepartments(current);
     return NextResponse.json({ success: true, department: current[index], departments: current });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -159,14 +131,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ID é obrigatório.' }, { status: 400 });
     }
 
-    const current = readDepartments();
+    const current = await getDepartments();
     const filtered = current.filter((d) => d.id !== id);
 
     if (filtered.length === current.length) {
       return NextResponse.json({ success: false, error: 'Departamento não encontrado.' }, { status: 404 });
     }
 
-    saveDepartments(filtered);
+    await saveDepartments(filtered);
     return NextResponse.json({ success: true, departments: filtered });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

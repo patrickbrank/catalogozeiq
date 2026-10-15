@@ -235,17 +235,22 @@ export function ProductFormModal({
 
       if (productId) {
         // Atualizar categorias associadas
-        await supabase.from('product_categories').delete().eq('product_id', productId);
+        const { error: delCatErr } = await supabase.from('product_categories').delete().eq('product_id', productId);
+        if (delCatErr) throw delCatErr;
+
         if (selectedCategoryIds.length > 0) {
           const catInserts = selectedCategoryIds.map((cId) => ({
             product_id: productId!,
             category_id: cId,
           }));
-          await supabase.from('product_categories').insert(catInserts);
+          const { error: insCatErr } = await supabase.from('product_categories').insert(catInserts);
+          if (insCatErr) throw insCatErr;
         }
 
         // Atualizar imagens garantindo cover e storage_path válido
-        await supabase.from('product_images').delete().eq('product_id', productId);
+        const { error: delImgErr } = await supabase.from('product_images').delete().eq('product_id', productId);
+        if (delImgErr) throw delImgErr;
+
         if (images.length > 0) {
           const hasCover = images.some((img) => img.is_cover);
           const imgInserts = images.map((img, idx) => ({
@@ -255,7 +260,8 @@ export function ProductFormModal({
             is_cover: hasCover ? img.is_cover : idx === 0,
             sort_order: idx,
           }));
-          await supabase.from('product_images').insert(imgInserts);
+          const { error: insImgErr } = await supabase.from('product_images').insert(imgInserts);
+          if (insImgErr) throw insImgErr;
         }
       }
 

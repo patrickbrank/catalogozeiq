@@ -94,50 +94,72 @@ CREATE TRIGGER trigger_categories_updated_at
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) - SEGURANÇA MÁXIMA
 -- ==============================================================================
+-- Função auxiliar estável e segura para verificação de privilégios de administrador
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN (
+        (SELECT auth.jwt()->>'email') = 'patrickbrank@outlook.com'
+        OR EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = (SELECT auth.uid()) AND role = 'admin'
+        )
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_images ENABLE ROW LEVEL SECURITY;
 
--- CATEGORIES: Leitura pública, escrita apenas autenticado (admin)
+-- CATEGORIES: Leitura pública, escrita restrita a administradores autenticados
+DROP POLICY IF EXISTS "Categorias visíveis publicamente" ON public.categories;
 CREATE POLICY "Categorias visíveis publicamente"
     ON public.categories FOR SELECT
     USING (true);
 
+DROP POLICY IF EXISTS "Categorias modificáveis apenas por admin autenticado" ON public.categories;
 CREATE POLICY "Categorias modificáveis apenas por admin autenticado"
     ON public.categories FOR ALL
-    USING ((SELECT auth.uid()) IS NOT NULL)
-    WITH CHECK ((SELECT auth.uid()) IS NOT NULL);
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- PRODUCTS: Público visualiza apenas publicados; admin visualiza e edita todos
+DROP POLICY IF EXISTS "Produtos publicados visíveis publicamente" ON public.products;
 CREATE POLICY "Produtos publicados visíveis publicamente"
     ON public.products FOR SELECT
-    USING (is_published = true OR (SELECT auth.uid()) IS NOT NULL);
+    USING (is_published = true OR public.is_admin());
 
+DROP POLICY IF EXISTS "Produtos modificáveis apenas por admin autenticado" ON public.products;
 CREATE POLICY "Produtos modificáveis apenas por admin autenticado"
     ON public.products FOR ALL
-    USING ((SELECT auth.uid()) IS NOT NULL)
-    WITH CHECK ((SELECT auth.uid()) IS NOT NULL);
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
--- PRODUCT_CATEGORIES: Leitura pública, escrita apenas autenticado
+-- PRODUCT_CATEGORIES: Leitura pública, escrita apenas administrador
+DROP POLICY IF EXISTS "Relação produtos-categorias visível publicamente" ON public.product_categories;
 CREATE POLICY "Relação produtos-categorias visível publicamente"
     ON public.product_categories FOR SELECT
     USING (true);
 
+DROP POLICY IF EXISTS "Relação produtos-categorias modificável apenas por admin" ON public.product_categories;
 CREATE POLICY "Relação produtos-categorias modificável apenas por admin"
     ON public.product_categories FOR ALL
-    USING ((SELECT auth.uid()) IS NOT NULL)
-    WITH CHECK ((SELECT auth.uid()) IS NOT NULL);
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
--- PRODUCT_IMAGES: Leitura pública, escrita apenas autenticado
+-- PRODUCT_IMAGES: Leitura pública, escrita apenas administrador
+DROP POLICY IF EXISTS "Imagens visíveis publicamente" ON public.product_images;
 CREATE POLICY "Imagens visíveis publicamente"
     ON public.product_images FOR SELECT
     USING (true);
 
+DROP POLICY IF EXISTS "Imagens modificáveis apenas por admin" ON public.product_images;
 CREATE POLICY "Imagens modificáveis apenas por admin"
     ON public.product_images FOR ALL
-    USING ((SELECT auth.uid()) IS NOT NULL)
-    WITH CHECK ((SELECT auth.uid()) IS NOT NULL);
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- ==============================================================================
 -- POLÍTICAS DO STORAGE (BUCKET 'produtos')
@@ -158,22 +180,14 @@ BEGIN
     END IF;
 
     -- Permitir upload apenas para administradores autenticados ou scripts via service_role
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Upload restrito para autenticados'
-    ) THEN
-        CREATE POLICY "Upload restrito para autenticados"
-            ON storage.objects FOR INSERT
-            WITH CHECK (bucket_id = 'produtos' AND (SELECT auth.uid()) IS NOT NULL);
-    END IF;
+    DROP POLICY IF EXISTS "Upload restrito para autenticados" ON storage.objects;
+    CREATE POLICY "Upload restrito para administradores"
+        ON storage.objects FOR INSERT
+        WITH CHECK (bucket_id = 'produtos' AND public.is_admin());
 
     -- Permitir exclusão/atualização apenas para administradores autenticados
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Exclusão restrita para autenticados'
-    ) THEN
-        CREATE POLICY "Exclusão restrita para autenticados"
-            ON storage.objects FOR DELETE
-            USING (bucket_id = 'produtos' AND (SELECT auth.uid()) IS NOT NULL);
-    END IF;
+    DROP POLICY IF EXISTS "Exclusão restrita para autenticados" ON storage.objects;
+    CREATE POLICY "Exclusão restrita para administradores"
+        ON storage.objects FOR DELETE
+        USING (bucket_id = 'produtos' AND public.is_admin());
 END $$;

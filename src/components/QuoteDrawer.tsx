@@ -10,6 +10,7 @@ export function QuoteDrawer() {
   const [mounted, setMounted] = useState(false);
   const [buyerName, setBuyerName] = useState('');
   const [buyerCompany, setBuyerCompany] = useState('');
+  const [buyerPhone, setBuyerPhone] = useState('');
   const [openNotesIds, setOpenNotesIds] = useState<Record<string, boolean>>({});
 
   const isOpen = useQuoteCart((state) => state.isOpen);
@@ -59,7 +60,8 @@ export function QuoteDrawer() {
   const totalItemsCount = getTotalItems();
 
   const saveOrder = async (): Promise<string> => {
-    const generatedNumber = `ZEIQ-${Math.floor(1000 + Math.random() * 9000)}`;
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000);
+    const generatedNumber = `ZEIQ-${randomSuffix}`;
 
     // Salva imediatamente no localStorage para aparecer em Meus Pedidos
     try {
@@ -70,7 +72,7 @@ export function QuoteDrawer() {
         order_number: generatedNumber,
         buyer_name: buyerName?.trim() || 'Revendedor Zeiq',
         buyer_company: buyerCompany?.trim() || null,
-        buyer_phone: '',
+        buyer_phone: buyerPhone?.trim() || '',
         items: [...items],
         total_pieces: totalItemsCount,
         status: 'pending',
@@ -89,9 +91,10 @@ export function QuoteDrawer() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          order_number: generatedNumber,
           buyer_name: buyerName,
           buyer_company: buyerCompany,
-          buyer_phone: '',
+          buyer_phone: buyerPhone,
           items: items,
           total_pieces: totalItemsCount,
         }),
@@ -102,16 +105,17 @@ export function QuoteDrawer() {
   };
 
   const handleSendWhatsApp = async () => {
-    await saveOrder();
-    const link = generateWhatsAppLink(whatsappPhone, buyerName, buyerCompany);
+    const orderNumber = await saveOrder();
+    const link = generateWhatsAppLink(whatsappPhone, buyerName, buyerCompany, orderNumber, buyerPhone);
     if (link) {
-      window.open(link, '_blank');
+      // Usa window.location.href para evitar bloqueador de popups em navegadores móveis (Safari iOS / Android)
+      window.location.href = link;
     }
   };
 
   const handleSendEmail = async () => {
-    await saveOrder();
-    const link = generateEmailLink(contactEmail, buyerName, buyerCompany);
+    const orderNumber = await saveOrder();
+    const link = generateEmailLink(contactEmail, buyerName, buyerCompany, orderNumber, buyerPhone);
     if (link) {
       window.location.href = link;
     }
@@ -344,6 +348,13 @@ export function QuoteDrawer() {
                   value={buyerCompany}
                   onChange={(e) => setBuyerCompany(e.target.value)}
                   placeholder="Nome da sua loja ou arena"
+                  className="w-full px-3.5 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black"
+                />
+                <input
+                  type="tel"
+                  value={buyerPhone}
+                  onChange={(e) => setBuyerPhone(e.target.value)}
+                  placeholder="Seu WhatsApp com DDD (para confirmação)"
                   className="w-full px-3.5 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black"
                 />
               </div>

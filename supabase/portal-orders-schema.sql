@@ -65,7 +65,19 @@ CREATE TRIGGER trigger_orders_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_orders_updated_at();
 
--- 6. TRIGGER PARA CRIAR PERFIL AUTOMÁTICO AO CADASTRAR NOVO USUÁRIO AUTH
+-- 6. FUNÇÃO AUXILIAR SEGURA PARA CHECAR ADMIN (SECURITY DEFINER + CACHE STABLE)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = (SELECT auth.uid()) AND role = 'admin'
+    ) OR (SELECT auth.jwt()->>'email') = 'patrickbrank@outlook.com';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- 7. TRIGGER PARA CRIAR PERFIL AUTOMÁTICO AO CADASTRAR NOVO USUÁRIO AUTH
+-- BLINDAGEM: Nunca aceita 'role: admin' enviado pelo cliente via user_metadata
 CREATE OR REPLACE FUNCTION public.handle_new_user_profile()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -79,7 +91,7 @@ BEGIN
     ) VALUES (
         NEW.id,
         NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'role', 'reseller'),
+        CASE WHEN LOWER(NEW.email) = 'patrickbrank@outlook.com' THEN 'admin' ELSE 'reseller' END,
         COALESCE(NEW.raw_user_meta_data->>'contact_name', split_part(NEW.email, '@', 1)),
         COALESCE(NEW.raw_user_meta_data->>'store_name', ''),
         COALESCE(NEW.raw_user_meta_data->>'phone', '')
@@ -97,31 +109,49 @@ CREATE TRIGGER trigger_new_user_profile
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user_profile();
 
--- 7. ROW LEVEL SECURITY (RLS)
+-- 8. TRIGGER PARA PROTEGER CONTRA AUTO-ESCALAÇÃO DE PRIVILÉGIOS EM PROFILES
+CREATE OR REPLACE FUNCTION public.protect_profile_role()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Apenas admin existente pode mudar a coluna role
+    IF NEW.role <> OLD.role AND NOT public.is_admin() THEN
+        NEW.role = OLD.role;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trigger_protect_profile_role ON public.profiles;
+CREATE TRIGGER trigger_protect_profile_role
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.protect_profile_role();
+
+-- 9. ROW LEVEL SECURITY (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
 -- POLÍTICAS PROFILES
 CREATE POLICY "Usuário pode visualizar seu próprio perfil"
     ON public.profiles FOR SELECT
-    USING ((SELECT auth.uid()) = id OR role = 'admin');
+    USING ((SELECT auth.uid()) = id OR public.is_admin());
 
 CREATE POLICY "Usuário pode atualizar seu próprio perfil"
     ON public.profiles FOR UPDATE
-    USING ((SELECT auth.uid()) = id OR role = 'admin')
-    WITH CHECK ((SELECT auth.uid()) = id OR role = 'admin');
+    USING ((SELECT auth.uid()) = id OR public.is_admin())
+    WITH CHECK ((SELECT auth.uid()) = id OR public.is_admin());
 
 CREATE POLICY "Administradores podem gerenciar todos os perfis"
     ON public.profiles FOR ALL
-    USING ((SELECT auth.uid()) IN (SELECT id FROM public.profiles WHERE role = 'admin'))
-    WITH CHECK ((SELECT auth.uid()) IN (SELECT id FROM public.profiles WHERE role = 'admin'));
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 -- POLÍTICAS ORDERS
 CREATE POLICY "Revendedor pode ver seus próprios pedidos"
     ON public.orders FOR SELECT
     USING (
         user_id = (SELECT auth.uid())
-        OR (SELECT auth.uid()) IN (SELECT id FROM public.profiles WHERE role = 'admin')
+        OR public.is_admin()
     );
 
 CREATE POLICY "Qualquer cliente pode criar pedido de cotação"
@@ -130,8 +160,13 @@ CREATE POLICY "Qualquer cliente pode criar pedido de cotação"
 
 CREATE POLICY "Apenas administradores podem atualizar pedidos"
     ON public.orders FOR UPDATE
-    USING ((SELECT auth.uid()) IN (SELECT id FROM public.profiles WHERE role = 'admin'))
-    WITH CHECK ((SELECT auth.uid()) IN (SELECT id FROM public.profiles WHERE role = 'admin'));
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+CREATE POLICY "Apenas administradores podem excluir pedidos"
+    ON public.orders FOR DELETE
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
 
 CREATE POLICY "Apenas administradores podem excluir pedidos"
     ON public.orders FOR DELETE

@@ -14,6 +14,15 @@ export default function AdminLoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('error') === 'unauthorized') {
+        setErrorMsg('Acesso restrito. Esta conta não possui privilégios de administrador.');
+      }
+    }
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -22,12 +31,21 @@ export default function AdminLoginPage() {
     try {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
       if (error) {
         throw error;
+      }
+
+      // Valida imediatamente se o usuário possui cargo de administrador
+      const verifyRes = await fetch('/api/admin/verify');
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.success || !verifyData.isAdmin) {
+        await supabase.auth.signOut();
+        throw new Error('Acesso negado: Sua conta não possui permissão de administrador.');
       }
 
       router.push('/admin');
@@ -98,7 +116,7 @@ export default function AdminLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@zeiq.com.br"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-zeiq-black border border-zeiq-charcoal rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-zeiq-orange/40 focus:border-zeiq-orange"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-zeiq-black border border-zeiq-charcoal rounded-xl text-base sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-zeiq-orange/40 focus:border-zeiq-orange"
                 />
               </div>
             </div>
@@ -117,7 +135,7 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-zeiq-black border border-zeiq-charcoal rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-zeiq-orange/40 focus:border-zeiq-orange"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-zeiq-black border border-zeiq-charcoal rounded-xl text-base sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-zeiq-orange/40 focus:border-zeiq-orange"
                 />
               </div>
             </div>

@@ -136,7 +136,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
         </button>
 
         {/* Área de Conteúdo Rolável */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-7">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-7 pb-24 sm:pb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             
             {/* Galeria de Fotos Sticky no scroll do desktop */}
@@ -374,7 +374,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Ex: cores específicas, prazo de entrega..."
-                    className="w-full px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-md text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black"
+                    className="w-full px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-md text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black"
                   />
                 </div>
               </div>

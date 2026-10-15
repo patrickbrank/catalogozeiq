@@ -44,7 +44,48 @@ export async function middleware(request: NextRequest) {
   );
 
   if (hasAuthCookie || isProtectedArea) {
-    await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Bloqueia qualquer acesso não autorizado ao painel administrativo
+    if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+      if (!user) {
+        const redirectUrl = new URL('/admin/login', request.url);
+        return NextResponse.redirect(redirectUrl);
+      }
+
+      const email = user.email?.toLowerCase();
+      const isMasterEmail = email === 'patrickbrank@outlook.com';
+      const hasAdminAppMeta = user.app_metadata?.role === 'admin';
+
+      if (!isMasterEmail && !hasAdminAppMeta) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.role !== 'admin') {
+          const redirectUrl = new URL('/admin/login?error=unauthorized', request.url);
+          return NextResponse.redirect(redirectUrl);
+        }
+      }
+    }
+
+    // Se já estiver logado como admin e acessar /admin/login, redireciona para o painel
+    if (pathname === '/admin/login' && user) {
+      const email = user.email?.toLowerCase();
+      if (email === 'patrickbrank@outlook.com' || user.app_metadata?.role === 'admin') {
+        return NextResponse.redirect(new URL('/admin', request.url));
+      }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profile?.role === 'admin') {
+        return NextResponse.redirect(new URL('/admin', request.url));
+      }
+    }
   }
 
   return supabaseResponse;

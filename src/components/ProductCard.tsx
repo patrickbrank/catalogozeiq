@@ -141,7 +141,7 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
           <button
             type="button"
             onClick={handleActionClick}
-            className={`w-full sm:w-auto inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] sm:text-xs font-semibold transition-all active:scale-95 shrink-0 whitespace-nowrap ${
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-semibold transition-all active:scale-95 shrink-0 whitespace-nowrap ${
               isAdded
                 ? 'bg-emerald-600 text-white'
                 : 'bg-zeiq-black hover:bg-zeiq-charcoal text-white'

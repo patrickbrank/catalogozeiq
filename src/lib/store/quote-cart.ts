@@ -15,8 +15,8 @@ interface QuoteCartState {
   loadOrderItems: (items: QuoteItem[]) => void;
   clearCart: () => void;
   getTotalItems: () => number;
-  generateWhatsAppLink: (sellerPhone?: string, buyerName?: string, buyerCompany?: string) => string;
-  generateEmailLink: (contactEmail?: string, buyerName?: string, buyerCompany?: string) => string;
+  generateWhatsAppLink: (sellerPhone?: string, buyerName?: string, buyerCompany?: string, orderNumber?: string, buyerPhone?: string) => string;
+  generateEmailLink: (contactEmail?: string, buyerName?: string, buyerCompany?: string, orderNumber?: string, buyerPhone?: string) => string;
 }
 
 export const useQuoteCart = create<QuoteCartState>()(
@@ -187,20 +187,26 @@ export const useQuoteCart = create<QuoteCartState>()(
         return items.reduce((sum, item) => sum + item.quantity, 0);
       },
 
-      generateWhatsAppLink: (sellerPhone = '5516991667020', buyerName = '', buyerCompany = '') => {
+      generateWhatsAppLink: (sellerPhone = '5516991667020', buyerName = '', buyerCompany = '', orderNumber = '', buyerPhone = '') => {
         const { items } = get();
         if (items.length === 0) return '';
 
         const cleanPhone = sellerPhone.replace(/\D/g, '');
         let message = `Olá! Gostaria de solicitar uma cotação para revenda de produtos Zeiq.\n\n`;
 
+        if (orderNumber) {
+          message += `🔖 *PEDIDO / COTAÇÃO:* #${orderNumber}\n`;
+        }
         if (buyerName.trim()) {
           message += `👤 *Responsável:* ${buyerName.trim()}\n`;
         }
         if (buyerCompany.trim()) {
           message += `🏢 *Loja/Arena:* ${buyerCompany.trim()}\n`;
         }
-        if (buyerName.trim() || buyerCompany.trim()) {
+        if (buyerPhone.trim()) {
+          message += `📱 *WhatsApp do Comprador:* ${buyerPhone.trim()}\n`;
+        }
+        if (orderNumber || buyerName.trim() || buyerCompany.trim() || buyerPhone.trim()) {
           message += `\n`;
         }
 
@@ -231,15 +237,17 @@ export const useQuoteCart = create<QuoteCartState>()(
         return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
       },
 
-      generateEmailLink: (contactEmail = 'contato@zeiq.com.br', buyerName = '', buyerCompany = '') => {
+      generateEmailLink: (contactEmail = 'contato@zeiq.com.br', buyerName = '', buyerCompany = '', orderNumber = '', buyerPhone = '') => {
         const { items } = get();
         if (items.length === 0) return '';
 
-        const subject = `Solicitação de Cotação de Revenda - Zeiq${buyerCompany ? ` (${buyerCompany})` : ''}`;
+        const subject = `Solicitação de Cotação de Revenda - Zeiq${orderNumber ? ` [#${orderNumber}]` : ''}${buyerCompany ? ` (${buyerCompany})` : ''}`;
         let body = `Olá equipe comercial Zeiq,\n\nGostaria de solicitar cotação para revenda dos seguintes produtos:\n\n`;
 
+        if (orderNumber) body += `Pedido / Cotação: #${orderNumber}\n`;
         if (buyerName.trim()) body += `Responsável: ${buyerName.trim()}\n`;
         if (buyerCompany.trim()) body += `Loja/Arena: ${buyerCompany.trim()}\n`;
+        if (buyerPhone.trim()) body += `Telefone/WhatsApp: ${buyerPhone.trim()}\n`;
         body += `\nLISTA DE ITENS SOLICITADOS (${get().getTotalItems()} peças):\n`;
 
         items.forEach((item, index) => {

@@ -176,7 +176,7 @@ export default function ResellerLoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seuemail@loja.com.br"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
               </div>
@@ -193,7 +193,7 @@ export default function ResellerLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
               </div>
@@ -228,7 +228,7 @@ export default function ResellerLoginPage() {
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="Nome completo"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
               </div>
@@ -245,7 +245,7 @@ export default function ResellerLoginPage() {
                     value={storeName}
                     onChange={(e) => setStoreName(e.target.value)}
                     placeholder="Ex: Arena Beach Point"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
               </div>
@@ -262,7 +262,7 @@ export default function ResellerLoginPage() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="16 99999-9999"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
               </div>
@@ -279,7 +279,7 @@ export default function ResellerLoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="contato@arena.com.br"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
               </div>
@@ -297,7 +297,7 @@ export default function ResellerLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo 6 caracteres"
-                    className="w-full pl-9 pr-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
               </div>

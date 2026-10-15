@@ -45,16 +45,50 @@ export async function GET(request: NextRequest) {
 
       const order = data[0];
 
-      // Se informou telefone, valida dígitos para maior segurança
+      // Checa se o usuário atual é dono do pedido ou admin
+      const serverSupabase = await createServerClient();
+      const { data: { user: currentUser } } = await serverSupabase.auth.getUser();
+      const isOwner = currentUser && (currentUser.id === order.user_id || currentUser.email === order.buyer_email);
+      const isMasterAdmin = currentUser && currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com';
+
+      // Validação de telefone para visualização completa
+      let phoneMatched = false;
       if (phone) {
         const cleanPhoneInput = phone.replace(/\D/g, '');
         const cleanOrderPhone = (order.buyer_phone || '').replace(/\D/g, '');
-        if (cleanPhoneInput && cleanOrderPhone && !cleanOrderPhone.includes(cleanPhoneInput) && !cleanPhoneInput.includes(cleanOrderPhone)) {
-          return NextResponse.json({
-            success: false,
-            error: 'O número de telefone informado não coincide com os dados do pedido.',
-          });
+        if (cleanPhoneInput && cleanOrderPhone) {
+          if (cleanOrderPhone.endsWith(cleanPhoneInput) || cleanPhoneInput.endsWith(cleanOrderPhone) || cleanOrderPhone === cleanPhoneInput) {
+            phoneMatched = true;
+          } else {
+            return NextResponse.json({
+              success: false,
+              error: 'O número de telefone informado não coincide com os dados do pedido.',
+            });
+          }
         }
+      }
+
+      // Proteção Anti-IDOR: Se for consulta pública anônima sem confirmação de telefone, mascara dados sensíveis
+      if (!isOwner && !isMasterAdmin && !phoneMatched) {
+        const maskedPhone = order.buyer_phone && order.buyer_phone.length >= 8
+          ? order.buyer_phone.replace(/(\d{2})(\d{4,5})(\d{4})/, '($1) •••••-$3')
+          : (order.buyer_phone ? '••••••••' : 'Não informado');
+        const maskedEmail = order.buyer_email
+          ? order.buyer_email.replace(/^(.{2})(.*)(@.*)$/, '$1••••$3')
+          : null;
+
+        const safeOrder = {
+          ...order,
+          buyer_phone: maskedPhone,
+          buyer_email: maskedEmail,
+          commercial_notes: null, // Protege anotações comerciais internas contra scraping
+        };
+
+        return NextResponse.json({
+          success: true,
+          order: safeOrder,
+          partial: true,
+        });
       }
 
       return NextResponse.json({
@@ -161,7 +195,8 @@ export async function POST(request: NextRequest) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
     const client = serviceRoleKey ? createAdminClient(supabaseUrl, serviceRoleKey) : serverSupabase;
 
-    const generatedNumber = `ZEIQ-${Math.floor(1000 + Math.random() * 9000)}`;
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000);
+    const generatedNumber = `ZEIQ-${randomSuffix}`;
 
     const { data, error } = await client
       .from('orders')

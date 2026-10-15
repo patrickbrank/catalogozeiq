@@ -107,19 +107,40 @@ export function CatalogClient({
     return result;
   }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, searchQuery]);
 
-  // Carrega busca da URL (?search=...) se presente
+  // Carrega parâmetros da URL (?search=..., ?dept=..., ?cat=...) se presentes
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const q = params.get('search');
+      let dept = params.get('dept');
+      const cat = params.get('cat');
+
+      // Suporte a apelidos amigáveis
+      if (dept === 'masculino') dept = 'vestuario-masculino';
+      if (dept === 'feminino') dept = 'vestuario-feminino';
+
+      let hasFilterFromUrl = false;
+
       if (q) {
         setSearchQuery(q);
+        hasFilterFromUrl = true;
+      }
+      if (dept) {
+        setSelectedDepartment(dept);
+        hasFilterFromUrl = true;
+      }
+      if (cat) {
+        setSelectedCategory(cat);
+        hasFilterFromUrl = true;
+      }
+
+      if (hasFilterFromUrl) {
         setTimeout(() => {
           const gridElem = document.getElementById('catalog-products-grid');
           if (gridElem) {
             gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
-        }, 150);
+        }, 180);
       }
     }
   }, []);

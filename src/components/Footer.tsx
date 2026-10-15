@@ -3,7 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Package, Truck, MessageCircle, Mail, Clock, ShieldCheck, ArrowRight, Layers, ArrowUp } from 'lucide-react';
+import {
+  Package,
+  Truck,
+  MessageCircle,
+  Mail,
+  Clock,
+  ShieldCheck,
+  ArrowRight,
+  Layers,
+  ArrowUp,
+  Sparkles,
+  PhoneCall,
+  Lock,
+} from 'lucide-react';
 import { StoreSettings } from '@/types';
 
 interface FooterProps {
@@ -31,332 +44,298 @@ export function Footer({ settings: initialSettings }: FooterProps) {
   const cleanPhone = rawPhone.replace(/\D/g, '');
   const contactEmail = settings?.contactEmail || process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br';
 
+  const formatDisplayPhone = (digits: string) => {
+    const nums = digits.replace(/\D/g, '');
+    if (nums.length === 13 && nums.startsWith('55')) {
+      const ddd = nums.slice(2, 4);
+      const part1 = nums.slice(4, 9);
+      const part2 = nums.slice(9);
+      return `(${ddd}) ${part1}-${part2}`;
+    }
+    if (nums.length === 11) {
+      return `(${nums.slice(0, 2)}) ${nums.slice(2, 7)}-${nums.slice(7)}`;
+    }
+    return rawPhone;
+  };
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <footer className="bg-zeiq-black text-slate-400 text-xs border-t border-zeiq-charcoal font-sans">
-      <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10">
-
-        {/* ======================================================== */}
-        {/* VERSÃO MOBILE REFORMULADA (DESIGN INTELIGENTE & ERGONÔMICO) */}
-        {/* ======================================================== */}
-        <div className="block sm:hidden py-8 space-y-6">
-          
-          {/* 1. Header de Marca & Selos */}
-          <div className="space-y-3.5 text-center">
-            <div
-              className="relative h-7 w-28 mx-auto brightness-0 invert flex items-center justify-center"
-              style={{ position: 'relative', width: '112px', height: '28px' }}
-            >
-              <Image
-                src="/images/logo-zeiq.png"
-                alt="Zeiq Sports"
-                width={112}
-                height={28}
-                className="h-full w-auto object-contain"
-              />
+    <footer className="bg-zeiq-black text-slate-400 font-sans border-t border-zeiq-charcoal relative overflow-hidden">
+      
+      {/* 1. FAIXA SUPERIOR: 4 PILARES B2B COM ACABAMENTO MODERNO */}
+      <div className="border-b border-white/[0.08] bg-white/[0.015]">
+        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+            
+            <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/15 transition-colors group">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Atacado de Fábrica</h4>
+                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Tabela comercial e preços diretos da indústria Zeiq.</p>
+              </div>
             </div>
-            <p className="text-[11px] text-slate-400 max-w-xs mx-auto leading-relaxed">
-              Catálogo oficial de Beach Tennis, moda esportiva e alta performance para lojistas e arenas.
+
+            <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/15 transition-colors group">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Envio para Todo o Brasil</h4>
+                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Despacho ágil com código de rastreamento em tempo real.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/15 transition-colors group">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Grade Livre</h4>
+                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Monte os tamanhos conforme a demanda da sua arena.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-white/15 transition-colors group">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <MessageCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Cotação Rápida</h4>
+                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Atendimento comercial consultivo direto no WhatsApp.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* 2. CORPO PRINCIPAL DO FOOTER */}
+      <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-10 sm:py-14">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-10">
+          
+          {/* COLUNA 1: MARCA & INSTITUCIONAL (4 Colunas no Desktop) */}
+          <div className="lg:col-span-4 space-y-4">
+            <Link href="/" className="inline-block transition-opacity hover:opacity-85">
+              <div className="relative h-8 w-32 brightness-0 invert flex items-center">
+                <Image
+                  src="/images/logo-zeiq.png"
+                  alt="Zeiq Sports"
+                  width={128}
+                  height={32}
+                  className="h-full w-auto object-contain object-left"
+                />
+              </div>
+            </Link>
+
+            <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
+              Marca oficial especializada em Beach Tennis, vestuário técnico de alta performance e equipamentos premium para arenas esportivas, lojistas e revendedores autorizados.
             </p>
 
-            {/* Selos de Confiança Compactos em Linha */}
-            <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-slate-300">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>Atacado de Fábrica</span>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold text-slate-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Catálogo B2B 2026
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-slate-300">
-                <Truck className="w-3 h-3 text-blue-400" />
-                <span>Envio Brasil</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold text-slate-300">
+                Fábrica Oficial
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-slate-300">
-                <Layers className="w-3 h-3 text-zeiq-orange" />
-                <span>Grade Livre</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold text-slate-300">
+                Venda PJ
               </span>
             </div>
           </div>
 
-          {/* 2. Card de Atendimento Direto ao Lojista (Foco no Polegar) */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-3 text-center">
-            <div>
-              <span className="text-[10px] font-bold text-zeiq-orange uppercase tracking-wider block">
-                Atendimento Comercial Direto
-              </span>
-              <p className="text-[11px] text-slate-300 mt-0.5">
-                Dúvidas comerciais, tabela de atacado ou fechamento de grade:
+          {/* COLUNA 2: NAVEGAÇÃO DE LINHAS (2 Colunas no Desktop) */}
+          <div className="lg:col-span-2 space-y-3.5">
+            <h4 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-0.5 bg-zeiq-orange rounded-full inline-block" />
+              <span>Coleções Zeiq</span>
+            </h4>
+            <ul className="space-y-2.5 text-xs">
+              <li>
+                <Link href="/" className="text-slate-400 hover:text-white transition-colors block">
+                  Catálogo Completo
+                </Link>
+              </li>
+              <li>
+                <Link href="/?dept=vestuario-masculino" className="text-slate-400 hover:text-white transition-colors block">
+                  Linha Masculina
+                </Link>
+              </li>
+              <li>
+                <Link href="/?dept=vestuario-feminino" className="text-slate-400 hover:text-white transition-colors block">
+                  Linha Feminina
+                </Link>
+              </li>
+              <li>
+                <Link href="/?dept=equipamentos" className="text-slate-400 hover:text-white transition-colors block">
+                  Raquetes & Capas
+                </Link>
+              </li>
+              <li>
+                <Link href="/?dept=acessorios" className="text-slate-400 hover:text-white transition-colors block">
+                  Bolas & Acessórios
+                </Link>
+              </li>
+              <li>
+                <Link href="/?dept=lancamentos" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1">
+                  <span>🔥 Novidades 2026</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* COLUNA 3: ÁREA DO LOJISTA & PEDIDOS (2 Colunas no Desktop) */}
+          <div className="lg:col-span-2 space-y-3.5">
+            <h4 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-0.5 bg-sky-400 rounded-full inline-block" />
+              <span>Área do Lojista</span>
+            </h4>
+            <ul className="space-y-2.5 text-xs">
+              <li>
+                <Link href="/portal" className="text-slate-400 hover:text-white transition-colors block">
+                  Meus Pedidos & Cotações
+                </Link>
+              </li>
+              <li>
+                <Link href="/portal" className="text-slate-400 hover:text-white transition-colors block">
+                  Rastreamento de Envio
+                </Link>
+              </li>
+              <li>
+                <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors block">
+                  Login do Revendedor
+                </Link>
+              </li>
+              <li>
+                <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors block">
+                  Cadastrar Minha Arena
+                </Link>
+              </li>
+              <li>
+                <Link href="/portal" className="text-slate-400 hover:text-white transition-colors block">
+                  Repetir Pedido Anterior
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* COLUNA 4: CARD COMERCIAL WHATSAPP & CONTATO (4 Colunas no Desktop) */}
+          <div className="lg:col-span-4">
+            <div className="bg-gradient-to-b from-white/[0.07] to-white/[0.02] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden space-y-4">
+              
+              <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[11px] font-bold text-white uppercase tracking-wider">Atendimento Comercial</span>
+                </div>
+                <span className="text-[10px] font-medium text-slate-400">Atacado B2B</span>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Tire dúvidas com nossos consultores de revenda, solicite a tabela de faturamento ou envie sua lista personalizada.
               </p>
-            </div>
 
-            <a
-              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent('Olá Zeiq Sports! Gostaria de informações comerciais para revenda.')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full min-h-[46px] px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-98"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>Chamar no WhatsApp Comercial</span>
-            </a>
-
-            <div className="flex items-center justify-center gap-4 text-[11px] text-slate-400 pt-1">
-              <a href={`mailto:${contactEmail}`} className="hover:text-white transition-colors truncate">
-                {contactEmail}
+              {/* Botão de Destaque WhatsApp com Presença Visual Forte */}
+              <a
+                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent('Olá Zeiq Sports! Gostaria de informações comerciais para revenda.')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full h-11 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/40 active:scale-98"
+              >
+                <MessageCircle className="w-4 h-4 fill-current text-white shrink-0" />
+                <span>Conversar no WhatsApp</span>
               </a>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-slate-500" />
-                <span>08h às 18h</span>
-              </span>
-            </div>
-          </div>
 
-          {/* 3. Navegação Rápida em 2 Colunas Limpas */}
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-zeiq-charcoal/80">
-            {/* Coluna 1: Linhas & Catálogo */}
-            <div className="space-y-2.5">
-              <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
-                Catálogo
-              </span>
-              <ul className="space-y-2 text-[11px]">
-                <li>
-                  <Link href="/" className="hover:text-white transition-colors block">
-                    Todos os Modelos
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=masculino" className="hover:text-white transition-colors block">
-                    Linha Masculina
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=feminino" className="hover:text-white transition-colors block">
-                    Linha Feminina
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=equipamentos" className="hover:text-white transition-colors block">
-                    Raquetes Beach
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=acessorios" className="hover:text-white transition-colors block">
-                    Acessórios
-                  </Link>
-                </li>
-              </ul>
-            </div>
+              <div className="space-y-2 pt-1 text-xs">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="flex items-center gap-1.5 text-slate-300">
+                    <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
+                    <span>WhatsApp:</span>
+                  </span>
+                  <a
+                    href={`https://wa.me/${cleanPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono font-semibold text-white hover:text-emerald-400 transition-colors"
+                  >
+                    {formatDisplayPhone(cleanPhone)}
+                  </a>
+                </div>
 
-            {/* Coluna 2: Área do Lojista */}
-            <div className="space-y-2.5">
-              <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
-                Área do Lojista
-              </span>
-              <ul className="space-y-2 text-[11px]">
-                <li>
-                  <Link href="/portal" className="text-white hover:text-emerald-400 transition-colors font-semibold flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
-                    Meus Pedidos
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal" className="hover:text-white transition-colors block">
-                    Rastrear Envio
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal/login" className="hover:text-white transition-colors block">
-                    Login do Revendedor
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal/login" className="hover:text-white transition-colors block">
-                    Cadastrar Minha Arena
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="flex items-center gap-1.5 text-slate-300">
+                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                    <span>E-mail:</span>
+                  </span>
+                  <a
+                    href={`mailto:${contactEmail}`}
+                    className="font-medium text-slate-300 hover:text-white transition-colors truncate max-w-[190px]"
+                  >
+                    {contactEmail}
+                  </a>
+                </div>
 
-          {/* 4. Linha Final Mobile com Copyright & Voltar ao Topo */}
-          <div className="pt-4 border-t border-zeiq-charcoal/60 flex items-center justify-between text-[10px] text-slate-500">
-            <span>© {currentYear} Zeiq Sports B2B</span>
-            <button
-              type="button"
-              onClick={scrollToTop}
-              className="inline-flex items-center gap-1 text-slate-400 hover:text-white transition-colors py-1 px-2 rounded bg-white/5"
-            >
-              <span>Subir ao topo</span>
-              <ArrowUp className="w-3 h-3" />
-            </button>
+                <div className="flex items-center justify-between text-slate-400 pt-1 border-t border-white/[0.06]">
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Horário Comercial:</span>
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-300">08h às 18h (Seg - Sex)</span>
+                </div>
+              </div>
+
+            </div>
           </div>
 
         </div>
 
-        {/* ======================================================== */}
-        {/* VERSÃO DESKTOP (WIDESCREEN EXPANSIVA COM 4 COLUNAS)     */}
-        {/* ======================================================== */}
-        <div className="hidden sm:block py-12">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-10 mb-10">
-            
-            {/* Coluna 1: Marca Zeiq com Logo e Posicionamento B2B */}
-            <div className="space-y-4">
-              <div
-                className="relative h-8 w-28 brightness-0 invert flex items-center"
-                style={{ position: 'relative', width: '112px', height: '32px', maxWidth: '100%' }}
-              >
-                <Image
-                  src="/images/logo-zeiq.png"
-                  alt="Zeiq Sports"
-                  width={112}
-                  height={32}
-                  className="h-full w-auto object-contain object-left"
-                  style={{ width: 'auto', height: '100%', maxHeight: '32px', objectFit: 'contain' }}
-                />
-              </div>
-              <p className="text-slate-400 text-xs leading-relaxed">
-                Marca especializada em Beach Tennis, vestuário de alta performance e acessórios premium para atletas, lojistas, arenas e distribuidores.
-              </p>
-              <div className="pt-1 flex flex-col gap-1.5 text-[11px] text-slate-400">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Atacado Direto de Fábrica</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Truck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <span>Despacho para todo o Brasil</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
-                  <span>Grade Flexível para Arenas & Lojas</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Coluna 2: Navegação do Catálogo */}
-            <div>
-              <h4 className="text-xs font-bold text-white mb-3.5 uppercase tracking-wider flex items-center gap-2">
-                <span>Catálogo & Linhas</span>
-              </h4>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <Link href="/" className="hover:text-white transition-colors flex items-center justify-between group">
-                    <span>Catálogo Completo</span>
-                    <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-white transition-colors" />
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=masculino" className="hover:text-white transition-colors">
-                    Vestuário Masculino & Bermudas
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=feminino" className="hover:text-white transition-colors">
-                    Vestuário Feminino, Tops & Saias
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=equipamentos" className="hover:text-white transition-colors">
-                    Raquetes & Capas Beach Tennis
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/?dept=acessorios" className="hover:text-white transition-colors">
-                    Acessórios, Overgrips & Bolas
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Coluna 3: Área do Revendedor */}
-            <div>
-              <h4 className="text-xs font-bold text-white mb-3.5 uppercase tracking-wider flex items-center gap-2">
-                <Package className="w-3.5 h-3.5 text-zeiq-orange" />
-                <span>Área do Revendedor</span>
-              </h4>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <Link href="/portal" className="text-white hover:text-emerald-400 transition-colors font-medium flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
-                    Meus Pedidos & Andamento
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal" className="hover:text-white transition-colors">
-                    Rastreamento com Código do Pedido
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal/login" className="hover:text-white transition-colors">
-                    Acessar Conta de Lojista / Login
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal/login" className="hover:text-white transition-colors">
-                    Criar Cadastro de Revenda B2B
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/portal" className="hover:text-white transition-colors">
-                    Repetição de Pedidos em 1 Clique
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Coluna 4: Atendimento B2B & Suporte Comercial */}
-            <div>
-              <h4 className="text-xs font-bold text-white mb-3.5 uppercase tracking-wider">
-                Atendimento B2B & Cotações
-              </h4>
-              <p className="text-slate-400 text-xs mb-3 leading-relaxed">
-                Dúvidas comerciais, condições de atacado para arenas e negociações de grade:
-              </p>
-              
-              <div className="space-y-2 mb-4">
-                <a
-                  href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent('Olá Zeiq Sports! Gostaria de informações comerciais para revenda.')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-emerald-600 hover:text-white text-slate-200 rounded-lg text-xs font-semibold transition-all border border-white/10"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>WhatsApp Comercial Direto</span>
-                </a>
-
-                <div className="flex items-center gap-2 text-slate-300 text-xs">
-                  <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>{contactEmail}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-                  <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Segunda a Sexta • 08h às 18h</span>
-                </div>
-              </div>
-            </div>
-
+        {/* 3. RODAPÉ FINAL COM COPYRIGHT & VOLTAR AO TOPO */}
+        <div className="mt-10 pt-6 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <div>
+            <p>© {currentYear} Zeiq Sports. Todos os direitos reservados.</p>
+            <p className="text-[11px] text-slate-600 mt-0.5">
+              Catálogo de revenda e cotações de atacado exclusivo para pessoas jurídicas, lojistas e arenas esportivas.
+            </p>
           </div>
 
-          {/* Linha Inferior com Copyright e Informações */}
-          <div className="pt-6 border-t border-zeiq-charcoal flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
-            <p>© {currentYear} Zeiq Sports. Todos os direitos reservados.</p>
-            <div className="flex items-center gap-4">
-              <Link href="/portal" className="hover:text-slate-300 transition-colors">
-                Acompanhar Pedido
-              </Link>
-              <span>•</span>
-              <Link href="/portal/login" className="hover:text-slate-300 transition-colors">
-                Portal do Revendedor
-              </Link>
-              <span>•</span>
-              <span>Catálogo B2B para lojistas e arenas</span>
-            </div>
+          <div className="flex items-center gap-4 text-[11px]">
+            <Link href="/portal" className="text-slate-400 hover:text-white transition-colors">
+              Rastrear Pedido
+            </Link>
+            <span>•</span>
+            <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors">
+              Portal do Revendedor
+            </Link>
+            <span>•</span>
+            <Link
+              href="/admin/login"
+              className="text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1"
+              title="Acesso restrito à gestão"
+            >
+              <Lock className="w-3 h-3 text-slate-600" />
+              <span>Gestão</span>
+            </Link>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={scrollToTop}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-white/[0.08] active:scale-95"
+              aria-label="Voltar ao início da página"
+            >
+              <span>Subir ao topo</span>
+              <ArrowUp className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
       </div>
+
     </footer>
   );
 }

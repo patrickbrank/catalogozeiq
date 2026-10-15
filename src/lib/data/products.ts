@@ -3,6 +3,7 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { Product, Category } from '@/types';
 import { Department, DEFAULT_DEPARTMENTS } from '@/lib/data/departments';
+import { getDepartments } from '@/lib/data/departments-server';
 
 function getPublicSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -50,6 +51,12 @@ export function cleanProductDescription(raw: string | null | undefined): string 
     .replace(/&nbsp;/gi, ' ')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '–')
+    .replace(/&#8212;/g, '—')
+    .replace(/&lsquo;|&rsquo;/g, "'")
+    .replace(/&ldquo;|&rdquo;/g, '"')
     .replace(/\\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -188,7 +195,7 @@ export async function getCatalogData(): Promise<{ products: Product[]; categorie
     };
   }
 
-  const departments = loadDepartmentsConfig();
+  const departments = await getDepartments();
 
   try {
     const supabase = getPublicSupabase();

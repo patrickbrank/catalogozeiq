@@ -124,9 +124,16 @@ export default function AdminDashboardPage() {
     try {
       const supabase = createClient();
 
-      // Checa autenticação
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      setUser(currentUser);
+      // Checa autenticação e privilégios administrativos no backend
+      const verifyRes = await fetch('/api/admin/verify');
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.success || !verifyData.isAdmin) {
+        setUser(null);
+        router.push('/admin/login?error=unauthorized');
+        return;
+      }
+      setUser(verifyData.user);
 
       // 0. Busca Departamentos / Linhas Esportivas
       try {
@@ -367,10 +374,12 @@ export default function AdminDashboardPage() {
 
     try {
       const supabase = createClient();
-      await supabase.from('products').update({ is_published: newStatus }).eq('id', product.id);
+      const { error } = await supabase.from('products').update({ is_published: newStatus }).eq('id', product.id);
+      if (error) throw error;
       showToast(`Produto "${product.name.slice(0, 24)}..." ${newStatus ? 'publicado' : 'ocultado'}.`);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Erro ao atualizar status do produto:', e);
+      alert(`Falha ao atualizar produto no banco: ${e.message || 'Erro desconhecido'}`);
       fetchDashboardData();
     }
   };
@@ -383,10 +392,12 @@ export default function AdminDashboardPage() {
 
     try {
       const supabase = createClient();
-      await supabase.from('products').update({ is_featured: newFeatured }).eq('id', product.id);
+      const { error } = await supabase.from('products').update({ is_featured: newFeatured }).eq('id', product.id);
+      if (error) throw error;
       showToast(`Destaque ${newFeatured ? 'ativado' : 'removido'}.`);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Erro ao atualizar destaque do produto:', e);
+      alert(`Falha ao alterar destaque no banco: ${e.message || 'Erro desconhecido'}`);
       fetchDashboardData();
     }
   };
@@ -397,11 +408,13 @@ export default function AdminDashboardPage() {
 
     try {
       const supabase = createClient();
-      await supabase.from('products').delete().eq('id', product.id);
+      const { error } = await supabase.from('products').delete().eq('id', product.id);
+      if (error) throw error;
       setProducts((prev) => prev.filter((p) => p.id !== product.id));
       showToast('Produto excluído com sucesso.');
     } catch (err: any) {
       alert(`Falha ao excluir produto: ${err.message}`);
+      fetchDashboardData();
     }
   };
 
@@ -1067,7 +1080,7 @@ export default function AdminDashboardPage() {
             {/* Tabela de Produtos */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full min-w-[680px] text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Imagem</th>
@@ -1297,7 +1310,7 @@ export default function AdminDashboardPage() {
             {/* Tabela de Pedidos */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full min-w-[700px] text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Pedido</th>
@@ -1472,7 +1485,7 @@ export default function AdminDashboardPage() {
             {/* Tabela de Clientes */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full min-w-[650px] text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Loja / Arena</th>
