@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Plus, Check, Layers } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
@@ -20,6 +21,7 @@ function getCleanTitle(name: string): string {
 
 export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   const [isAdded, setIsAdded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const addItem = useQuoteCart((state) => state.addItem);
 
   const images = product.images || [];
@@ -49,25 +51,32 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   return (
     <div 
       onClick={() => onOpenDetails(product)}
+      onMouseEnter={() => {
+        if (!isHovered && secondaryUrl) setIsHovered(true);
+      }}
       className="group bg-white rounded-lg border border-slate-200 overflow-hidden hover:border-slate-400 hover:shadow-md transition-all duration-300 flex flex-col h-full cursor-pointer select-none"
     >
       {/* Quadro da Foto amplo, limpo e com imagem em destaque */}
       <div className="relative aspect-square w-full bg-[#f8f9fa] overflow-hidden flex items-center justify-center p-0">
-        {/* Foto de Capa (Preenchendo bem o espaço, nítida) */}
-        <img
+        {/* Foto de Capa (Preenchendo bem o espaço, nítida e otimizada pelo Next.js) */}
+        <Image
           src={coverUrl}
           alt={product.name}
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           loading="lazy"
           className={`w-full h-full object-contain object-center mix-blend-multiply scale-[1.04] transition-all duration-500 ease-out group-hover:scale-110 ${
-            secondaryUrl ? 'group-hover:opacity-0' : ''
+            secondaryUrl && isHovered ? 'group-hover:opacity-0' : ''
           }`}
         />
 
-        {/* Segunda Foto no hover */}
-        {secondaryUrl && (
-          <img
+        {/* Segunda Foto carregada exclusivamente sob demanda no hover desktop */}
+        {secondaryUrl && isHovered && (
+          <Image
             src={secondaryUrl}
             alt=""
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
             loading="lazy"
             className="absolute inset-0 w-full h-full object-contain object-center mix-blend-multiply opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none scale-[1.04] group-hover:scale-110 transition-transform duration-500 ease-out"
           />

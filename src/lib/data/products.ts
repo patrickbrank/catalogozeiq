@@ -42,6 +42,19 @@ function slugify(text: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+export function cleanProductDescription(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return raw
+    .replace(/<del>[^<]*<\/del>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function parseCSV(text: string): string[][] {
   const p: string[][] = [];
   let row = [''];
@@ -110,16 +123,8 @@ export function getLocalCSVProducts(): { products: Product[]; categories: Catego
       const matchSku = name.match(/^([A-Z0-9\.\-\_]+)\s*[-–—]/i);
       const sku = rawSku && rawSku.trim() !== '' ? rawSku.trim() : (matchSku ? matchSku[1].trim() : null);
 
-      let desc = (r[colShortDesc] || '').trim() || (colDesc !== -1 ? (r[colDesc] || '').trim() : '');
-      // Remove tamanhos explicitamente esgotados/tachados em <del>...</del>
-      desc = desc.replace(/<del>[^<]*<\/del>/gi, '');
-      desc = desc
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/&nbsp;/gi, ' ')
-        .replace(/<\/p>/gi, '\n\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\\n/g, '\n')
-        .trim();
+      const rawDesc = (r[colShortDesc] || '').trim() || (colDesc !== -1 ? (r[colDesc] || '').trim() : '');
+      const desc = cleanProductDescription(rawDesc);
 
       const catsRaw = (r[colCategories] || '').split(',').map(c => c.trim()).filter(Boolean);
       const prodCategories: Category[] = catsRaw.map(cName => {
@@ -210,6 +215,7 @@ export async function getCatalogData(): Promise<{ products: Product[]; categorie
     if (!catError && !prodError && dbProducts && dbProducts.length > 0) {
       const formattedProducts: Product[] = dbProducts.map((p: any) => ({
         ...p,
+        description: cleanProductDescription(p.description),
         images: (p.images || []).sort((a: any, b: any) => {
           if (a.is_cover && !b.is_cover) return -1;
           if (!a.is_cover && b.is_cover) return 1;

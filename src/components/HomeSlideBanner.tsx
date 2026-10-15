@@ -26,8 +26,8 @@ export const BANNER_SLIDES: CarouselSlide[] = [
     title: 'Black Edition Light • Leo Branco',
     badge: 'Coleção Assinada',
     buttonText: 'Ver Coleção Leo Branco',
-    desktopImage: '/images/banners/banner-leo-branco-desktop.png',
-    mobileImage: '/images/banners/banner-leo-branco-mobile.png',
+    desktopImage: '/images/banners/banner-leo-branco-desktop.webp',
+    mobileImage: '/images/banners/banner-leo-branco-mobile.webp',
     action: {
       type: 'search',
       query: 'Leo Branco',
@@ -38,8 +38,8 @@ export const BANNER_SLIDES: CarouselSlide[] = [
     title: 'Favoritos dos Atletas • Zeiq Sports',
     badge: 'Alta Performance',
     buttonText: 'Explorar Linha Beach Tennis',
-    desktopImage: '/images/banners/banner-favoritos-desktop.png',
-    mobileImage: '/images/banners/banner-favoritos-mobile.png',
+    desktopImage: '/images/banners/banner-favoritos-desktop.webp',
+    mobileImage: '/images/banners/banner-favoritos-mobile.webp',
     action: {
       type: 'category',
       departmentId: 'equipamentos',
@@ -189,10 +189,12 @@ export function HomeSlideBanner({
                 >
                   {/* Banner Gráfico Oficial */}
                   <picture className="w-full h-full block">
-                    <source media="(max-width: 640px)" srcSet={slide.mobileImage} />
+                    <source media="(max-width: 640px)" srcSet={slide.mobileImage} type="image/webp" />
                     <img
                       src={slide.desktopImage}
                       alt={slide.title}
+                      loading={index === 0 ? 'eager' : 'lazy'}
+                      decoding={index === 0 ? 'sync' : 'async'}
                       className="w-full h-full object-cover object-center group-hover:scale-102 transition-transform duration-700 ease-out"
                     />
                   </picture>

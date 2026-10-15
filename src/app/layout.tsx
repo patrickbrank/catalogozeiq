@@ -29,6 +29,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className={inter.variable}>
+      <head>
+        <link rel="preconnect" href="https://hhgiodgcsvioulevorud.supabase.co" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://hhgiodgcsvioulevorud.supabase.co" />
+        <link rel="preconnect" href="https://catalogozeiq.com.br" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://catalogozeiq.com.br" />
+      </head>
       <body className="min-h-screen flex flex-col bg-zeiq-light text-zeiq-black font-sans selection:bg-zeiq-black selection:text-white">
         {children}
         <QuoteDrawer />
