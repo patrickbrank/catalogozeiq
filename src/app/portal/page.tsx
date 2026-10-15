@@ -531,7 +531,7 @@ export default function ResellerPortalPage() {
                 value={quickOrderNumber}
                 onChange={(e) => setQuickOrderNumber(e.target.value.toUpperCase())}
                 placeholder="Ex: ZEIQ-1048"
-                className="w-full pl-3.5 pr-8 py-2.5 bg-[#f8f9fa] border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black uppercase"
+                className="w-full pl-3.5 pr-8 py-2.5 bg-[#f8f9fa] border border-slate-200 rounded-xl text-base sm:text-sm font-mono font-bold text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black uppercase"
               />
               {quickOrderNumber && (
                 <button
@@ -762,7 +762,7 @@ export default function ResellerPortalPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filtrar por código ou produto..."
-                className="w-full pl-9 pr-7 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                className="w-full pl-9 pr-7 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
               />
               {searchQuery && (
                 <button
