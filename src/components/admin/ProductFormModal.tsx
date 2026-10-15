@@ -774,26 +774,69 @@ export function ProductFormModal({
               />
             </div>
 
-            <div className="flex items-center gap-6 pt-5">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={isPublished}
-                  onChange={(e) => setIsPublished(e.target.checked)}
-                  className="rounded text-zeiq-black focus:ring-zeiq-black"
-                />
-                Publicado no Catálogo
-              </label>
+            {/* Bloco de Disponibilidade Comercial & Estoque */}
+            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3 mt-4">
+              <div>
+                <span className="text-xs font-bold text-zeiq-black block">
+                  Disponibilidade & Visibilidade de Estoque
+                </span>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Defina se o produto está disponível para pedidos ou se deve ser pausado por falta de estoque.
+                </p>
+              </div>
 
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={isFeatured}
-                  onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="rounded text-zeiq-black focus:ring-zeiq-black"
-                />
-                Em Destaque
-              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsPublished(true)}
+                  className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-2.5 cursor-pointer active:scale-98 ${
+                    isPublished
+                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className={`w-2.5 h-2.5 rounded-full ${isPublished ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                    <div>
+                      <span className="text-xs font-bold block">Em Estoque (Visível)</span>
+                      <span className="text-[10px] text-slate-500 font-normal block">Disponível no catálogo dos lojistas</span>
+                    </div>
+                  </div>
+                  {isPublished && <Check className="w-4 h-4 text-emerald-600" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPublished(false)}
+                  className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-2.5 cursor-pointer active:scale-98 ${
+                    !isPublished
+                      ? 'bg-amber-50 border-amber-400 text-amber-950 font-bold shadow-xs'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className={`w-2.5 h-2.5 rounded-full ${!isPublished ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                    <div>
+                      <span className="text-xs font-bold block">Sem Estoque (Oculto)</span>
+                      <span className="text-[10px] text-slate-500 font-normal block">Pausado temporariamente do catálogo</span>
+                    </div>
+                  </div>
+                  {!isPublished && <Check className="w-4 h-4 text-amber-600" />}
+                </button>
+              </div>
+
+              {/* Destaque */}
+              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    checked={isFeatured}
+                    onChange={(e) => setIsFeatured(e.target.checked)}
+                    className="rounded text-zeiq-black focus:ring-zeiq-black"
+                  />
+                  <span>Destacar produto no topo da vitrine (Estrela ⭐)</span>
+                </label>
+              </div>
             </div>
           </div>
 

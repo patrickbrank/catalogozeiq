@@ -409,7 +409,11 @@ export default function AdminDashboardPage() {
       const supabase = createClient();
       const { error } = await supabase.from('products').update({ is_published: newStatus }).eq('id', product.id);
       if (error) throw error;
-      showToast(`Produto "${product.name.slice(0, 24)}..." ${newStatus ? 'publicado' : 'ocultado'}.`);
+      showToast(
+        newStatus
+          ? `"${product.name.slice(0, 24)}..." reativado (Em Estoque) e visível no catálogo.`
+          : `"${product.name.slice(0, 24)}..." pausado (Sem Estoque) e ocultado do catálogo.`
+      );
     } catch (e: any) {
       console.error('Erro ao atualizar status do produto:', e);
       alert(`Falha ao atualizar produto no banco: ${e.message || 'Erro desconhecido'}`);
@@ -1042,7 +1046,15 @@ export default function AdminDashboardPage() {
           <div className="space-y-6">
             {/* Métricas de Produtos */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <button
+                type="button"
+                onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                className={`p-4 sm:p-5 rounded-2xl border text-left transition-all active:scale-98 cursor-pointer ${
+                  filterStatus === 'all'
+                    ? 'bg-white border-zeiq-black ring-1 ring-zeiq-black shadow-sm'
+                    : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
+                }`}
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
                     <Package className="w-5 h-5" />
@@ -1052,31 +1064,47 @@ export default function AdminDashboardPage() {
                     <h3 className="text-xl sm:text-2xl font-black text-zeiq-black">{products.length}</h3>
                   </div>
                 </div>
-              </div>
+              </button>
 
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <button
+                type="button"
+                onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
+                className={`p-4 sm:p-5 rounded-2xl border text-left transition-all active:scale-98 cursor-pointer ${
+                  filterStatus === 'published'
+                    ? 'bg-white border-emerald-500 ring-1 ring-emerald-500 shadow-sm'
+                    : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
+                }`}
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
                     <CheckCircle className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Publicados (Ativos)</p>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Em Estoque (Visíveis)</p>
                     <h3 className="text-xl sm:text-2xl font-black text-emerald-600">{publishedCount}</h3>
                   </div>
                 </div>
-              </div>
+              </button>
 
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <button
+                type="button"
+                onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
+                className={`p-4 sm:p-5 rounded-2xl border text-left transition-all active:scale-98 cursor-pointer ${
+                  filterStatus === 'draft'
+                    ? 'bg-white border-amber-500 ring-1 ring-amber-500 shadow-sm'
+                    : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
+                }`}
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
                     <EyeOff className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Rascunhos / Ocultos</p>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sem Estoque (Ocultos)</p>
                     <h3 className="text-xl sm:text-2xl font-black text-amber-600">{draftCount}</h3>
                   </div>
                 </div>
-              </div>
+              </button>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
                 <div className="flex items-center gap-3">
@@ -1208,7 +1236,7 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* 2. Pílulas Customizadas de Status (Adeus Select Nativo) */}
+                {/* 2. Pílulas Customizadas de Status e Estoque */}
                 <div className="inline-flex p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0 flex-wrap sm:flex-nowrap">
                   <button
                     type="button"
@@ -1227,17 +1255,17 @@ export default function AdminDashboardPage() {
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Publicados ({publishedCount})
+                    Em Estoque ({publishedCount})
                   </button>
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      filterStatus === 'draft' ? 'bg-slate-700 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      filterStatus === 'draft' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    Ocultos ({draftCount})
+                    Sem Estoque ({draftCount})
                   </button>
                 </div>
               </div>
@@ -1254,6 +1282,33 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
+            {/* Banner Informativo quando filtrado por Sem Estoque / Pausados */}
+            {filterStatus === 'draft' && (
+              <div className="p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
+                    <EyeOff className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold block">
+                      Filtrando por Produtos Sem Estoque ({draftCount})
+                    </span>
+                    <span className="text-[11px] text-amber-800 block">
+                      Estes itens estão pausados e não aparecem na vitrine para os revendedores. Clique em &quot;Sem Estoque&quot; na linha do produto para reativá-lo.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] shrink-0 transition-colors self-start sm:self-auto"
+                >
+                  Ver Todos os Produtos
+                </button>
+              </div>
+            )}
+
             {/* Tabela de Produtos */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
@@ -1263,7 +1318,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Imagem</th>
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
-                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-center">Disponibilidade / Estoque</th>
                       <th className="py-3 px-4 text-center">Destaque</th>
                       <th className="py-3 px-4 text-right">Ações</th>
                     </tr>
@@ -1317,13 +1372,28 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleTogglePublished(prod)}
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors ${
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-2xs active:scale-95 cursor-pointer ${
                                   prod.is_published
-                                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
                                 }`}
+                                title={
+                                  prod.is_published
+                                    ? 'Clique para pausar (ocultar por falta de estoque)'
+                                    : 'Clique para reativar e exibir no catálogo'
+                                }
                               >
-                                {prod.is_published ? 'Publicado' : 'Oculto'}
+                                {prod.is_published ? (
+                                  <>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>Em Estoque</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Sem Estoque</span>
+                                  </>
+                                )}
                               </button>
                             </td>
 
