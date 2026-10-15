@@ -1,0 +1,64 @@
+[
+  {
+    "id": "equipamentos",
+    "name": "Equipamentos Esportivos",
+    "shortName": "Equipamentos",
+    "categoryNames": [
+      "Raquetes",
+      "Raqueteiras/ Mochilas",
+      "Bolas",
+      "Redes e fitas de marcação",
+      "Overgripe",
+      "Óculos"
+    ]
+  },
+  {
+    "id": "vestuario-masculino",
+    "name": "Vestuário Masculino",
+    "shortName": "Masculino",
+    "categoryNames": [
+      "Camiseta masculina",
+      "Confecção masculina",
+      "Short masculino",
+      "Moletom masculino",
+      "Jaqueta masculina",
+      "Calças masculinas"
+    ]
+  },
+  {
+    "id": "vestuario-feminino",
+    "name": "Vestuário Feminino",
+    "shortName": "Feminino",
+    "categoryNames": [
+      "Top feminino",
+      "Short feminino",
+      "Cropped feminino",
+      "Regata feminina",
+      "Baby look feminina",
+      "Saia feminina",
+      "Calça feminina",
+      "Vestido feminino",
+      "Moletom feminino",
+      "Jaqueta feminina",
+      "Macaquinho"
+    ]
+  },
+  {
+    "id": "acessorios",
+    "name": "Acessórios & Linha Geral",
+    "shortName": "Acessórios",
+    "categoryNames": [
+      "Boné e viseira",
+      "Garrafa e Copo térmico",
+      "Manguito",
+      "Munhequeira",
+      "Head band",
+      "Chinelo",
+      "Sapatilha",
+      "Meia",
+      "Necessaire",
+      "Pulseiras",
+      "Infantil"
+    ]
+  }
+]
