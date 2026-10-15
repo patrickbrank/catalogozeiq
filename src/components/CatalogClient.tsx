@@ -13,6 +13,16 @@ import { useQuoteCart } from '@/lib/store/quote-cart';
 import { DEPARTMENTS, Department, findDepartmentForCategory } from '@/lib/data/departments';
 import { Search, ArrowDown, X } from 'lucide-react';
 
+export function normalizeSearchText(text: string | null | undefined): string {
+  if (!text) return '';
+  return text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 interface CatalogClientProps {
   initialProducts: Product[];
   categories: Category[];
@@ -73,20 +83,46 @@ export function CatalogClient({
       }
     }
 
-    // 4. Filtragem por busca textual
+    // 4. Filtragem por busca textual com normalização de acentos e suporte a multipalavras
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.code_sku && p.code_sku.toLowerCase().includes(q)) ||
-          (p.description && p.description.toLowerCase().includes(q)) ||
-          p.tags?.some((t) => t.toLowerCase().includes(q))
-      );
+      const normalizedQuery = normalizeSearchText(searchQuery);
+      const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+
+      if (queryTokens.length > 0) {
+        result = result.filter((p) => {
+          const normName = normalizeSearchText(p.name);
+          const normSku = normalizeSearchText(p.code_sku);
+          const normDesc = normalizeSearchText(p.description);
+          const normTags = (p.tags || []).map(normalizeSearchText).join(' ');
+          const normCategories = (p.categories || []).map((c) => normalizeSearchText(c.name)).join(' ');
+
+          const fullSearchable = `${normName} ${normSku} ${normCategories} ${normTags} ${normDesc}`;
+
+          // Todas as palavras digitadas precisam ser encontradas no produto
+          return queryTokens.every((token) => fullSearchable.includes(token));
+        });
+      }
     }
 
     return result;
   }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, searchQuery]);
+
+  // Carrega busca da URL (?search=...) se presente
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('search');
+      if (q) {
+        setSearchQuery(q);
+        setTimeout(() => {
+          const gridElem = document.getElementById('catalog-products-grid');
+          if (gridElem) {
+            gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 150);
+      }
+    }
+  }, []);
 
   // Produtos visíveis na página
   const visibleProducts = useMemo(() => {
@@ -144,6 +180,20 @@ export function CatalogClient({
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     setVisibleCount(ITEMS_PER_PAGE);
+
+    // Se o usuário está buscando por texto, abre a busca para o catálogo todo
+    if (query.trim() && (selectedDepartment !== 'all' || selectedCategory !== null)) {
+      setSelectedDepartment('all');
+      setSelectedCategory(null);
+    }
+
+    // Se digitou algo, rola suavemente para os resultados no catálogo
+    if (query.trim().length >= 2) {
+      const gridElem = document.getElementById('catalog-products-grid');
+      if (gridElem) {
+        gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
   };
 
   const handleLoadMore = () => {
@@ -171,7 +221,12 @@ export function CatalogClient({
   return (
     <div className="flex-1 flex flex-col">
       {/* 1. Header Widescreen Fixo */}
-      <Header searchQuery={searchQuery} onSearchChange={handleSearchChange} />
+      <Header
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        products={initialProducts}
+        onSelectProduct={setActiveProduct}
+      />
 
       {/* 2. Banner Slide em Formato Stage Card com Prévia Lateral (Conforme Referência) */}
       <HomeSlideBanner
