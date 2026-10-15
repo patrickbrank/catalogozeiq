@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Star, Loader2, Plus, Check } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Upload, Trash2, Star, Loader2, Plus, Check, Search, Layers } from 'lucide-react';
 import { Product, Category, ProductImage, ProductHighlight } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { COMMON_SIZES, parseProductSizes } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
+import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 
 interface ProductFormModalProps {
   product: Product | null;
   categories: Category[];
+  departments?: Department[];
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -18,16 +20,20 @@ interface ProductFormModalProps {
 export function ProductFormModal({
   product,
   categories,
+  departments,
   isOpen,
   onClose,
   onSaved,
 }: ProductFormModalProps) {
+  const activeDepts = departments && departments.length > 0 ? departments : DEFAULT_DEPARTMENTS;
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [description, setDescription] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [catDeptFilter, setCatDeptFilter] = useState<string>('all');
+  const [catSearchQuery, setCatSearchQuery] = useState<string>('');
   const [tagsInput, setTagsInput] = useState('');
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [customSizeInput, setCustomSizeInput] = useState('');
@@ -87,8 +93,33 @@ export function ProductFormModal({
       setTagsInput('');
       setImages([]);
     }
+    setCatDeptFilter('all');
+    setCatSearchQuery('');
     setErrorMsg('');
   }, [product, isOpen]);
+
+  const visibleCategories = useMemo(() => {
+    let result = categories;
+    if (catDeptFilter !== 'all') {
+      const deptObj = activeDepts.find((d) => d.id === catDeptFilter);
+      if (deptObj) {
+        result = result.filter((c) =>
+          deptObj.categoryNames.some(
+            (name) => name.toLowerCase() === c.name.toLowerCase()
+          )
+        );
+      }
+    }
+    if (catSearchQuery.trim()) {
+      const q = catSearchQuery.toLowerCase().trim();
+      result = result.filter((c) => c.name.toLowerCase().includes(q));
+    }
+    return result;
+  }, [categories, catDeptFilter, catSearchQuery, activeDepts]);
+
+  const selectedCategories = useMemo(() => {
+    return categories.filter((c) => selectedCategoryIds.includes(c.id));
+  }, [categories, selectedCategoryIds]);
 
   if (!isOpen) return null;
 
@@ -343,31 +374,160 @@ export function ProductFormModal({
             />
           </div>
 
-          {/* Categorias */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-2">
-              Categorias do Produto
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-36 overflow-y-auto p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-              {categories.map((cat) => {
-                const checked = selectedCategoryIds.includes(cat.id);
+          {/* Categorias do Produto (Redesign com Leitura Ampla e Filtros por Linha) */}
+          <div className="space-y-3 p-4 bg-slate-50/70 rounded-2xl border border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <label className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-zeiq-orange" />
+                  <span>Categorias do Produto</span>
+                </label>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Selecione onde o produto será classificado no catálogo:
+                </p>
+              </div>
+
+              {/* Barra de Busca Rápida de Categorias */}
+              <div className="relative w-full sm:w-56">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={catSearchQuery}
+                  onChange={(e) => setCatSearchQuery(e.target.value)}
+                  placeholder="Filtrar categorias..."
+                  className="w-full pl-8 pr-7 py-1.5 text-base sm:text-xs bg-white border border-slate-200 rounded-lg text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                />
+                {catSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setCatSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Pílulas de Filtro por Linha Esportiva */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              <button
+                type="button"
+                onClick={() => setCatDeptFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                  catDeptFilter === 'all'
+                    ? 'bg-zeiq-black text-white shadow-2xs'
+                    : 'bg-white hover:bg-slate-200/80 text-slate-700 border border-slate-200'
+                }`}
+              >
+                <span>Todas</span>
+                <span className="text-[10px] opacity-75 font-mono">({categories.length})</span>
+              </button>
+
+              {activeDepts.map((dept) => {
+                const count = categories.filter((c) =>
+                  dept.categoryNames.some((n) => n.toLowerCase() === c.name.toLowerCase())
+                ).length;
+                const isSelected = catDeptFilter === dept.id;
+
                 return (
-                  <label
-                    key={cat.id}
-                    className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors ${
-                      checked ? 'bg-zeiq-black text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'
+                  <button
+                    key={dept.id}
+                    type="button"
+                    onClick={() => setCatDeptFilter(isSelected ? 'all' : dept.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                      isSelected
+                        ? 'bg-zeiq-black text-white shadow-2xs'
+                        : 'bg-white hover:bg-slate-200/80 text-slate-700 border border-slate-200'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => handleToggleCategory(cat.id)}
-                      className="rounded text-zeiq-black focus:ring-zeiq-black"
-                    />
-                    <span className="truncate">{cat.name}</span>
-                  </label>
+                    <span>{dept.shortName}</span>
+                    <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                  </button>
                 );
               })}
+            </div>
+
+            {/* Resumo de Categorias Selecionadas em Destaque */}
+            {selectedCategories.length > 0 && (
+              <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                  <span>Selecionadas ({selectedCategories.length}):</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategoryIds([])}
+                    className="text-slate-400 hover:text-rose-600 transition-colors font-medium hover:underline text-[10px]"
+                  >
+                    Limpar todas
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedCategories.map((cat) => (
+                    <span
+                      key={cat.id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zeiq-black text-white text-xs font-bold shadow-2xs"
+                    >
+                      <span>{cat.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCategory(cat.id)}
+                        className="text-slate-400 hover:text-white transition-colors"
+                        title="Remover"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Grid Amplo de Categorias em Chips Táteis (Nomes Completos, Sem Cortes) */}
+            <div className="max-h-60 sm:max-h-68 overflow-y-auto no-scrollbar p-1">
+              {visibleCategories.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-xs bg-white rounded-xl border border-dashed border-slate-200">
+                  Nenhuma categoria encontrada para o filtro aplicado.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {visibleCategories.map((cat) => {
+                    const isChecked = selectedCategoryIds.includes(cat.id);
+                    const currentDept = findDepartmentForCategory(cat.name, activeDepts);
+
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleToggleCategory(cat.id)}
+                        className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 active:scale-98 cursor-pointer ${
+                          isChecked
+                            ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs font-bold'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className={`text-xs block leading-snug break-words ${isChecked ? 'text-white font-bold' : 'text-zeiq-black font-semibold'}`}>
+                            {cat.name}
+                          </span>
+                          {currentDept && (
+                            <span className={`text-[10px] block mt-0.5 truncate ${isChecked ? 'text-slate-300' : 'text-slate-400'}`}>
+                              {currentDept.shortName}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border transition-all ${
+                          isChecked
+                            ? 'bg-zeiq-orange border-zeiq-orange text-zeiq-black'
+                            : 'border-slate-300 bg-slate-50'
+                        }`}>
+                          {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

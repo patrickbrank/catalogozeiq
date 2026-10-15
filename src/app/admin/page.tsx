@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ import {
   Phone,
   Mail,
   ExternalLink,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   X,
@@ -49,6 +50,15 @@ import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
 
 const ITEMS_PER_PAGE = 25;
+
+const STATUS_OPTIONS: { key: OrderStatus; label: string; bg: string; text: string; border: string; dot: string }[] = [
+  { key: 'pending', label: 'Pendente (Recebido)', bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', dot: 'bg-amber-500' },
+  { key: 'approved', label: 'Aprovado', bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-200', dot: 'bg-blue-500' },
+  { key: 'processing', label: 'Em Separação', bg: 'bg-indigo-50', text: 'text-indigo-800', border: 'border-indigo-200', dot: 'bg-indigo-500' },
+  { key: 'shipped', label: 'Despachado', bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200', dot: 'bg-purple-500' },
+  { key: 'delivered', label: 'Entregue', bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+  { key: 'cancelled', label: 'Cancelado', bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-200', dot: 'bg-rose-500' },
+];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -76,6 +86,14 @@ export default function AdminDashboardPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Dropdown Customizado de Categorias
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
+  const [catFilterSearch, setCatFilterSearch] = useState('');
+  const catDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Popover de Status do Pedido
+  const [openStatusOrderId, setOpenStatusOrderId] = useState<string | null>(null);
 
   // Filtros - Pedidos
   const [orderSearch, setOrderSearch] = useState('');
@@ -106,10 +124,14 @@ export default function AdminDashboardPage() {
 
   // Modal de Linha Esportiva / Departamento
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [newDeptName, setNewDeptName] = useState('');
   const [newDeptShortName, setNewDeptShortName] = useState('');
   const [savingDept, setSavingDept] = useState(false);
   const [deptError, setDeptError] = useState('');
+
+  // Filtro de Linha Esportiva na Tabela de Categorias
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('all');
 
   // Toast feedback
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -233,6 +255,17 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
+
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
+        setIsCatDropdownOpen(false);
+      }
+      if (!(e.target as HTMLElement).closest('.status-popover-container')) {
+        setOpenStatusOrderId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
   const handleLogout = async () => {
@@ -580,6 +613,19 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleOpenDeptModal = (dept: Department | null = null) => {
+    setEditingDept(dept);
+    if (dept) {
+      setNewDeptName(dept.name);
+      setNewDeptShortName(dept.shortName);
+    } else {
+      setNewDeptName('');
+      setNewDeptShortName('');
+    }
+    setDeptError('');
+    setIsDeptModalOpen(true);
+  };
+
   const handleSaveDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDeptName.trim()) {
@@ -590,21 +636,32 @@ export default function AdminDashboardPage() {
     setDeptError('');
 
     try {
+      const isEditing = !!editingDept;
+      const method = isEditing ? 'PUT' : 'POST';
+      const body = isEditing
+        ? {
+            id: editingDept.id,
+            name: newDeptName.trim(),
+            shortName: newDeptShortName.trim() || newDeptName.trim(),
+          }
+        : {
+            name: newDeptName.trim(),
+            shortName: newDeptShortName.trim() || newDeptName.trim(),
+            categoryNames: [],
+          };
+
       const res = await fetch('/api/admin/departments', {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newDeptName.trim(),
-          shortName: newDeptShortName.trim() || newDeptName.trim(),
-          categoryNames: [],
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!data.success) {
-        setDeptError(data.error || 'Erro ao criar linha esportiva.');
+        setDeptError(data.error || 'Erro ao salvar linha esportiva.');
       } else {
-        showToast(`Linha "${newDeptName}" criada com sucesso!`);
+        showToast(`Linha "${newDeptName}" ${isEditing ? 'atualizada' : 'criada'} com sucesso!`);
         setIsDeptModalOpen(false);
+        setEditingDept(null);
         setNewDeptName('');
         setNewDeptShortName('');
         if (Array.isArray(data.departments)) {
@@ -621,11 +678,14 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteDepartment = async (dept: Department) => {
-    if (['equipamentos', 'vestuario-masculino', 'vestuario-feminino', 'acessorios'].includes(dept.id)) {
-      alert('Departamentos padrão do sistema não podem ser excluídos. Você pode renomeá-los ou reatribuir categorias.');
+    if (departments.length <= 1) {
+      alert('Mantenha pelo menos 1 linha esportiva cadastrada no catálogo.');
       return;
     }
-    const confirmDelete = window.confirm(`Deseja excluir a linha "${dept.name}"?`);
+
+    const confirmDelete = window.confirm(
+      `Deseja realmente excluir a linha esportiva "${dept.name}"?\n\nAs categorias vinculadas não serão apagadas, mas ficarão sem linha definida até você reatribuí-las.`
+    );
     if (!confirmDelete) return;
 
     try {
@@ -633,7 +693,12 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (data.success && Array.isArray(data.departments)) {
         setDepartments(data.departments);
+        if (selectedDeptFilter === dept.id) {
+          setSelectedDeptFilter('all');
+        }
         showToast(`Linha "${dept.name}" excluída.`);
+      } else {
+        alert(data.error || 'Erro ao excluir linha esportiva.');
       }
     } catch {
       showToast('Erro ao excluir linha esportiva.');
@@ -722,6 +787,22 @@ export default function AdminDashboardPage() {
       );
     });
   }, [clients, clientSearch]);
+
+  // Filtro de Categorias por Linha Esportiva
+  const displayedCategories = useMemo(() => {
+    if (selectedDeptFilter === 'all') return categories;
+    return categories.filter((c) => {
+      const d = findDepartmentForCategory(c.name, departments);
+      return d?.id === selectedDeptFilter;
+    });
+  }, [categories, departments, selectedDeptFilter]);
+
+  // Busca rápida dentro do dropdown customizado de categorias
+  const searchedFilterCategories = useMemo(() => {
+    if (!catFilterSearch.trim()) return categories;
+    const q = catFilterSearch.toLowerCase().trim();
+    return categories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [categories, catFilterSearch]);
 
   const publishedCount = products.filter((p) => p.is_published).length;
   const draftCount = products.length - publishedCount;
@@ -854,7 +935,7 @@ export default function AdminDashboardPage() {
         <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 flex items-center overflow-x-auto no-scrollbar gap-1 py-1.5">
           <button
             onClick={() => setActiveTab('products')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeTab === 'products'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
@@ -871,7 +952,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeTab === 'orders'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
@@ -888,7 +969,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('banners')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeTab === 'banners'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
@@ -905,7 +986,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeTab === 'settings'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
@@ -917,7 +998,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeTab === 'users'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
@@ -934,7 +1015,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => setActiveTab('categories')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeTab === 'categories'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
@@ -1023,7 +1104,7 @@ export default function AdminDashboardPage() {
                       setCurrentPage(1);
                     }}
                     placeholder="Pesquisar por nome ou SKU..."
-                    className="w-full pl-10 pr-4 py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-10 pr-4 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                   {productSearch && (
                     <button
@@ -1035,34 +1116,130 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                <select
-                  value={filterCategory}
-                  onChange={(e) => {
-                    setFilterCategory(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="px-3 py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                >
-                  <option value="all">Todas as Categorias ({categories.length})</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                {/* 1. Seletor Customizado de Categoria (Adeus Select Nativo) */}
+                <div ref={catDropdownRef} className="relative w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
+                    className="w-full sm:w-auto px-3.5 py-2.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black flex items-center justify-between gap-2.5 transition-all shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Filter className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
+                      <span className="truncate max-w-[170px]">
+                        {filterCategory === 'all'
+                          ? `Todas as Categorias (${categories.length})`
+                          : categories.find((c) => c.id === filterCategory)?.name || 'Categoria'}
+                      </span>
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCatDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
 
-                <select
-                  value={filterStatus}
-                  onChange={(e) => {
-                    setFilterStatus(e.target.value as any);
-                    setCurrentPage(1);
-                  }}
-                  className="px-3 py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                >
-                  <option value="all">Todos os Status</option>
-                  <option value="published">Apenas Publicados</option>
-                  <option value="draft">Apenas Ocultos</option>
-                </select>
+                  {isCatDropdownOpen && (
+                    <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                      <div className="relative px-1 pt-1 pb-0.5">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          autoFocus
+                          value={catFilterSearch}
+                          onChange={(e) => setCatFilterSearch(e.target.value)}
+                          placeholder="Buscar categoria..."
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                        />
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto no-scrollbar divide-y divide-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterCategory('all');
+                            setCurrentPage(1);
+                            setIsCatDropdownOpen(false);
+                            setCatFilterSearch('');
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                            filterCategory === 'all'
+                              ? 'bg-zeiq-black text-white font-bold'
+                              : 'text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>Todas as Categorias</span>
+                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                            filterCategory === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {categories.length}
+                          </span>
+                        </button>
+
+                        {searchedFilterCategories.map((c) => {
+                          const isSelected = filterCategory === c.id;
+                          const prodCount = products.filter((p) => p.categories?.some((cat) => cat.id === c.id)).length;
+
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setFilterCategory(c.id);
+                                setCurrentPage(1);
+                                setIsCatDropdownOpen(false);
+                                setCatFilterSearch('');
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                                isSelected
+                                  ? 'bg-zeiq-black text-white font-bold'
+                                  : 'text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span className="truncate pr-2">{c.name}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {prodCount}
+                                </span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-zeiq-orange" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Pílulas Customizadas de Status (Adeus Select Nativo) */}
+                <div className="inline-flex p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0 flex-wrap sm:flex-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      filterStatus === 'all' ? 'bg-zeiq-black text-white shadow-2xs' : 'text-slate-600 hover:text-zeiq-black'
+                    }`}
+                  >
+                    Todos ({products.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      filterStatus === 'published' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Publicados ({publishedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      filterStatus === 'draft' ? 'bg-slate-700 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    Ocultos ({draftCount})
+                  </button>
+                </div>
               </div>
 
               <button
@@ -1070,7 +1247,7 @@ export default function AdminDashboardPage() {
                   setEditingProduct(null);
                   setIsProductModalOpen(true);
                 }}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 Cadastrar Novo Produto
@@ -1278,7 +1455,7 @@ export default function AdminDashboardPage() {
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
                   placeholder="Pesquisar por código, cliente ou WhatsApp..."
-                  className="w-full pl-10 pr-4 py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  className="w-full pl-10 pr-4 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
               </div>
 
@@ -1377,18 +1554,60 @@ export default function AdminDashboardPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
-                              <select
-                                value={order.status}
-                                onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as OrderStatus)}
-                                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 bg-white text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                              >
-                                <option value="pending">Pendente (Recebido)</option>
-                                <option value="approved">Aprovado</option>
-                                <option value="processing">Em Separação</option>
-                                <option value="shipped">Despachado</option>
-                                <option value="delivered">Entregue</option>
-                                <option value="cancelled">Cancelado</option>
-                              </select>
+                              <div className="relative inline-block text-left status-popover-container">
+                                {(() => {
+                                  const currentOpt = STATUS_OPTIONS.find((s) => s.key === order.status) || STATUS_OPTIONS[0];
+                                  const isOpen = openStatusOrderId === order.id;
+
+                                  return (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenStatusOrderId(isOpen ? null : order.id);
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${currentOpt.bg} ${currentOpt.text} ${currentOpt.border}`}
+                                        title="Clique para alterar o status operacional"
+                                      >
+                                        <span className={`w-1.5 h-1.5 rounded-full ${currentOpt.dot}`} />
+                                        <span>{currentOpt.label.split(' ')[0]}</span>
+                                        <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                      </button>
+
+                                      {isOpen && (
+                                        <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-52 bg-white rounded-xl border border-slate-200 shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 text-left">
+                                          <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                            Alterar Status do Pedido
+                                          </div>
+                                          {STATUS_OPTIONS.map((opt) => (
+                                            <button
+                                              key={opt.key}
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUpdateOrderStatus(order.id, opt.key);
+                                                setOpenStatusOrderId(null);
+                                              }}
+                                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                                                order.status === opt.key
+                                                  ? `${opt.bg} ${opt.text} font-bold`
+                                                  : 'hover:bg-slate-50 text-slate-700'
+                                              }`}
+                                            >
+                                              <span className="flex items-center gap-2">
+                                                <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
+                                                <span>{opt.label}</span>
+                                              </span>
+                                              {order.status === opt.key && <Check className="w-3.5 h-3.5 text-current" />}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
                             </td>
 
                             <td className="py-3.5 px-4 text-right">
@@ -1473,7 +1692,7 @@ export default function AdminDashboardPage() {
                   value={clientSearch}
                   onChange={(e) => setClientSearch(e.target.value)}
                   placeholder="Pesquisar por loja, responsável ou e-mail..."
-                  className="w-full pl-10 pr-4 py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  className="w-full pl-10 pr-4 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
               </div>
 
@@ -1600,7 +1819,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* SEÇÃO 1: GERENCIAMENTO DE LINHAS ESPORTIVAS (DEPARTAMENTOS) */}
-            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-zeiq-black flex items-center gap-2">
@@ -1608,66 +1827,83 @@ export default function AdminDashboardPage() {
                     <span>Linhas Esportivas & Departamentos do Menu</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Estas são as linhas que aparecem no menu superior e no Mega-Menu do catálogo (ex: Equipamentos, Corrida, Futvôlei, Treino).
+                    Macro-departamentos que estruturam o menu superior e o catálogo (ex: Equipamentos, Masculino, Feminino, Acessórios).
                   </p>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setNewDeptName('');
-                    setNewDeptShortName('');
-                    setDeptError('');
-                    setIsDeptModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-zeiq-orange hover:bg-zeiq-orange-hover text-zeiq-black font-extrabold text-xs rounded-xl transition-all shadow-xs shrink-0 active:scale-95"
+                  onClick={() => handleOpenDeptModal(null)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-zeiq-orange hover:bg-zeiq-orange-hover text-zeiq-black font-extrabold text-xs rounded-xl transition-all shadow-xs shrink-0 active:scale-95"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Nova Linha Esportiva</span>
                 </button>
               </div>
 
-              {/* Cards das Linhas Ativas */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Grid Compacto & Escalável de Linhas Esportivas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                 {departments.map((dept) => {
                   const assignedCount = categories.filter((c) =>
                     dept.categoryNames.some((n) => n.toLowerCase() === c.name.toLowerCase())
                   ).length;
                   const isDefault = ['equipamentos', 'vestuario-masculino', 'vestuario-feminino', 'acessorios'].includes(dept.id);
+                  const isFiltered = selectedDeptFilter === dept.id;
 
                   return (
                     <div
                       key={dept.id}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-[#f8f9fa] flex flex-col justify-between gap-2"
+                      className={`p-3 rounded-xl border transition-all flex flex-col justify-between gap-2 ${
+                        isFiltered
+                          ? 'bg-white border-zeiq-black ring-1 ring-zeiq-black shadow-xs'
+                          : 'bg-[#f8f9fa] border-slate-200 hover:border-slate-300'
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="font-bold text-xs text-zeiq-black block leading-snug">
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-xs text-zeiq-black block truncate" title={dept.name}>
                             {dept.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium">
-                            Menu curto: <strong>{dept.shortName}</strong>
+                          <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                            Botão: <strong className="text-zeiq-black">{dept.shortName}</strong>
                           </span>
                         </div>
 
-                        {!isDefault && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/* Botão de Edição para qualquer linha */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDeptModal(dept)}
+                            className="p-1.5 text-slate-500 hover:text-zeiq-black hover:bg-white rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                            title={`Editar nome e atalho da linha "${dept.name}"`}
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Botão de Excluir para qualquer linha */}
                           <button
                             type="button"
                             onClick={() => handleDeleteDepartment(dept)}
-                            className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                            title="Excluir linha esportiva"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title={`Excluir linha "${dept.name}"`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                        )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 text-[11px]">
-                        <span className="font-mono text-slate-600">
-                          {assignedCount} {assignedCount === 1 ? 'categoria' : 'categorias'}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">
-                          {isDefault ? 'Padrão' : 'Personalizado'}
+                      <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDeptFilter(isFiltered ? 'all' : dept.id)}
+                          className="font-mono font-bold text-[10px] text-slate-600 hover:text-zeiq-black flex items-center gap-1 transition-colors"
+                          title="Clique para filtrar as categorias desta linha abaixo"
+                        >
+                          <Filter className={`w-3 h-3 ${isFiltered ? 'text-zeiq-orange' : 'text-slate-400'}`} />
+                          <span>{assignedCount} {assignedCount === 1 ? 'categoria' : 'categorias'}</span>
+                        </button>
+                        <span className="text-[10px] font-mono text-slate-400 bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                          #{dept.id}
                         </span>
                       </div>
                     </div>
@@ -1676,113 +1912,586 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* SEÇÃO 2: TABELA DE CATEGORIAS & VÍNCULO DE LINHAS */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+            {/* SEÇÃO 2: TABELA DE CATEGORIAS */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-zeiq-black">Categorias & Subcategorias do Catálogo</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Divisões de produtos do catálogo. Para renomear ou trocar a linha esportiva vinculada, clique no ícone de lápis.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => handleOpenCategoryModal(null)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nova Categoria
+                </button>
+              </div>
+
+              {/* Barra de Filtro Rápido por Linha Esportiva */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDeptFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                    selectedDeptFilter === 'all'
+                      ? 'bg-zeiq-black text-white shadow-xs'
+                      : 'bg-[#f8f9fa] hover:bg-slate-200 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  <span>Todas as Linhas</span>
+                  <span className="text-[10px] opacity-80 font-mono">({categories.length})</span>
+                </button>
+
+                {departments.map((dept) => {
+                  const count = categories.filter((c) =>
+                    dept.categoryNames.some((n) => n.toLowerCase() === c.name.toLowerCase())
+                  ).length;
+                  const isSelected = selectedDeptFilter === dept.id;
+
+                  return (
+                    <button
+                      key={dept.id}
+                      type="button"
+                      onClick={() => setSelectedDeptFilter(isSelected ? 'all' : dept.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-zeiq-black text-white shadow-xs'
+                          : 'bg-[#f8f9fa] hover:bg-slate-200 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      <span>{dept.shortName}</span>
+                      <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tabela de Categorias Limpa e Elegante */}
+              <div className="border border-slate-200/80 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[650px] text-left border-collapse">
+                    <thead>
+                      <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-4 w-16 text-center">Ordem</th>
+                        <th className="py-3 px-4">Nome da Categoria</th>
+                        <th className="py-3 px-4">Linha Esportiva Vinculada</th>
+                        <th className="py-3 px-4">Slug (URL)</th>
+                        <th className="py-3 px-4 text-center">Produtos Vinculados</th>
+                        <th className="py-3 px-4 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {displayedCategories.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-12 text-center text-slate-400">
+                            Nenhuma categoria encontrada nesta linha esportiva.
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedCategories.map((cat: any) => {
+                          const currentDept = findDepartmentForCategory(cat.name, departments);
+
+                          return (
+                            <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-3 px-4 text-center font-bold text-slate-500 font-mono">
+                                #{cat.display_order ?? 0}
+                              </td>
+
+                              <td className="py-3 px-4">
+                                <strong className="text-zeiq-black text-sm block">{cat.name}</strong>
+                              </td>
+
+                              <td className="py-3 px-4">
+                                {currentDept ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-zeiq-orange shrink-0" />
+                                    <span>{currentDept.name}</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                    <span>Sem linha definida</span>
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="py-3 px-4 font-mono text-slate-500">
+                                /{cat.slug}
+                              </td>
+
+                              <td className="py-3 px-4 text-center">
+                                <span className="px-2.5 py-1 bg-slate-100 rounded-full font-bold text-slate-700">
+                                  {cat.product_count ?? 0} produtos
+                                </span>
+                              </td>
+
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenCategoryModal(cat)}
+                                    className="p-1.5 text-slate-500 hover:text-zeiq-black hover:bg-slate-100 rounded-lg transition-colors"
+                                    title="Editar Categoria e Linha Esportiva"
+                                  >
+                                    <Edit3 className="w-4 h-4" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteCategory(cat)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                    title="Excluir Categoria"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* ABA 5: GESTÃO DE BANNERS DA HOME (ATÉ 5 BANNERS)        */}
+        {/* ======================================================== */}
+        {activeTab === 'banners' && (
+          <div className="space-y-6">
+            {/* Cabeçalho da Aba */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-zeiq-black">Categorias & Subcategorias do Catálogo</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Vincule cada categoria à sua linha esportiva correspondente usando a coluna "Linha Esportiva".
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-base sm:text-lg font-black text-zeiq-black tracking-tight flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-zeiq-orange" />
+                    <span>Banners da Página Inicial</span>
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                    {banners.length} de 5 banners
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
+                  Cadastre e ordene até 5 banners para o carrossel principal. O cliente será redirecionado para o link configurado ao clicar no banner.
                 </p>
               </div>
 
-              <button
-                onClick={() => handleOpenCategoryModal(null)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                Nova Categoria
-              </button>
-            </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                {banners.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={handleAddBanner}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-zeiq-black border border-slate-300 text-xs font-bold transition-all shadow-2xs active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Adicionar Banner</span>
+                  </button>
+                )}
 
-            {/* Tabela de Categorias */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4 w-16 text-center">Ordem</th>
-                      <th className="py-3 px-4">Nome da Categoria</th>
-                      <th className="py-3 px-4">Linha Esportiva / Departamento</th>
-                      <th className="py-3 px-4">Slug (URL)</th>
-                      <th className="py-3 px-4 text-center">Produtos Vinculados</th>
-                      <th className="py-3 px-4 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {categories.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400">
-                          Nenhuma categoria cadastrada.
-                        </td>
-                      </tr>
-                    ) : (
-                      categories.map((cat: any) => {
-                        const currentDept = findDepartmentForCategory(cat.name, departments);
-                        const assignedDeptId = currentDept ? currentDept.id : 'acessorios';
-
-                        return (
-                          <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-3 px-4 text-center font-bold text-slate-500">
-                              #{cat.display_order ?? 0}
-                            </td>
-
-                            <td className="py-3 px-4">
-                              <strong className="text-zeiq-black text-sm block">{cat.name}</strong>
-                            </td>
-
-                            <td className="py-3 px-4">
-                              <select
-                                value={assignedDeptId}
-                                onChange={(e) => handleMoveCategoryToDepartment(cat.name, e.target.value)}
-                                className="px-2.5 py-1 text-xs font-semibold bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                              >
-                                {departments.map((dept) => (
-                                  <option key={dept.id} value={dept.id}>
-                                    {dept.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-
-                            <td className="py-3 px-4 font-mono text-slate-500">
-                              /{cat.slug}
-                            </td>
-
-                            <td className="py-3 px-4 text-center">
-                              <span className="px-2.5 py-1 bg-slate-100 rounded-full font-bold text-slate-700">
-                                {cat.product_count ?? 0} produtos
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenCategoryModal(cat)}
-                                  className="p-1.5 text-slate-500 hover:text-zeiq-black hover:bg-slate-100 rounded-lg transition-colors"
-                                  title="Editar Categoria"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteCategory(cat)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                  title="Excluir Categoria"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                <button
+                  type="button"
+                  onClick={handleSaveBanners}
+                  disabled={savingBanners}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zeiq-black hover:bg-zeiq-charcoal text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95"
+                >
+                  {savingBanners ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Salvar Banners</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
+
+            {/* Lista de Banners ou Estado Vazio */}
+            {banners.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 sm:p-12 text-center shadow-xs">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-bold text-zeiq-black mb-1">Nenhum banner cadastrado</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+                  Adicione banners promocionais para compor o carrossel dinâmico da página inicial.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleAddBanner}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zeiq-black text-white text-xs font-bold shadow-xs active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Cadastrar Primeiro Banner</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {banners.map((banner, index) => {
+                  const isUploadingDesktop = uploadingBannerIndex?.index === index && uploadingBannerIndex?.type === 'desktop';
+                  const isUploadingMobile = uploadingBannerIndex?.index === index && uploadingBannerIndex?.type === 'mobile';
+
+                  return (
+                    <div
+                      key={banner.id}
+                      className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all hover:border-slate-300"
+                    >
+                      {/* Topo do Card de Banner */}
+                      <div className="bg-[#f8f9fa] border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <span className="w-7 h-7 rounded-lg bg-zeiq-black text-white font-mono font-black text-xs flex items-center justify-center shrink-0">
+                            #{index + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={banner.title || ''}
+                            onChange={(e) => handleUpdateBanner(index, 'title', e.target.value)}
+                            placeholder="Título do banner (identificação)"
+                            className="text-xs sm:text-sm font-bold text-zeiq-black bg-transparent border-b border-transparent hover:border-slate-300 focus:border-zeiq-black focus:outline-none px-1 py-0.5"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer mr-2 select-none">
+                            <input
+                              type="checkbox"
+                              checked={banner.isActive !== false}
+                              onChange={(e) => handleUpdateBanner(index, 'isActive', e.target.checked)}
+                              className="rounded border-slate-300 text-zeiq-black focus:ring-zeiq-black"
+                            />
+                            <span>{banner.isActive !== false ? 'Visível' : 'Pausado'}</span>
+                          </label>
+
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => handleMoveBanner(index, 'up')}
+                            className="p-1.5 text-slate-500 hover:text-zeiq-black disabled:opacity-30 disabled:hover:text-slate-500 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-colors"
+                            title="Mover para cima"
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === banners.length - 1}
+                            onClick={() => handleMoveBanner(index, 'down')}
+                            className="p-1.5 text-slate-500 hover:text-zeiq-black disabled:opacity-30 disabled:hover:text-slate-500 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-colors"
+                            title="Mover para baixo"
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBanner(index)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
+                            title="Remover este banner"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Corpo: Imagens Desktop & Mobile */}
+                      <div className="p-4 sm:p-6 space-y-5">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                          
+                          {/* Imagem Desktop */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
+                                <span>Imagem Desktop (Widescreen)</span>
+                              </label>
+                              <span className="text-[10px] text-slate-400 font-medium">Recomendado: ~1720x430 px</span>
+                            </div>
+
+                            <div className="relative aspect-[16/4.5] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
+                              {banner.desktopImage ? (
+                                <img
+                                  src={banner.desktopImage}
+                                  alt="Prévia Desktop"
+                                  className="w-full h-full object-cover object-center"
+                                />
+                              ) : (
+                                <div className="text-center p-4 text-slate-400">
+                                  <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
+                                  <span className="text-[11px]">Nenhuma imagem selecionada</span>
+                                </div>
+                              )}
+
+                              {isUploadingDesktop && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
+                                  <Loader2 className="w-5 h-5 animate-spin text-zeiq-orange" />
+                                  <span>Enviando imagem...</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-lg text-xs font-bold transition-colors shrink-0">
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Subir Arquivo</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadBannerFile(index, 'desktop', file);
+                                  }}
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                value={banner.desktopImage || ''}
+                                onChange={(e) => handleUpdateBanner(index, 'desktopImage', e.target.value)}
+                                placeholder="Ou cole a URL da imagem desktop..."
+                                className="flex-1 px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black font-mono focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Imagem Mobile */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
+                                <span>Imagem Mobile (Celulares)</span>
+                              </label>
+                              <span className="text-[10px] text-slate-400 font-medium">Recomendado: ~800x600 px</span>
+                            </div>
+
+                            <div className="relative aspect-[16/6] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
+                              {banner.mobileImage ? (
+                                <img
+                                  src={banner.mobileImage}
+                                  alt="Prévia Mobile"
+                                  className="w-full h-full object-cover object-center"
+                                />
+                              ) : (
+                                <div className="text-center p-4 text-slate-400">
+                                  <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
+                                  <span className="text-[11px]">Nenhuma imagem selecionada</span>
+                                </div>
+                              )}
+
+                              {isUploadingMobile && (
+                                <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
+                                  <Loader2 className="w-5 h-5 animate-spin text-zeiq-orange" />
+                                  <span>Enviando imagem...</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-lg text-xs font-bold transition-colors shrink-0">
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Subir Arquivo</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadBannerFile(index, 'mobile', file);
+                                  }}
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                value={banner.mobileImage || ''}
+                                onChange={(e) => handleUpdateBanner(index, 'mobileImage', e.target.value)}
+                                placeholder="Ou cole a URL da imagem mobile..."
+                                className="flex-1 px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black font-mono focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                              />
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Link de Destino do Banner */}
+                        <div className="pt-3 border-t border-slate-100 space-y-2">
+                          <label className="text-xs font-bold text-zeiq-black flex items-center justify-between">
+                            <span>Link de Destino ao Clicar</span>
+                            <span className="text-[10px] text-slate-400 font-normal">Ao tocar no banner, o cliente vai para este link</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={banner.link || ''}
+                            onChange={(e) => handleUpdateBanner(index, 'link', e.target.value)}
+                            placeholder="Ex: ?search=Leo+Branco, ?dept=equipamentos&cat=raquetes, /portal ou https://..."
+                            className="w-full px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black font-mono focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                          />
+
+                          {/* Atalhos Rápidos para Links Frequentes */}
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                            <span className="text-[10px] text-slate-400 font-medium mr-1">Atalhos rápidos:</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateBanner(index, 'link', '?search=Leo+Branco')}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                            >
+                              Coleção Leo Branco
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateBanner(index, 'link', '?dept=equipamentos&cat=raquetes')}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                            >
+                              Raquetes Beach Tennis
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateBanner(index, 'link', '?dept=lancamentos')}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                            >
+                              Lançamentos
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateBanner(index, 'link', '?dept=vestuario-masculino')}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                            >
+                              Masculino
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateBanner(index, 'link', '?dept=vestuario-feminino')}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                            >
+                              Feminino
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateBanner(index, 'link', '/portal')}
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                            >
+                              Meus Pedidos
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* ABA 6: CONFIGURAÇÕES COMERCIAIS (WHATSAPP & E-MAIL)      */}
+        {/* ======================================================== */}
+        {activeTab === 'settings' && (
+          <div className="max-w-3xl space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
+              <h2 className="text-base sm:text-lg font-black text-zeiq-black tracking-tight flex items-center gap-2 mb-1">
+                <Settings className="w-5 h-5 text-zeiq-orange" />
+                <span>Configurações de Contato & Pedidos</span>
+              </h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Configure os canais diretos para onde as cotações, pedidos e dúvidas comerciais de revenda serão encaminhados.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-6">
+              {/* WhatsApp Comercial */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-emerald-500" />
+                  <span>WhatsApp Comercial para Recebimento de Pedidos</span>
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <input
+                    type="text"
+                    required
+                    value={settings?.whatsappNumber || ''}
+                    onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
+                    placeholder="Ex: 5516991667020 ou (16) 99166-7020"
+                    className="flex-1 px-3.5 py-2.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl font-mono text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                  {settings?.whatsappNumber && (
+                    <a
+                      href={`https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Olá! Teste de canal comercial Zeiq.')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Testar WhatsApp</span>
+                    </a>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Insira com código do país e DDD (ex: 5516991667020). Quando o cliente clicar em &quot;Enviar Pedido no WhatsApp&quot; na gaveta de cotação ou no rodapé, a mensagem será aberta para este número.
+                </p>
+              </div>
+
+              {/* E-mail Comercial */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-blue-500" />
+                  <span>E-mail Comercial de Atendimento</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={settings?.contactEmail || ''}
+                  onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
+                  placeholder="Ex: contato@zeiq.com.br"
+                  className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                />
+                <p className="text-[11px] text-slate-400">
+                  E-mail exibido no rodapé do catálogo e no portal do revendedor.
+                </p>
+              </div>
+
+              {/* Nome da Marca / Loja */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-slate-500" />
+                  <span>Nome da Marca / Catálogo</span>
+                </label>
+                <input
+                  type="text"
+                  value={settings?.siteName || ''}
+                  onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
+                  placeholder="Zeiq Sports"
+                  className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                />
+              </div>
+
+              {/* Botão Salvar */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95"
+                >
+                  {savingSettings ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Salvar Configurações Comerciais</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
@@ -1795,6 +2504,7 @@ export default function AdminDashboardPage() {
         isOpen={isProductModalOpen}
         product={editingProduct}
         categories={categories}
+        departments={departments}
         onClose={() => setIsProductModalOpen(false)}
         onSaved={fetchDashboardData}
       />
@@ -1842,426 +2552,8 @@ export default function AdminDashboardPage() {
                               {sz}: {qty}
                             </span>
                           ))}
-          </div>
-        )}
-
-        {/* ======================================================== */}
-        {/* ABA 5: GESTÃO DE BANNERS DA HOME (ATÉ 5 BANNERS)        */}
-        {/* ======================================================== */}
-        {activeTab === 'banners' && (
-          <div className="space-y-6">
-            {/* Cabeçalho da Aba */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-base sm:text-lg font-black text-zeiq-black tracking-tight flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-zeiq-orange" />
-                    <span>Banners da Página Inicial</span>
-                  </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                    {banners.length} de 5 banners
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
-                  Cadastre e ordene até 5 banners para o carrossel principal. O cliente será redirecionado para o link configurado ao clicar no banner (sem botões sobrepostos na arte).
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                {banners.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={handleAddBanner}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-zeiq-black border border-slate-300 text-xs font-bold transition-all shadow-2xs active:scale-95"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Adicionar Banner</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleSaveBanners}
-                  disabled={savingBanners}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zeiq-black hover:bg-zeiq-charcoal text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95"
-                >
-                  {savingBanners ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Salvando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Salvar Banners</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Lista de Banners */}
-            <div className="space-y-5">
-              {banners.map((banner, index) => {
-                const isUploadingDesktop = uploadingBannerIndex?.index === index && uploadingBannerIndex?.type === 'desktop';
-                const isUploadingMobile = uploadingBannerIndex?.index === index && uploadingBannerIndex?.type === 'mobile';
-
-                return (
-                  <div
-                    key={banner.id}
-                    className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all hover:border-slate-300"
-                  >
-                    {/* Topo do Card de Banner */}
-                    <div className="bg-[#f8f9fa] border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 rounded-lg bg-zeiq-black text-white font-mono font-black text-xs flex items-center justify-center shrink-0">
-                          #{index + 1}
-                        </span>
-                        <input
-                          type="text"
-                          value={banner.title}
-                          onChange={(e) => handleUpdateBanner(index, 'title', e.target.value)}
-                          placeholder="Título do banner (identificação)"
-                          className="text-xs sm:text-sm font-bold text-zeiq-black bg-transparent border-b border-transparent hover:border-slate-300 focus:border-zeiq-black focus:outline-none px-1 py-0.5"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Toggle Ativo */}
-                        <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer mr-2 select-none">
-                          <input
-                            type="checkbox"
-                            checked={banner.isActive !== false}
-                            onChange={(e) => handleUpdateBanner(index, 'isActive', e.target.checked)}
-                            className="rounded border-slate-300 text-zeiq-black focus:ring-zeiq-black"
-                          />
-                          <span>{banner.isActive !== false ? 'Visível' : 'Pausado'}</span>
-                        </label>
-
-                        {/* Mover Posição */}
-                        <button
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() => handleMoveBanner(index, 'up')}
-                          className="p-1.5 text-slate-500 hover:text-zeiq-black disabled:opacity-30 disabled:hover:text-slate-500 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-colors"
-                          title="Mover para cima"
-                        >
-                          <ArrowUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={index === banners.length - 1}
-                          onClick={() => handleMoveBanner(index, 'down')}
-                          className="p-1.5 text-slate-500 hover:text-zeiq-black disabled:opacity-30 disabled:hover:text-slate-500 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-colors"
-                          title="Mover para baixo"
-                        >
-                          <ArrowDown className="w-4 h-4" />
-                        </button>
-
-                        {/* Remover */}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveBanner(index)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
-                          title="Remover este banner"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Corpo: Imagens Desktop & Mobile */}
-                    <div className="p-4 sm:p-6 space-y-5">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                        
-                        {/* Imagem Desktop */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
-                              <span>Imagem Desktop (Widescreen)</span>
-                            </label>
-                            <span className="text-[10px] text-slate-400 font-medium">Recomendado: ~1720x430 px</span>
-                          </div>
-
-                          <div className="relative aspect-[16/4.5] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
-                            {banner.desktopImage ? (
-                              <img
-                                src={banner.desktopImage}
-                                alt="Prévia Desktop"
-                                className="w-full h-full object-cover object-center"
-                              />
-                            ) : (
-                              <div className="text-center p-4 text-slate-400">
-                                <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
-                                <span className="text-[11px]">Nenhuma imagem selecionada</span>
-                              </div>
-                            )}
-
-                            {isUploadingDesktop && (
-                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
-                                <Loader2 className="w-5 h-5 animate-spin text-zeiq-orange" />
-                                <span>Enviando imagem...</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-lg text-xs font-bold transition-colors">
-                              <Upload className="w-3.5 h-3.5" />
-                              <span>Subir Arquivo</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleUploadBannerFile(index, 'desktop', file);
-                                }}
-                              />
-                            </label>
-                            <input
-                              type="text"
-                              value={banner.desktopImage}
-                              onChange={(e) => handleUpdateBanner(index, 'desktopImage', e.target.value)}
-                              placeholder="Ou cole a URL da imagem desktop..."
-                              className="flex-1 px-3 py-1.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                            />
-                          </div>
                         </div>
-
-                        {/* Imagem Mobile */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
-                              <span>Imagem Mobile (Celulares)</span>
-                            </label>
-                            <span className="text-[10px] text-slate-400 font-medium">Recomendado: ~800x600 px</span>
-                          </div>
-
-                          <div className="relative aspect-[16/6] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
-                            {banner.mobileImage ? (
-                              <img
-                                src={banner.mobileImage}
-                                alt="Prévia Mobile"
-                                className="w-full h-full object-cover object-center"
-                              />
-                            ) : (
-                              <div className="text-center p-4 text-slate-400">
-                                <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
-                                <span className="text-[11px]">Nenhuma imagem selecionada</span>
-                              </div>
-                            )}
-
-                            {isUploadingMobile && (
-                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
-                                <Loader2 className="w-5 h-5 animate-spin text-zeiq-orange" />
-                                <span>Enviando imagem...</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-lg text-xs font-bold transition-colors">
-                              <Upload className="w-3.5 h-3.5" />
-                              <span>Subir Arquivo</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleUploadBannerFile(index, 'mobile', file);
-                                }}
-                              />
-                            </label>
-                            <input
-                              type="text"
-                              value={banner.mobileImage}
-                              onChange={(e) => handleUpdateBanner(index, 'mobileImage', e.target.value)}
-                              placeholder="Ou cole a URL da imagem mobile..."
-                              className="flex-1 px-3 py-1.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                            />
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* Link de Destino do Banner */}
-                      <div className="pt-3 border-t border-slate-100 space-y-2">
-                        <label className="text-xs font-bold text-zeiq-black flex items-center justify-between">
-                          <span>Link de Destino ao Clicar</span>
-                          <span className="text-[10px] text-slate-400 font-normal">Ao tocar no banner, o cliente vai para este link</span>
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="text"
-                            value={banner.link || ''}
-                            onChange={(e) => handleUpdateBanner(index, 'link', e.target.value)}
-                            placeholder="Ex: ?search=Leo+Branco, ?dept=equipamentos&cat=raquetes, /portal ou https://..."
-                            className="flex-1 px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black font-mono focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                          />
-                        </div>
-
-                        {/* Atalhos Rápidos para Links Frequentes */}
-                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                          <span className="text-[10px] text-slate-400 font-medium mr-1">Atalhos rápidos:</span>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateBanner(index, 'link', '?search=Leo+Branco')}
-                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                          >
-                            Coleção Leo Branco
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateBanner(index, 'link', '?dept=equipamentos&cat=raquetes')}
-                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                          >
-                            Raquetes Beach Tennis
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateBanner(index, 'link', '?dept=lancamentos')}
-                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                          >
-                            Lançamentos
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateBanner(index, 'link', '?dept=masculino')}
-                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                          >
-                            Masculino
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateBanner(index, 'link', '?dept=feminino')}
-                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                          >
-                            Feminino
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateBanner(index, 'link', '/portal')}
-                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                          >
-                            Meus Pedidos
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ======================================================== */}
-        {/* ABA 6: CONFIGURAÇÕES COMERCIAIS (WHATSAPP & E-MAIL)      */}
-        {/* ======================================================== */}
-        {activeTab === 'settings' && (
-          <div className="max-w-3xl space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
-              <h2 className="text-base sm:text-lg font-black text-zeiq-black tracking-tight flex items-center gap-2 mb-1">
-                <Settings className="w-5 h-5 text-zeiq-orange" />
-                <span>Configurações de Contato & Pedidos</span>
-              </h2>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Configure os canais diretos para onde as cotações, pedidos e dúvidas comerciais de revenda serão encaminhados.
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-6">
-              {/* WhatsApp Comercial */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-emerald-500" />
-                  <span>WhatsApp Comercial para Recebimento de Pedidos</span>
-                </label>
-                <div className="flex gap-2.5">
-                  <input
-                    type="text"
-                    required
-                    value={settings.whatsappNumber}
-                    onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
-                    placeholder="Ex: 5516991667020 ou (16) 99166-7020"
-                    className="flex-1 px-3.5 py-2.5 text-xs sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl font-mono text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                  />
-                  {settings.whatsappNumber && (
-                    <a
-                      href={`https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Olá! Teste de canal comercial Zeiq.')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Testar WhatsApp</span>
-                    </a>
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Insira com código do país e DDD (ex: 5516991667020). Quando o cliente clicar em &quot;Enviar Pedido no WhatsApp&quot; na gaveta de cotação ou no rodapé, a mensagem será aberta para este número.
-                </p>
-              </div>
-
-              {/* E-mail Comercial */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-blue-500" />
-                  <span>E-mail Comercial de Atendimento</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={settings.contactEmail}
-                  onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
-                  placeholder="Ex: contato@zeiq.com.br"
-                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
-                <p className="text-[11px] text-slate-400">
-                  E-mail exibido no rodapé do catálogo e no portal do revendedor.
-                </p>
-              </div>
-
-              {/* Nome da Marca / Loja */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-slate-500" />
-                  <span>Nome da Marca / Catálogo</span>
-                </label>
-                <input
-                  type="text"
-                  value={settings.siteName || ''}
-                  onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
-                  placeholder="Zeiq Sports"
-                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
-              </div>
-
-              {/* Botão Salvar */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
-                <button
-                  type="submit"
-                  disabled={savingSettings}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95"
-                >
-                  {savingSettings ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Salvando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Salvar Configurações Comerciais</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+                      )}
                     </div>
                   </div>
                   <strong className="text-sm font-bold text-zeiq-black shrink-0">
@@ -2313,7 +2605,7 @@ export default function AdminDashboardPage() {
                   value={newTrackingCode}
                   onChange={(e) => setNewTrackingCode(e.target.value.toUpperCase())}
                   placeholder="Ex: JAD129840294 ou BR981249124JB"
-                  className="w-full px-3 py-2 text-xs font-mono font-bold uppercase bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  className="w-full px-3 py-2 text-base sm:text-xs font-mono font-bold uppercase bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
               </div>
 
@@ -2326,7 +2618,7 @@ export default function AdminDashboardPage() {
                   value={newTrackingUrl}
                   onChange={(e) => setNewTrackingUrl(e.target.value)}
                   placeholder="https://rastreamento.correios.com.br/..."
-                  className="w-full px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  className="w-full px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
               </div>
 
@@ -2357,7 +2649,7 @@ export default function AdminDashboardPage() {
       {/* ======================================================== */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative border border-slate-200">
             <button
               onClick={() => setIsCategoryModalOpen(false)}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-zeiq-black"
@@ -2369,10 +2661,10 @@ export default function AdminDashboardPage() {
               {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Configure o nome e a prioridade de ordenação no catálogo.
+              Configure o nome, o link e vincule à linha esportiva correspondente.
             </p>
 
-            <form onSubmit={handleSaveCategory} className="space-y-3.5">
+            <form onSubmit={handleSaveCategory} className="space-y-4">
               {categoryError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">
                   {categoryError}
@@ -2401,64 +2693,99 @@ export default function AdminDashboardPage() {
                     }
                   }}
                   placeholder="Ex: Raquetes de Beach Tennis"
-                  className="w-full px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  className="w-full px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Slug da URL
-                </label>
-                <input
-                  type="text"
-                  value={categorySlug}
-                  onChange={(e) => setCategorySlug(e.target.value)}
-                  placeholder="ex: raquetes-beach-tennis"
-                  className="w-full px-3 py-2 text-xs font-mono bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Slug da URL
+                  </label>
+                  <input
+                    type="text"
+                    value={categorySlug}
+                    onChange={(e) => setCategorySlug(e.target.value)}
+                    placeholder="ex: raquetes-beach-tennis"
+                    className="w-full px-3 py-2 text-base sm:text-xs font-mono bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Ordem de Exibição
+                  </label>
+                  <input
+                    type="number"
+                    value={categoryOrder}
+                    onChange={(e) => setCategoryOrder(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Ordem de Exibição (Número)
+              {/* SELEÇÃO VISUAL DA LINHA ESPORTIVA (FIM DO SELECT AZUL NATIVO) */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Linha Esportiva Vinculada *
                 </label>
-                <input
-                  type="number"
-                  value={categoryOrder}
-                  onChange={(e) => setCategoryOrder(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
+                <p className="text-[11px] text-slate-400">
+                  Selecione o departamento onde esta categoria ficará agrupada no menu:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto no-scrollbar pt-1">
+                  {departments.map((dept) => {
+                    const isSelected = categoryDepartmentId === dept.id;
+
+                    return (
+                      <button
+                        key={dept.id}
+                        type="button"
+                        onClick={() => setCategoryDepartmentId(dept.id)}
+                        className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 active:scale-98 ${
+                          isSelected
+                            ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
+                            : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className={`block text-xs font-bold leading-tight truncate ${
+                            isSelected ? 'text-white' : 'text-zeiq-black'
+                          }`}>
+                            {dept.name}
+                          </span>
+                          <span className={`block text-[10px] mt-0.5 truncate ${
+                            isSelected ? 'text-slate-300' : 'text-slate-400'
+                          }`}>
+                            Menu: {dept.shortName}
+                          </span>
+                        </div>
+
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
+                          isSelected
+                            ? 'bg-zeiq-orange border-zeiq-orange text-zeiq-black'
+                            : 'border-slate-300 bg-white'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Linha Esportiva / Departamento
-                </label>
-                <select
-                  value={categoryDepartmentId}
-                  onChange={(e) => setCategoryDepartmentId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                >
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(false)}
-                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-zeiq-black"
+                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-zeiq-black"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingCategory}
-                  className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50"
+                  className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 active:scale-95 transition-all shadow-xs"
                 >
                   {savingCategory ? 'Salvando...' : 'Salvar Categoria'}
                 </button>
@@ -2482,10 +2809,12 @@ export default function AdminDashboardPage() {
             </button>
 
             <h3 className="text-sm font-bold text-zeiq-black mb-1">
-              Nova Linha Esportiva / Departamento
+              {editingDept ? 'Editar Linha Esportiva' : 'Nova Linha Esportiva / Departamento'}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Crie uma nova linha para o menu do site (ex: Corrida, Futvôlei, Treino & Fitness, Padel).
+              {editingDept
+                ? `Editando linha "${editingDept.name}". O nome curto é usado nos botões do menu.`
+                : 'Crie uma nova linha para o menu do site (ex: Corrida, Futvôlei, Treino & Fitness, Padel).'}
             </p>
 
             <form onSubmit={handleSaveDepartment} className="space-y-3.5">
@@ -2505,7 +2834,7 @@ export default function AdminDashboardPage() {
                   value={newDeptName}
                   onChange={(e) => setNewDeptName(e.target.value)}
                   placeholder="Ex: Linha Corrida / Running"
-                  className="w-full px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  className="w-full px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
               </div>
 
@@ -2518,7 +2847,7 @@ export default function AdminDashboardPage() {
                   value={newDeptShortName}
                   onChange={(e) => setNewDeptShortName(e.target.value)}
                   placeholder="Ex: Corrida"
-                  className="w-full px-3 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  className="w-full px-3 py-2 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
               </div>
 
@@ -2535,7 +2864,7 @@ export default function AdminDashboardPage() {
                   disabled={savingDept}
                   className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50"
                 >
-                  {savingDept ? 'Salvando...' : 'Criar Linha Esportiva'}
+                  {savingDept ? 'Salvando...' : editingDept ? 'Salvar Alterações' : 'Criar Linha Esportiva'}
                 </button>
               </div>
             </form>
