@@ -37,7 +37,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { useQuoteCart } from '@/lib/store/quote-cart';
-import { Order, OrderStatus, QuoteItem } from '@/types';
+import { Order, OrderStatus, QuoteItem, StoreSettings } from '@/types';
 
 // Mapeamento dos 5 estágios de pedidos B2B
 const STATUS_STEPS: { key: OrderStatus; label: string; description: string }[] = [
@@ -111,6 +111,18 @@ export default function ResellerPortalPage() {
 
   // Toast de repetição de pedido
   const [reorderSuccessMsg, setReorderSuccessMsg] = useState<string | null>(null);
+
+  // Configurações dinâmicas de contato
+  const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings) setStoreSettings(data.settings);
+      })
+      .catch(() => {});
+  }, []);
 
   // Carrega pedidos salvos localmente e via API
   useEffect(() => {
@@ -243,7 +255,7 @@ export default function ResellerPortalPage() {
 
   // WhatsApp comercial direto sobre determinado pedido
   const getWhatsAppOrderLink = (order: Order) => {
-    const phone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020';
+    const phone = storeSettings?.whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020';
     const cleanPhone = phone.replace(/\D/g, '');
     const text = encodeURIComponent(
       `Olá Zeiq Sports! Gostaria de falar sobre o andamento do meu pedido *#${order.order_number}* (Loja: ${
@@ -1169,7 +1181,7 @@ export default function ResellerPortalPage() {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100">
               <a
-                href={`https://wa.me/${(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020').replace(/\D/g, '')}?text=${encodeURIComponent(
+                href={`https://wa.me/${(storeSettings?.whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020').replace(/\D/g, '')}?text=${encodeURIComponent(
                   'Olá Zeiq Sports! Gostaria de falar com meu consultor sobre reposição de estoque.'
                 )}`}
                 target="_blank"
@@ -1322,7 +1334,7 @@ export default function ResellerPortalPage() {
       )}
 
       {/* 7. Footer Oficial do Site */}
-      <Footer />
+      <Footer settings={storeSettings || undefined} />
     </div>
   );
 }

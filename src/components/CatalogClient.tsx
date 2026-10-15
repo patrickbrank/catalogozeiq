@@ -8,7 +8,7 @@ import { ProductCard } from '@/components/ProductCard';
 import { ProductModal } from '@/components/ProductModal';
 import { HeroBanner } from '@/components/HeroBanner';
 import { Footer } from '@/components/Footer';
-import { Product, Category } from '@/types';
+import { Product, Category, BannerItem, StoreSettings } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { DEPARTMENTS, Department, findDepartmentForCategory } from '@/lib/data/departments';
 import { Search, ArrowDown, X } from 'lucide-react';
@@ -17,11 +17,19 @@ interface CatalogClientProps {
   initialProducts: Product[];
   categories: Category[];
   initialDepartments?: Department[];
+  initialBanners?: BannerItem[];
+  initialSettings?: StoreSettings;
 }
 
 const ITEMS_PER_PAGE = 30; // Mais itens por página aproveitando o layout widescreen
 
-export function CatalogClient({ initialProducts, categories, initialDepartments }: CatalogClientProps) {
+export function CatalogClient({
+  initialProducts,
+  categories,
+  initialDepartments,
+  initialBanners,
+  initialSettings,
+}: CatalogClientProps) {
   const departments = initialDepartments && initialDepartments.length > 0 ? initialDepartments : DEPARTMENTS;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
@@ -167,6 +175,7 @@ export function CatalogClient({ initialProducts, categories, initialDepartments 
 
       {/* 2. Banner Slide em Formato Stage Card com Prévia Lateral (Conforme Referência) */}
       <HomeSlideBanner
+        banners={initialBanners}
         onBannerAction={handleBannerAction}
         onSelectDepartment={handleDepartmentSelect}
         onSelectCategory={handleCategorySelect}
@@ -303,7 +312,7 @@ export function CatalogClient({ initialProducts, categories, initialDepartments 
       />
 
       {/* 7. Rodapé */}
-      <Footer />
+      <Footer settings={initialSettings} />
     </div>
   );
 }

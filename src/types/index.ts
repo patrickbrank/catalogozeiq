@@ -88,3 +88,20 @@ export interface Order {
   created_at?: string;
   updated_at?: string;
 }
+
+export interface BannerItem {
+  id: string;
+  title: string;
+  desktopImage: string;
+  mobileImage: string;
+  link?: string;
+  isActive: boolean;
+  order: number;
+}
+
+export interface StoreSettings {
+  whatsappNumber: string;
+  contactEmail: string;
+  siteName?: string;
+}
+

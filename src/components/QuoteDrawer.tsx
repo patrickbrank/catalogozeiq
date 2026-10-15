@@ -24,11 +24,20 @@ export function QuoteDrawer() {
   const generateWhatsAppLink = useQuoteCart((state) => state.generateWhatsAppLink);
   const generateEmailLink = useQuoteCart((state) => state.generateEmailLink);
 
-  const whatsappPhone = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020';
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br';
+  const [whatsappPhone, setWhatsappPhone] = useState(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020');
+  const [contactEmail, setContactEmail] = useState(process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br');
 
   useEffect(() => {
     setMounted(true);
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings) {
+          if (data.settings.whatsappNumber) setWhatsappPhone(data.settings.whatsappNumber);
+          if (data.settings.contactEmail) setContactEmail(data.settings.contactEmail);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
