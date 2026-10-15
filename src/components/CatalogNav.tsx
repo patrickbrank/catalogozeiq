@@ -32,6 +32,7 @@ export function CatalogNav({
 }: CatalogNavProps) {
   const activeDepartments = customDepartments && customDepartments.length > 0 ? customDepartments : DEPARTMENTS;
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
+  const [mobileExpandedDept, setMobileExpandedDept] = useState<string | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -407,147 +408,267 @@ export function CatalogNav({
           onMouseEnter={handleMouseEnter}
           className="absolute left-0 right-0 top-full bg-white border-b border-slate-300 shadow-2xl z-40 transition-all duration-200 animate-in fade-in slide-in-from-top-1 max-h-[82vh] overflow-y-auto"
         >
-          <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
+          <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-8">
             
-            {/* Cabeçalho do Mega-Menu */}
-            <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200">
-              <div>
-                <h3 className="text-sm sm:text-base font-extrabold text-zeiq-black tracking-tight flex items-center gap-2">
-                  <Grid className="w-4 h-4 text-zeiq-orange" />
-                  <span>Índice Completo do Catálogo ({products.length} itens em 35 categorias)</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Selecione uma subcategoria ou clique no departamento para ver todos os produtos daquela linha.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-zeiq-black hover:bg-slate-100 transition-colors"
-                >
-                  Ver Catálogo Inteiro
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMegaMenuOpen(false)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-zeiq-black hover:bg-slate-100 transition-colors"
-                  aria-label="Fechar índice"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Banner de Acesso Rápido a Lançamentos no Mega-Menu */}
-            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center font-bold text-lg shrink-0">
-                  🔥
-                </div>
+            {/* 1. VISÃO DESKTOP (md:block) - Mega-Menu Panorâmico de 4 Colunas */}
+            <div className="hidden md:block">
+              {/* Cabeçalho do Mega-Menu Desktop */}
+              <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200">
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-zeiq-black flex items-center gap-2">
-                    <span>Novidades & Lançamentos Oficiais</span>
-                    <span className="text-[10px] bg-amber-500 text-black font-extrabold px-1.5 py-0.2 rounded">
-                      NOVO
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Confira as {lancamentosCount} novas peças e equipamentos recém-adicionados ao catálogo de revenda.
+                  <h3 className="text-base font-extrabold text-zeiq-black tracking-tight flex items-center gap-2">
+                    <Grid className="w-4 h-4 text-zeiq-orange" />
+                    <span>Índice Completo do Catálogo ({products.length} itens em 35 categorias)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Selecione uma subcategoria ou clique no departamento para ver todos os produtos daquela linha.
                   </p>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-zeiq-black hover:bg-slate-100 transition-colors border border-slate-200"
+                  >
+                    Ver Catálogo Inteiro
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsMegaMenuOpen(false)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-zeiq-black hover:bg-slate-100 transition-colors"
+                    aria-label="Fechar índice"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => handleDepartmentClick('lancamentos')}
-                className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 self-start sm:self-auto shrink-0 shadow-xs active:scale-95"
-              >
-                <span>Ver Todos os Lançamentos ({lancamentosCount})</span>
-                <ArrowRight className="w-3.5 h-3.5 text-zeiq-orange" />
-              </button>
-            </div>
+              {/* Banner de Acesso Rápido a Lançamentos no Mega-Menu Desktop */}
+              <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/25 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 flex items-center justify-center font-bold text-lg shrink-0">
+                    🔥
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-zeiq-black flex items-center gap-2">
+                      <span>Novidades & Lançamentos Oficiais 2026</span>
+                      <span className="text-[10px] bg-amber-500 text-black font-extrabold px-1.5 py-0.2 rounded">
+                        NOVO
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Confira as {lancamentosCount} novas peças e equipamentos recém-adicionados ao catálogo de revenda.
+                    </p>
+                  </div>
+                </div>
 
-            {/* Grid de Colunas Nítidas e Bem Estruturadas por Departamento */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-              {activeDepartments.map((dept) => {
-                const deptCats = departmentCategoriesMap[dept.id] || [];
-                const totalDept = departmentCounts[dept.id] || 0;
+                <button
+                  type="button"
+                  onClick={() => handleDepartmentClick('lancamentos')}
+                  className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-xs active:scale-95"
+                >
+                  <span>Ver Todos os Lançamentos ({lancamentosCount})</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-zeiq-orange" />
+                </button>
+              </div>
 
-                return (
-                  <div
-                    key={dept.id}
-                    className="flex flex-col bg-slate-50 rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-2xs"
-                  >
-                    {/* Cabeçalho da Coluna com Link Direto para o Departamento */}
-                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
-                      <div>
-                        <h4 className="text-xs sm:text-sm font-black text-zeiq-black uppercase tracking-wider">
-                          {dept.name}
-                        </h4>
-                        <span className="text-[11px] font-mono text-slate-500 font-semibold">
-                          {totalDept} {totalDept === 1 ? 'produto' : 'produtos'}
-                        </span>
+              {/* Grid de 4 Colunas Desktop */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+                {activeDepartments.map((dept) => {
+                  const deptCats = departmentCategoriesMap[dept.id] || [];
+                  const totalDept = departmentCounts[dept.id] || 0;
+
+                  return (
+                    <div
+                      key={dept.id}
+                      className="flex flex-col bg-slate-50 rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-black text-zeiq-black uppercase tracking-wider">
+                            {dept.name}
+                          </h4>
+                          <span className="text-[11px] font-mono text-slate-500 font-semibold">
+                            {totalDept} {totalDept === 1 ? 'produto' : 'produtos'}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDepartmentClick(dept.id)}
+                          className="p-1.5 text-xs font-bold text-zeiq-black hover:text-zeiq-orange transition-colors flex items-center gap-1"
+                          title={`Ver todos de ${dept.name}`}
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleDepartmentClick(dept.id)}
-                        className="p-1.5 text-xs font-bold text-zeiq-black hover:text-zeiq-orange transition-colors flex items-center gap-1"
-                        title={`Ver todos de ${dept.name}`}
+                        className="w-full text-left py-1.5 px-2.5 rounded-lg mb-2 text-xs font-bold bg-white hover:bg-zeiq-black hover:text-white transition-all border border-slate-200 text-zeiq-black flex items-center justify-between group shadow-2xs"
                       >
-                        <ArrowRight className="w-4 h-4" />
+                        <span>Ver Todos de {dept.shortName}</span>
+                        <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:translate-x-0.5 transition-transform" />
                       </button>
-                    </div>
 
-                    {/* Botão de Ver Todos do Departamento */}
-                    <button
-                      type="button"
-                      onClick={() => handleDepartmentClick(dept.id)}
-                      className="w-full text-left py-1.5 px-2.5 rounded-lg mb-2 text-xs font-bold bg-white hover:bg-zeiq-black hover:text-white transition-all border border-slate-200 text-zeiq-black flex items-center justify-between group shadow-2xs"
-                    >
-                      <span>Ver Todos de {dept.shortName}</span>
-                      <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:translate-x-0.5 transition-transform" />
-                    </button>
+                      <ul className="space-y-1">
+                        {deptCats.map((cat) => {
+                          const count = categoryCounts[cat.slug] || categoryCounts[cat.name] || 0;
+                          const isSelected = selectedCategory === cat.slug;
 
-                    {/* Lista de Subcategorias da Coluna - Sem mini-scrollbars internas */}
-                    <ul className="space-y-1">
-                      {deptCats.map((cat) => {
-                        const count = categoryCounts[cat.slug] || categoryCounts[cat.name] || 0;
-                        const isSelected = selectedCategory === cat.slug;
-
-                        return (
-                          <li key={cat.id}>
-                            <button
-                              type="button"
-                              onClick={() => handleSubcategoryClick(cat.slug)}
-                              className={`w-full text-left py-1.5 px-2.5 rounded-lg text-xs transition-all flex items-center justify-between group ${
-                                isSelected
-                                  ? 'bg-zeiq-black text-white font-bold'
-                                  : 'text-slate-700 hover:text-zeiq-black hover:bg-white'
-                              }`}
-                            >
-                              <span className="truncate group-hover:translate-x-0.5 transition-transform">
-                                {cat.name}
-                              </span>
-                              <span
-                                className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 ml-2 ${
+                          return (
+                            <li key={cat.id}>
+                              <button
+                                type="button"
+                                onClick={() => handleSubcategoryClick(cat.slug)}
+                                className={`w-full text-left py-1.5 px-2.5 rounded-lg text-xs transition-all flex items-center justify-between group ${
                                   isSelected
-                                    ? 'bg-white/20 text-white'
-                                    : 'bg-slate-200 text-slate-700 group-hover:bg-slate-300'
+                                    ? 'bg-zeiq-black text-white font-bold'
+                                    : 'text-slate-700 hover:text-zeiq-black hover:bg-white'
                                 }`}
                               >
-                                {count}
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                );
-              })}
+                                <span className="truncate group-hover:translate-x-0.5 transition-transform">
+                                  {cat.name}
+                                </span>
+                                <span
+                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 ml-2 ${
+                                    isSelected
+                                      ? 'bg-white/20 text-white'
+                                      : 'bg-slate-200 text-slate-700 group-hover:bg-slate-300'
+                                  }`}
+                                >
+                                  {count}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. VISÃO EXCLUSIVA MOBILE (md:hidden) - Gaveta Nativa com Acordeom e Toque Fácil */}
+            <div className="md:hidden space-y-3.5">
+              {/* Cabeçalho Mobile */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <Grid className="w-4 h-4 text-zeiq-orange" />
+                  <h3 className="text-sm font-extrabold text-zeiq-black tracking-tight">
+                    Categorias do Catálogo
+                  </h3>
+                  <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+                    {products.length} itens
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsMegaMenuOpen(false)}
+                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
+                  aria-label="Fechar índice"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Ações Rápidas no Topo do Mobile */}
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-zeiq-black text-white text-xs font-bold flex items-center justify-between shadow-xs active:scale-98"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>⚡ Ver Catálogo Completo</span>
+                  </span>
+                  <span className="text-[10px] opacity-80 font-mono">({products.length} produtos)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDepartmentClick('lancamentos')}
+                  className="w-full py-2.5 px-3.5 rounded-xl bg-amber-100 text-amber-950 text-xs font-bold flex items-center justify-between border border-amber-300/80 active:scale-98"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>🔥 Lançamentos Oficiais</span>
+                    <span className="text-[9px] bg-amber-500 text-black px-1.5 py-0.2 rounded font-extrabold">NOVO</span>
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-amber-900">({lancamentosCount})</span>
+                </button>
+              </div>
+
+              {/* Acordeom de Departamentos no Mobile */}
+              <div className="space-y-2 pt-1">
+                {activeDepartments.map((dept) => {
+                  const deptCats = departmentCategoriesMap[dept.id] || [];
+                  const totalDept = departmentCounts[dept.id] || 0;
+                  const isExpanded = mobileExpandedDept === dept.id;
+
+                  return (
+                    <div
+                      key={dept.id}
+                      className="rounded-xl border border-slate-200 bg-[#f8f9fa] overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setMobileExpandedDept(isExpanded ? null : dept.id)}
+                        className="w-full p-3 flex items-center justify-between text-left active:bg-slate-100"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-xs text-zeiq-black uppercase tracking-wider">
+                            {dept.name}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-700">
+                            {totalDept}
+                          </span>
+                        </div>
+
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180 text-zeiq-orange' : ''}`} />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="p-3 bg-white border-t border-slate-200 space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDepartmentClick(dept.id)}
+                            className="w-full py-2 px-3 rounded-lg bg-slate-100 text-zeiq-black text-xs font-bold flex items-center justify-between active:bg-slate-200"
+                          >
+                            <span>Ver Todos de {dept.shortName}</span>
+                            <ArrowRight className="w-3.5 h-3.5 opacity-60" />
+                          </button>
+
+                          <div className="grid grid-cols-2 gap-1.5 pt-1">
+                            {deptCats.map((cat) => {
+                              const count = categoryCounts[cat.slug] || 0;
+                              const isSelected = selectedCategory === cat.slug;
+
+                              return (
+                                <button
+                                  key={cat.id}
+                                  type="button"
+                                  onClick={() => handleSubcategoryClick(cat.slug)}
+                                  className={`py-2 px-2.5 rounded-lg text-xs text-left flex items-center justify-between truncate active:scale-98 ${
+                                    isSelected
+                                      ? 'bg-zeiq-black text-white font-bold'
+                                      : 'bg-[#f8f9fa] text-slate-700 hover:bg-slate-100 border border-slate-100'
+                                  }`}
+                                >
+                                  <span className="truncate">{cat.name}</span>
+                                  <span className="text-[10px] font-mono opacity-70 ml-1 shrink-0">{count}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
           </div>
