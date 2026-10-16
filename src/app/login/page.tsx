@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Mail, Lock, Loader2, AlertCircle, MessageCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 
@@ -157,15 +156,6 @@ export default function B2BLoginPage() {
                 <MessageCircle className="w-4 h-4" />
                 <span>Solicitar Cadastro no WhatsApp</span>
               </a>
-            </div>
-
-            <div className="pt-2">
-              <Link
-                href="/admin/login"
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors inline-block"
-              >
-                Painel Administrativo da Zeiq →
-              </Link>
             </div>
           </div>
         </div>

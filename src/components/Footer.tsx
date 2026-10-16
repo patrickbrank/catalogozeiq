@@ -15,7 +15,6 @@ import {
   ArrowUp,
   Sparkles,
   PhoneCall,
-  Lock,
 } from 'lucide-react';
 import { StoreSettings } from '@/types';
 
@@ -297,35 +296,25 @@ export function Footer({ settings: initialSettings }: FooterProps) {
 
         {/* 3. RODAPÉ FINAL COM COPYRIGHT & VOLTAR AO TOPO */}
         <div className="mt-10 pt-6 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div>
+          <div className="text-center sm:text-left">
             <p>© {currentYear} Zeiq Sports. Todos os direitos reservados.</p>
             <p className="text-[11px] text-slate-600 mt-0.5">
               Catálogo de revenda e cotações de atacado exclusivo para pessoas jurídicas, lojistas e arenas esportivas.
             </p>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
-            <Link href="/portal" className="text-slate-400 hover:text-white transition-colors">
+          <div className="flex items-center justify-center sm:justify-end gap-3 sm:gap-4 text-[11px] flex-wrap sm:flex-nowrap">
+            <Link href="/portal" className="text-slate-400 hover:text-white transition-colors whitespace-nowrap">
               Rastrear Pedido
             </Link>
-            <span>•</span>
-            <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors">
+            <span className="text-slate-600 select-none">•</span>
+            <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors whitespace-nowrap">
               Portal do Revendedor
             </Link>
-            <span>•</span>
-            <Link
-              href="/admin/login"
-              className="text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1"
-              title="Acesso restrito à gestão"
-            >
-              <Lock className="w-3 h-3 text-slate-600" />
-              <span>Gestão</span>
-            </Link>
-            <span>•</span>
             <button
               type="button"
               onClick={scrollToTop}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-white/[0.08] active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-white/[0.08] active:scale-95 whitespace-nowrap ml-1 sm:ml-2"
               aria-label="Voltar ao início da página"
             >
               <span>Subir ao topo</span>

@@ -13,6 +13,15 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Zeiq - Catálogo Oficial de Revenda e Cotação',
   description: 'Catálogo de Beach Tennis, moda esportiva e acessórios da Zeiq para revenda e atacado. Monte seu pedido e solicite cotação direta via WhatsApp.',
+  icons: {
+    icon: [
+      { url: '/images/logo-zeiq-icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/images/logo-zeiq-icon.png', sizes: '192x192', type: 'image/png' },
+      { url: '/images/logo-zeiq-icon.png', sizes: '296x296', type: 'image/png' },
+    ],
+    shortcut: '/images/logo-zeiq-icon.png',
+    apple: '/images/logo-zeiq-icon.png',
+  },
   openGraph: {
     title: 'Zeiq - Catálogo Oficial de Revenda',
     description: 'Catálogo oficial de Beach Tennis e vestuário esportivo para revenda e atacado.',
