@@ -229,14 +229,14 @@ export function CatalogNav({
       onMouseLeave={handleMouseLeave}
       className="sticky top-16 sm:top-20 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs font-sans z-30"
     >
-      <div ref={navInnerRef} className="max-w-[1720px] mx-auto pl-4 pr-0 sm:pl-6 sm:pr-0 lg:px-10 relative">
+      <div ref={navInnerRef} className="max-w-[1720px] mx-auto px-0 lg:px-10 relative">
         
         {/* NÍVEL 1: Barra Principal com os 6 Departamentos Oficiais Zeiq */}
         <div className="flex items-center justify-between gap-3 pt-2 sm:pt-2.5 pb-2">
           
           <nav
             aria-label="Departamentos do Catálogo"
-            className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full"
+            className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full px-4 sm:px-6 lg:px-0"
           >
             {/* 1. LANÇAMENTOS COM SUBMENU */}
             <button
@@ -403,7 +403,7 @@ export function CatalogNav({
 
         {/* NÍVEL 2: Faixa Contextual de Subcategorias em ORDEM ALFABÉTICA (Escala Confortável no Desktop) */}
         {activeSubcategories.length > 0 && (
-          <div className="pt-2 pb-2.5 border-t border-slate-100 flex items-center gap-1.5 lg:gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full">
+          <div className="pt-2 pb-2.5 border-t border-slate-100 flex items-center gap-1.5 lg:gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full px-4 sm:px-6 lg:px-0">
             
             {/* Pílula de "Ver Todos" do Departamento ou Lançamentos Selecionado */}
             {selectedDepartment === 'lancamentos' && (
