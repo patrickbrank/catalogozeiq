@@ -28,6 +28,8 @@ export function ProductFormModal({
   const activeDepts = departments && departments.length > 0 ? departments : DEFAULT_DEPARTMENTS;
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
+  const [price, setPrice] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
   const [description, setDescription] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -54,6 +56,8 @@ export function ProductFormModal({
     if (product) {
       setName(product.name || '');
       setSku(product.code_sku || '');
+      setPrice(product.price != null ? product.price.toString().replace('.', ',') : '');
+      setOriginalPrice(product.original_price != null ? product.original_price.toString().replace('.', ',') : '');
       const parsedSpecs = parseProductSpecifications(product.description, product.highlights);
       const parsedSizes = parseProductSizes(parsedSpecs.cleanDescription, product.sizes);
       setDescription(parsedSizes.cleanDescription || '');
@@ -79,6 +83,8 @@ export function ProductFormModal({
     } else {
       setName('');
       setSku('');
+      setPrice('');
+      setOriginalPrice('');
       setDescription('');
       setHighlights([
         { label: '', value: '' },
@@ -229,39 +235,64 @@ export function ProductFormModal({
 
       let productId = product?.id;
 
+      const numPrice = price.trim() ? parseFloat(price.replace(/\./g, '').replace(',', '.')) : null;
+      const numOriginalPrice = originalPrice.trim() ? parseFloat(originalPrice.replace(/\./g, '').replace(',', '.')) : null;
+
+      const basePayload: any = {
+        name,
+        code_sku: sku.trim() || null,
+        description: cleanDesc,
+        is_published: isPublished,
+        is_featured: isFeatured,
+        tags,
+      };
+
+      if (numPrice != null && !isNaN(numPrice)) {
+        basePayload.price = numPrice;
+      } else {
+        basePayload.price = null;
+      }
+
+      if (numOriginalPrice != null && !isNaN(numOriginalPrice)) {
+        basePayload.original_price = numOriginalPrice;
+      } else {
+        basePayload.original_price = null;
+      }
+
       if (product) {
         // Atualizar produto existente
-        const { error: updateError } = await supabase
+        let { error: updateError } = await supabase
           .from('products')
-          .update({
-            name,
-            code_sku: sku.trim() || null,
-            description: cleanDesc,
-            is_published: isPublished,
-            is_featured: isFeatured,
-            tags,
-          })
+          .update(basePayload)
           .eq('id', product.id);
+
+        if (updateError && updateError.message?.includes('price')) {
+          delete basePayload.price;
+          delete basePayload.original_price;
+          const retry = await supabase.from('products').update(basePayload).eq('id', product.id);
+          updateError = retry.error;
+        }
 
         if (updateError) throw updateError;
       } else {
         // Inserir novo produto
-        const { data: newProd, error: insertError } = await supabase
+        let insertPayload = { ...basePayload, slug };
+        let { data: newProd, error: insertError } = await supabase
           .from('products')
-          .insert({
-            name,
-            slug,
-            code_sku: sku.trim() || null,
-            description: cleanDesc,
-            is_published: isPublished,
-            is_featured: isFeatured,
-            tags,
-          })
+          .insert(insertPayload)
           .select('id')
           .single();
 
+        if (insertError && insertError.message?.includes('price')) {
+          delete insertPayload.price;
+          delete insertPayload.original_price;
+          const retry = await supabase.from('products').insert(insertPayload).select('id').single();
+          newProd = retry.data;
+          insertError = retry.error;
+        }
+
         if (insertError) throw insertError;
-        productId = newProd.id;
+        productId = newProd?.id;
       }
 
       if (productId) {
@@ -357,6 +388,47 @@ export function ProductFormModal({
                 placeholder="Ex: 5001.003"
                 className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-zeiq-black font-mono"
               />
+            </div>
+          </div>
+
+          {/* Preços e Condições Comerciais B2B */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80">
+            <div>
+              <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
+                <span>Preço de Atacado / Revenda (R$)</span>
+                <span className="text-[10px] text-emerald-700 font-normal">Exibido aos lojistas</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-800">
+                  R$
+                </span>
+                <input
+                  type="text"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="0,00"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm font-bold bg-white border border-emerald-300 rounded-xl text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-300"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Preço Sugerido Varejo (R$)</span>
+                <span className="text-[10px] text-slate-500 font-normal">Opcional</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
+                  R$
+                </span>
+                <input
+                  type="text"
+                  value={originalPrice}
+                  onChange={(e) => setOriginalPrice(e.target.value)}
+                  placeholder="0,00"
+                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-zeiq-black placeholder:text-slate-300"
+                />
+              </div>
             </div>
           </div>
 

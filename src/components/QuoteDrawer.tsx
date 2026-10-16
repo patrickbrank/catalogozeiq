@@ -3,14 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { X, Trash2, Send, Mail, ShoppingBag, Plus, Minus, ArrowRight, Layers, UserCheck } from 'lucide-react';
+import { X, Trash2, Send, Mail, ShoppingBag, Plus, Minus, ArrowRight, ArrowLeft, Layers, UserCheck } from 'lucide-react';
 import { useQuoteCart } from '@/lib/store/quote-cart';
+import { createClient } from '@/lib/supabase/client';
 
 export function QuoteDrawer() {
   const [mounted, setMounted] = useState(false);
   const [buyerName, setBuyerName] = useState('');
   const [buyerCompany, setBuyerCompany] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [isEditingBuyer, setIsEditingBuyer] = useState(false);
   const [openNotesIds, setOpenNotesIds] = useState<Record<string, boolean>>({});
 
   const isOpen = useQuoteCart((state) => state.isOpen);
@@ -30,6 +32,17 @@ export function QuoteDrawer() {
 
   useEffect(() => {
     setMounted(true);
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const meta = user.user_metadata || {};
+        if (meta.contact_name) setBuyerName(meta.contact_name);
+        else if (user.email) setBuyerName(user.email.split('@')[0]);
+        if (meta.store_name) setBuyerCompany(meta.store_name);
+        if (meta.phone) setBuyerPhone(meta.phone);
+      }
+    });
+
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
@@ -159,11 +172,13 @@ export function QuoteDrawer() {
             </div>
 
             <button
+              type="button"
               onClick={() => setIsOpen(false)}
-              className="w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-zeiq-black flex items-center justify-center transition-colors"
-              aria-label="Fechar lista"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-zeiq-black text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
+              title="Voltar para o catálogo"
             >
-              <X className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 text-zeiq-orange" />
+              <span>Voltar</span>
             </button>
           </div>
 
@@ -229,6 +244,17 @@ export function QuoteDrawer() {
                           <span className="text-[10px] font-mono text-slate-500 font-medium block mt-0.5">
                             SKU: {item.sku}
                           </span>
+                        )}
+
+                        {item.price != null && item.price > 0 && (
+                          <div className="flex items-center gap-1.5 mt-1 text-xs">
+                            <span className="font-extrabold text-zeiq-black font-mono">
+                              R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              (Subtotal: R$ {(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                            </span>
+                          </div>
                         )}
 
                         {/* EXIBIÇÃO DA GRADE DETALHADA POR TAMANHOS (CONTROLES AUMENTADOS) */}
@@ -335,52 +361,105 @@ export function QuoteDrawer() {
           {/* Rodapé da Gaveta com Visual Redesenhado, Limpo e Moderno */}
           {items.length > 0 && (
             <div className="p-4 sm:p-5 border-t border-slate-200 bg-white space-y-2.5">
-              <div className="space-y-1.5">
-                <input
-                  type="text"
-                  value={buyerName}
-                  onChange={(e) => setBuyerName(e.target.value)}
-                  placeholder="Seu nome ou responsável"
-                  className="w-full px-3.5 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black"
-                />
-                <input
-                  type="text"
-                  value={buyerCompany}
-                  onChange={(e) => setBuyerCompany(e.target.value)}
-                  placeholder="Nome da sua loja ou arena"
-                  className="w-full px-3.5 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black"
-                />
-                <input
-                  type="tel"
-                  value={buyerPhone}
-                  onChange={(e) => setBuyerPhone(e.target.value)}
-                  placeholder="Seu WhatsApp com DDD (para confirmação)"
-                  className="w-full px-3.5 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black"
-                />
+              {/* Resumo de Peças e Total Estimado */}
+              <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Quantidade Total:</span>
+                  <span className="font-extrabold text-zeiq-black font-mono">{totalItemsCount} peças</span>
+                </div>
+                {items.some((it) => it.price != null && it.price > 0) && (
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
+                    <span className="font-bold text-zeiq-black">Total Estimado Atacado:</span>
+                    <span className="text-sm font-extrabold text-emerald-700 font-mono">
+                      R$ {items.reduce((sum, it) => sum + ((it.price || 0) * it.quantity), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* Botão de Envio WhatsApp com acabamento sofisticado */}
+              {/* Dados do Comprador Cadastrado (Compacto para liberar espaço para ver os produtos) */}
+              <div className="p-2.5 bg-[#f8f9fa] rounded-xl border border-slate-200/80">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <UserCheck className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
+                    <span className="font-bold text-zeiq-black truncate">
+                      {buyerName || 'Lojista Zeiq'}
+                    </span>
+                    {buyerCompany && (
+                      <span className="text-slate-400 text-[11px] truncate hidden xs:inline">
+                        • {buyerCompany}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingBuyer(!isEditingBuyer)}
+                    className="text-[11px] font-bold text-slate-500 hover:text-zeiq-black ml-2 shrink-0 underline cursor-pointer"
+                  >
+                    {isEditingBuyer ? 'Recolher' : 'Alterar dados'}
+                  </button>
+                </div>
+
+                {isEditingBuyer && (
+                  <div className="space-y-1.5 pt-2 mt-2 border-t border-slate-200 animate-in fade-in">
+                    <input
+                      type="text"
+                      value={buyerName}
+                      onChange={(e) => setBuyerName(e.target.value)}
+                      placeholder="Seu nome ou responsável"
+                      className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                    <input
+                      type="text"
+                      value={buyerCompany}
+                      onChange={(e) => setBuyerCompany(e.target.value)}
+                      placeholder="Nome da sua loja ou arena"
+                      className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                    <input
+                      type="tel"
+                      value={buyerPhone}
+                      onChange={(e) => setBuyerPhone(e.target.value)}
+                      placeholder="Seu WhatsApp com DDD (para confirmação)"
+                      className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Botão de Envio WhatsApp (Ação Principal com Altura 48px e Raio Padronizado) */}
               <button
                 type="button"
                 onClick={handleSendWhatsApp}
-                className="w-full h-11 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98"
+                className="w-full h-12 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 cursor-pointer"
               >
                 <Send className="w-4 h-4" />
-                Enviar Pedido via WhatsApp
+                <span>Enviar Pedido via WhatsApp</span>
               </button>
 
-              {/* Botão Secundário Limpo em Outline */}
-              <button
-                type="button"
-                onClick={handleSendEmail}
-                className="w-full h-9 px-4 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-md text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-              >
-                <Mail className="w-3.5 h-3.5 text-slate-500" />
-                Enviar Cotação por E-mail
-              </button>
+              {/* Botões Secundários em Linha com Alturas e Bordas 100% Harmônicas */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full h-11 px-3 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer border border-slate-200"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
+                  <span className="truncate">Voltar ao Catálogo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendEmail}
+                  className="w-full h-11 px-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+                >
+                  <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span className="truncate">Enviar por E-mail</span>
+                </button>
+              </div>
 
               {/* Link de Acesso ao Portal do Revendedor */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px] pb-1 sm:pb-0">
                 <Link
                   href="/portal"
                   onClick={() => setIsOpen(false)}
@@ -393,7 +472,7 @@ export function QuoteDrawer() {
                 <button
                   type="button"
                   onClick={clearCart}
-                  className="text-slate-400 hover:text-rose-600 transition-colors"
+                  className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                 >
                   Limpar lista
                 </button>

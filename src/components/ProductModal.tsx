@@ -196,14 +196,37 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                   {product.name}
                 </h2>
 
-                {/* Box Comercial Sóbrio */}
-                <div className="p-3 bg-[#f8f9fa] rounded-lg border border-slate-200 mb-4">
-                  <div className="text-xs font-semibold text-zeiq-black mb-0.5">
-                    Preço sob consulta (Revenda e Atacado)
-                  </div>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Tabela de valores e prazos calculados conforme a quantidade total de peças do pedido.
-                  </p>
+                {/* Box Comercial Sóbrio com Preço B2B */}
+                <div className="p-3 bg-[#f8f9fa] rounded-xl border border-slate-200 mb-4">
+                  {product.price != null && product.price > 0 ? (
+                    <div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-lg sm:text-xl font-extrabold text-zeiq-black font-mono">
+                          R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-500">/ unidade atacado</span>
+                        {product.original_price != null && product.original_price > product.price && (
+                          <span className="text-xs line-through text-slate-400 font-mono">
+                            R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                      {(hasSizes ? totalGradePieces > 0 : simpleQuantity > 0) && (
+                        <p className="text-xs font-bold text-emerald-700 mt-1">
+                          Subtotal deste item: R$ {((hasSizes ? totalGradePieces : simpleQuantity) * product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xs font-semibold text-zeiq-black mb-0.5">
+                        Preço sob consulta (Revenda e Atacado)
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Tabela de valores e prazos calculados conforme a quantidade total de peças do pedido.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* MATRIZ DE GRADE DE ATACADO (Ultra-compacta e elegante) */}

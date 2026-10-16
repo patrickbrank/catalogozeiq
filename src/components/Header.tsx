@@ -4,10 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, ShoppingBag, X, Package, ArrowRight, Sparkles } from 'lucide-react';
+import { Search, ShoppingBag, X, Package, ArrowRight, Sparkles, LogOut, User, ShieldCheck, ChevronDown } from 'lucide-react';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { Product } from '@/types';
 import { normalizeSearchText } from '@/components/CatalogClient';
+import { createClient } from '@/lib/supabase/client';
 
 interface HeaderProps {
   searchQuery: string;
@@ -20,24 +21,34 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const items = useQuoteCart((state) => state.items);
   const setIsOpen = useQuoteCart((state) => state.setIsOpen);
 
   useEffect(() => {
     setMounted(true);
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
   }, []);
 
   const totalItems = mounted ? items.reduce((acc, item) => acc + item.quantity, 0) : 0;
 
-  // Fecha dropdown ao clicar fora
+  // Fecha dropdowns ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setIsDropdownOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -91,6 +102,13 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
     } else {
       onSearchChange(product.code_sku || product.name);
     }
+  };
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
   };
 
   return (
@@ -254,6 +272,141 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                 </span>
               )}
             </button>
+
+            {/* 3. Chip Executivo de Perfil & Menu Suspenso (Desktop, Tablet e Mobile) */}
+            {mounted && currentUser && (
+              <div ref={profileRef} className="relative">
+                {(() => {
+                  const userDisplayName = currentUser.user_metadata?.store_name || currentUser.user_metadata?.contact_name || currentUser.email?.split('@')[0] || 'Parceiro';
+                  const userInitial = (userDisplayName[0] || 'Z').toUpperCase();
+                  const userAvatarUrl = currentUser.user_metadata?.avatar_url;
+                  const isMasterOrAdmin = currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com' || currentUser.user_metadata?.role === 'admin' || currentUser.app_metadata?.role === 'admin';
+
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-full sm:rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 transition-all text-left shadow-2xs group cursor-pointer active:scale-95"
+                        title="Abrir menu da conta"
+                        aria-expanded={isProfileOpen}
+                      >
+                        {/* Avatar Circular com Inicial ou Imagem do Perfil */}
+                        <div className="w-8 h-8 rounded-full bg-zeiq-black text-white text-xs font-black flex items-center justify-center shrink-0 border border-white/20 shadow-xs ring-2 ring-black/5 overflow-hidden">
+                          {userAvatarUrl ? (
+                            <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            userInitial
+                          )}
+                        </div>
+
+                        {/* Informações Textuais (Visíveis em Desktop e Tablet) */}
+                        <div className="hidden sm:flex flex-col min-w-0 pr-0.5">
+                          <span className="text-xs font-bold text-zeiq-black truncate max-w-[110px] leading-tight">
+                            {userDisplayName}
+                          </span>
+                          <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+                            {isMasterOrAdmin ? (
+                              <span className="text-zeiq-orange font-bold uppercase tracking-wider text-[9px] flex items-center gap-0.5">
+                                <ShieldCheck className="w-2.5 h-2.5" />
+                                Admin
+                              </span>
+                            ) : (
+                              <span>Parceiro B2B</span>
+                            )}
+                          </span>
+                        </div>
+
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 hidden sm:block ${isProfileOpen ? 'rotate-180 text-zeiq-black' : ''}`} />
+                      </button>
+
+                      {/* Popover Card Flutuante de Perfil */}
+                      {isProfileOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-1">
+                          {/* Cabeçalho do Card */}
+                          <div className="flex items-start gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 mb-2">
+                            <div className="w-10 h-10 rounded-full bg-zeiq-black text-white text-sm font-black flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                              {userAvatarUrl ? (
+                                <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                userInitial
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-xs font-bold text-zeiq-black truncate">
+                                {userDisplayName}
+                              </h4>
+                              <p className="text-[11px] font-mono text-slate-500 truncate mt-0.5">
+                                {currentUser.email}
+                              </p>
+                              <div className="mt-1.5">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  isMasterOrAdmin
+                                    ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isMasterOrAdmin ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                  {isMasterOrAdmin ? 'Administrador Zeiq' : 'Lojista Autorizado'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Ações Rápidas */}
+                          <div className="space-y-1">
+                            <Link
+                              href="/portal"
+                              onClick={() => setIsProfileOpen(false)}
+                              className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-700 hover:text-zeiq-black hover:bg-slate-100 transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4 text-slate-500" />
+                                <span>Meus Pedidos & Cotações</span>
+                              </div>
+                              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                            </Link>
+
+                            {isMasterOrAdmin && (
+                              <Link
+                                href="/admin"
+                                onClick={() => setIsProfileOpen(false)}
+                                className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-zeiq-black hover:bg-amber-50 hover:text-amber-950 transition-colors border border-transparent hover:border-amber-200/80"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <ShieldCheck className="w-4 h-4 text-zeiq-orange" />
+                                  <span>Painel Administrativo B2B</span>
+                                </div>
+                                <span className="text-[9px] font-mono font-bold bg-zeiq-orange text-black px-1.5 py-0.2 rounded">
+                                  MASTER
+                                </span>
+                              </Link>
+                            )}
+                          </div>
+
+                          {/* Linha de Logout */}
+                          <div className="pt-2 mt-2 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsProfileOpen(false);
+                                handleLogout();
+                              }}
+                              className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <LogOut className="w-4 h-4" />
+                                <span>Sair da Conta</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-mono">Logout</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </div>
 

@@ -32,6 +32,10 @@ import {
   TrendingUp,
   Eye,
   LogOut,
+  Edit3,
+  Upload,
+  Camera,
+  MapPin,
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -115,6 +119,116 @@ export default function ResellerPortalPage() {
   // Configurações dinâmicas de contato
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
 
+  // Estados para Edição de Perfil do Cliente
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editStoreName, setEditStoreName] = useState('');
+  const [editContactName, setEditContactName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editCnpjCpf, setEditCnpjCpf] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCep, setEditCep] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editState, setEditState] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const handleOpenEditProfile = () => {
+    const meta = user?.user_metadata || {};
+    setEditStoreName(profile?.store_name || meta.store_name || '');
+    setEditContactName(profile?.contact_name || meta.contact_name || '');
+    setEditPhone(profile?.phone || meta.phone || '');
+    setEditCnpjCpf(profile?.cnpj_cpf || meta.cnpj_cpf || '');
+    setEditAddress(profile?.address || meta.address || '');
+    setEditCep(profile?.cep || meta.cep || '');
+    setEditCity(profile?.city || meta.city || '');
+    setEditState(profile?.state || meta.state || '');
+    setEditAvatarUrl(profile?.avatar_url || meta.avatar_url || null);
+    setProfileMsg(null);
+    setProfileError(null);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setProfileError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/portal/profile', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.avatarUrl) {
+        setEditAvatarUrl(data.avatarUrl);
+        setProfile((prev: any) => ({ ...prev, avatar_url: data.avatarUrl }));
+        if (user) {
+          user.user_metadata = { ...user.user_metadata, avatar_url: data.avatarUrl };
+        }
+      } else {
+        setProfileError(data.error || 'Erro ao enviar foto.');
+      }
+    } catch {
+      setProfileError('Falha de conexão ao enviar imagem.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    setProfileMsg(null);
+    setProfileError(null);
+
+    try {
+      const res = await fetch('/api/portal/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_name: editStoreName,
+          contact_name: editContactName,
+          phone: editPhone,
+          cnpj_cpf: editCnpjCpf,
+          address: editAddress,
+          cep: editCep,
+          city: editCity,
+          state: editState,
+          avatar_url: editAvatarUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.profile) {
+        setProfile(data.profile);
+        if (user) {
+          user.user_metadata = {
+            ...user.user_metadata,
+            ...data.profile,
+          };
+        }
+        setProfileMsg('Dados da loja e endereço salvos com sucesso!');
+        setTimeout(() => {
+          setIsEditProfileOpen(false);
+          setProfileMsg(null);
+        }, 1200);
+      } else {
+        setProfileError(data.error || 'Erro ao atualizar dados.');
+      }
+    } catch {
+      setProfileError('Erro de conexão ao salvar dados.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   useEffect(() => {
     fetch('/api/settings')
       .then((res) => res.json())
@@ -188,6 +302,7 @@ export default function ResellerPortalPage() {
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
+      router.push('/login');
       router.refresh();
     } catch (e) {
       console.error('Erro ao sair:', e);
@@ -452,25 +567,53 @@ export default function ResellerPortalPage() {
               </p>
             </div>
 
-            {/* Ações da Conta de Lojista */}
+            {/* Ações da Conta de Lojista com Foto/Logo e Edição de Dados */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {user ? (
-                <div className="flex items-center gap-3 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-zeiq-black block">
-                      {profile?.store_name || user.email}
+                <div className="flex items-center gap-3 bg-slate-50 p-2 sm:px-3.5 sm:py-2 rounded-2xl border border-slate-200 shadow-2xs">
+                  {/* Foto/Logo do Lojista */}
+                  <div className="w-10 h-10 rounded-full bg-zeiq-black text-white font-black flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-xs">
+                    {profile?.avatar_url || user?.user_metadata?.avatar_url ? (
+                      <img
+                        src={profile?.avatar_url || user?.user_metadata?.avatar_url}
+                        alt="Logo da loja"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs uppercase">
+                        {(profile?.store_name?.[0] || profile?.contact_name?.[0] || user?.email?.[0] || 'Z')}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-left min-w-0">
+                    <span className="text-xs font-bold text-zeiq-black block leading-tight truncate max-w-[130px]">
+                      {profile?.store_name || user.user_metadata?.store_name || 'Minha Loja'}
                     </span>
-                    <span className="text-[10px] text-slate-500">
-                      {profile?.contact_name ? `Resp: ${profile.contact_name}` : 'Lojista Autorizado'}
+                    <span className="text-[10px] text-slate-500 font-medium block truncate max-w-[130px]">
+                      {profile?.contact_name || user.user_metadata?.contact_name || user.email?.split('@')[0]}
                     </span>
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-white transition-colors"
-                    title="Sair da conta"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
+
+                  <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2.5 ml-1">
+                    <button
+                      type="button"
+                      onClick={handleOpenEditProfile}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-zeiq-black rounded-xl text-xs font-bold transition-all border border-slate-200 shadow-2xs cursor-pointer active:scale-95"
+                      title="Editar endereço, nome e logo da loja"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-zeiq-orange" />
+                      <span className="hidden sm:inline">Editar Dados</span>
+                    </button>
+
+                    <button
+                      onClick={handleLogout}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-white transition-colors cursor-pointer"
+                      title="Sair da conta"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -1329,6 +1472,226 @@ export default function ResellerPortalPage() {
                 Imprimir Espelho
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: EDIÇÃO DE DADOS CADASTRAIS DO CLIENTE / LOJISTA   */}
+      {/* ======================================================== */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setIsEditProfileOpen(false)}
+              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-zeiq-orange/15 text-zeiq-orange border border-zeiq-orange/30 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-zeiq-black leading-tight">
+                  Dados da Loja & Perfil
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Atualize suas informações cadastrais, endereço e logo para seus pedidos.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+              {profileMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>{profileMsg}</span>
+                </div>
+              )}
+
+              {profileError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">
+                  {profileError}
+                </div>
+              )}
+
+              {/* Upload de Logo da Loja ou Foto */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center gap-4">
+                <div className="relative w-16 h-16 rounded-full bg-zeiq-black text-white font-black flex items-center justify-center shrink-0 border-2 border-white shadow-md overflow-hidden">
+                  {editAvatarUrl ? (
+                    <img src={editAvatarUrl} alt="Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl uppercase">
+                      {editStoreName?.[0] || editContactName?.[0] || 'Z'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <span className="text-xs font-bold text-zeiq-black block">
+                    Logo da Loja ou Foto de Perfil
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    Aparece no cabeçalho e identifica sua arena/loja.
+                  </p>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-zeiq-black rounded-lg text-xs font-bold border border-slate-200 shadow-2xs cursor-pointer transition-colors">
+                    <Camera className="w-3.5 h-3.5 text-zeiq-orange" />
+                    <span>{uploadingAvatar ? 'Enviando...' : 'Escolher Imagem'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarFileChange}
+                      disabled={uploadingAvatar}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Informações da Loja */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nome da Loja / Arena *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editStoreName}
+                    onChange={(e) => setEditStoreName(e.target.value)}
+                    placeholder="Ex: Arena Beach Zeiq"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nome do Responsável *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editContactName}
+                    onChange={(e) => setEditContactName(e.target.value)}
+                    placeholder="Ex: Carlos Silva"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    WhatsApp com DDD *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="Ex: 16 99123-4567"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    CNPJ ou CPF
+                  </label>
+                  <input
+                    type="text"
+                    value={editCnpjCpf}
+                    onChange={(e) => setEditCnpjCpf(e.target.value)}
+                    placeholder="00.000.000/0001-00"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Endereço de Entrega */}
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-zeiq-black">
+                  <MapPin className="w-3.5 h-3.5 text-zeiq-orange" />
+                  <span>Endereço de Entrega & Faturamento</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      CEP
+                    </label>
+                    <input
+                      type="text"
+                      value={editCep}
+                      onChange={(e) => setEditCep(e.target.value)}
+                      placeholder="00000-000"
+                      className="w-full px-3 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Logradouro / Rua e Número
+                    </label>
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      placeholder="Ex: Av. Presidente Vargas, 1500"
+                      className="w-full px-3 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Cidade
+                    </label>
+                    <input
+                      type="text"
+                      value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)}
+                      placeholder="Ex: Ribeirão Preto"
+                      className="w-full px-3 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+
+                  <div className="col-span-1">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      UF
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={editState}
+                      onChange={(e) => setEditState(e.target.value.toUpperCase())}
+                      placeholder="SP"
+                      className="w-full px-3 py-2 text-sm uppercase bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black text-center font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-zeiq-black rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer"
+                >
+                  {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

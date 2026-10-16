@@ -6,18 +6,14 @@ export async function middleware(request: NextRequest) {
     request,
   });
 
-  // Se não houver cookies de autenticação do Supabase, não bloqueia com round-trip de rede em páginas públicas
-  const allCookies = request.cookies.getAll();
-  const hasAuthCookie = allCookies.some(
-    (c) => c.name.includes('auth-token') || (c.name.startsWith('sb-') && c.name.endsWith('-token'))
-  );
-
   const pathname = request.nextUrl.pathname;
-  const isProtectedArea = pathname.startsWith('/admin') || pathname.startsWith('/portal');
 
-  if (!hasAuthCookie && !isProtectedArea) {
-    return supabaseResponse;
-  }
+  // Rotas que não exigem autenticação prévia
+  const isPublicAuthRoute =
+    pathname === '/login' ||
+    pathname === '/portal/login' ||
+    pathname === '/admin/login' ||
+    pathname.startsWith('/api/');
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
@@ -43,36 +39,48 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  if (hasAuthCookie || isProtectedArea) {
-    const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-    // Bloqueia qualquer acesso não autorizado ao painel administrativo
-    if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
-      if (!user) {
-        const redirectUrl = new URL('/admin/login', request.url);
-        return NextResponse.redirect(redirectUrl);
-      }
+  // 1. BLOQUEIO GERAL: Catálogo exclusivo B2B restrito a clientes cadastrados
+  if (!user && !isPublicAuthRoute) {
+    if (pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
-      const email = user.email?.toLowerCase();
-      const isMasterEmail = email === 'patrickbrank@outlook.com';
-      const hasAdminAppMeta = user.app_metadata?.role === 'admin';
-
-      if (!isMasterEmail && !hasAdminAppMeta) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profile?.role !== 'admin') {
-          const redirectUrl = new URL('/admin/login?error=unauthorized', request.url);
-          return NextResponse.redirect(redirectUrl);
-        }
-      }
+  // 2. Proteção do Painel Administrativo
+  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
+    if (!user) {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    // Se já estiver logado como admin e acessar /admin/login, redireciona para o painel
-    if (pathname === '/admin/login' && user) {
+    const email = user.email?.toLowerCase();
+    const isMasterEmail = email === 'patrickbrank@outlook.com';
+    const hasAdminAppMeta = user.app_metadata?.role === 'admin';
+
+    if (!isMasterEmail && !hasAdminAppMeta) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.role !== 'admin') {
+        return NextResponse.redirect(new URL('/admin/login?error=unauthorized', request.url));
+      }
+    }
+  }
+
+  // 3. Redirecionamento se já estiver logado
+  if (user) {
+    // Se acessar /login ou /portal/login e já estiver autenticado, vai para o catálogo
+    if (pathname === '/login' || pathname === '/portal/login') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // Se for admin e acessar /admin/login, vai para /admin
+    if (pathname === '/admin/login') {
       const email = user.email?.toLowerCase();
       if (email === 'patrickbrank@outlook.com' || user.app_metadata?.role === 'admin') {
         return NextResponse.redirect(new URL('/admin', request.url));

@@ -72,7 +72,7 @@ export function CatalogClient({
         const deptCatSlugs = categories
           .filter((cat) =>
             dept.categoryNames.some(
-              (name) => name.toLowerCase() === cat.name.toLowerCase()
+              (name) => name.toLowerCase().trim() === cat.name.toLowerCase().trim()
             )
           )
           .map((c) => c.slug);
@@ -104,7 +104,23 @@ export function CatalogClient({
       }
     }
 
-    return result;
+    // 5. Ordenação estrita por lançamentos e data: do mais recente para o mais antigo
+    return [...result].sort((a, b) => {
+      // Prioriza produtos marcados como destaque ou com tag de lançamento
+      const aLanc = isProductLancamento(a) ? 1 : 0;
+      const bLanc = isProductLancamento(b) ? 1 : 0;
+      if (bLanc !== aLanc) return bLanc - aLanc;
+
+      // Ordena por data mais recente
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+
+      // Desempate por ID legado mais recente
+      const idA = parseInt(a.legacy_id || '0', 10) || 0;
+      const idB = parseInt(b.legacy_id || '0', 10) || 0;
+      return idB - idA;
+    });
   }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, searchQuery]);
 
   // Carrega parâmetros da URL (?search=..., ?dept=..., ?cat=...) se presentes
@@ -272,29 +288,6 @@ export function CatalogClient({
       {/* 4. Vitrine Widescreen Fluida Preenchendo a Tela */}
       <main id="catalog-products-grid" className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 pb-8 sm:pb-12 flex-1 w-full scroll-mt-52 sm:scroll-mt-56">
         
-        {/* Barra de Busca Exclusiva Mobile */}
-        <div className="mb-4 md:hidden">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Pesquisar por modelo ou SKU..."
-              className="w-full pl-9 pr-9 py-2.5 text-base sm:text-xs bg-white border border-slate-200 rounded-lg text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black shadow-xs"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => handleSearchChange('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black p-1"
-                aria-label="Limpar pesquisa"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Barra de Status do Filtro e Totalizador */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-slate-200">
           <div>

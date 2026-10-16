@@ -217,19 +217,36 @@ export async function getCatalogData(): Promise<{ products: Product[]; categorie
         )
       `)
       .eq('is_published', true)
-      .order('display_order', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (!catError && !prodError && dbProducts && dbProducts.length > 0) {
-      const formattedProducts: Product[] = dbProducts.map((p: any) => ({
-        ...p,
-        description: cleanProductDescription(p.description),
-        images: (p.images || []).sort((a: any, b: any) => {
-          if (a.is_cover && !b.is_cover) return -1;
-          if (!a.is_cover && b.is_cover) return 1;
-          return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-        }),
-        categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
-      }));
+      const formattedProducts: Product[] = dbProducts
+        .map((p: any) => ({
+          ...p,
+          description: cleanProductDescription(p.description),
+          images: (p.images || []).sort((a: any, b: any) => {
+            if (a.is_cover && !b.is_cover) return -1;
+            if (!a.is_cover && b.is_cover) return 1;
+            return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+          }),
+          categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
+        }))
+        .sort((a, b) => {
+          // Lançamentos e destaques primeiro
+          const aFeatured = a.is_featured ? 1 : 0;
+          const bFeatured = b.is_featured ? 1 : 0;
+          if (bFeatured !== aFeatured) return bFeatured - aFeatured;
+
+          // Mais recente para o mais antigo por created_at
+          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          if (timeB !== timeA) return timeB - timeA;
+
+          // Desempate por legacy_id decrescente
+          const idA = parseInt(a.legacy_id || '0', 10) || 0;
+          const idB = parseInt(b.legacy_id || '0', 10) || 0;
+          return idB - idA;
+        });
 
       cachedCatalog = {
         products: formattedProducts,

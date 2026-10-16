@@ -21,7 +21,6 @@ function getCleanTitle(name: string): string {
 
 export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   const [isAdded, setIsAdded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const addItem = useQuoteCart((state) => state.addItem);
 
   const images = product.images || [];
@@ -51,9 +50,6 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   return (
     <div 
       onClick={() => onOpenDetails(product)}
-      onMouseEnter={() => {
-        if (!isHovered && secondaryUrl) setIsHovered(true);
-      }}
       className="group bg-white rounded-lg border border-slate-200 overflow-hidden hover:border-slate-400 hover:shadow-md transition-all duration-300 flex flex-col h-full cursor-pointer select-none"
     >
       {/* Quadro da Foto amplo, limpo e com imagem em destaque */}
@@ -65,26 +61,26 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           loading="lazy"
-          className={`w-full h-full object-contain object-center mix-blend-multiply scale-[1.04] transition-all duration-500 ease-out group-hover:scale-110 ${
-            secondaryUrl && isHovered ? 'group-hover:opacity-0' : ''
-          }`}
+          className="w-full h-full object-contain object-center mix-blend-multiply scale-[1.04] transition-transform duration-500 ease-out group-hover:scale-110"
         />
 
-        {/* Segunda Foto carregada exclusivamente sob demanda no hover desktop */}
-        {secondaryUrl && isHovered && (
-          <Image
-            src={secondaryUrl}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-            loading="lazy"
-            className="absolute inset-0 w-full h-full object-contain object-center mix-blend-multiply opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none scale-[1.04] group-hover:scale-110 transition-transform duration-500 ease-out"
-          />
+        {/* Segunda Foto em camada superior com isolamento (Hover fluido exclusivo para telas com cursor/mouse) */}
+        {secondaryUrl && (
+          <div className="absolute inset-0 bg-[#f8f9fa] isolate opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 hidden sm:block">
+            <Image
+              src={secondaryUrl}
+              alt=""
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+              loading="lazy"
+              className="w-full h-full object-contain object-center mix-blend-multiply scale-[1.04] group-hover:scale-110 transition-transform duration-500 ease-out"
+            />
+          </div>
         )}
 
         {/* Badge de SKU Técnico */}
         {product.code_sku && (
-          <div className="absolute top-2 left-2 bg-zeiq-black text-white text-[9px] sm:text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shadow-xs z-10">
+          <div className="absolute top-2 left-2 bg-zeiq-black text-white text-[9px] sm:text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shadow-xs z-20">
             {product.code_sku}
           </div>
         )}
@@ -134,9 +130,22 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
 
         {/* Rodapé do Card: Preço e Botão travados no fundo na mesma linha horizontal */}
         <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
-          <span className="text-[10px] sm:text-[11px] font-medium text-slate-500">
-            Sob consulta
-          </span>
+          <div className="flex flex-col">
+            {product.original_price != null && product.price != null && product.original_price > product.price && (
+              <span className="text-[9px] line-through text-slate-400 font-mono">
+                R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
+            {product.price != null && product.price > 0 ? (
+              <span className="text-xs sm:text-sm font-extrabold text-zeiq-black font-mono tracking-tight">
+                R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            ) : (
+              <span className="text-[10px] sm:text-[11px] font-medium text-slate-500">
+                Sob consulta
+              </span>
+            )}
+          </div>
 
           <button
             type="button"

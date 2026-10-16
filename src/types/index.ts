@@ -29,6 +29,8 @@ export interface Product {
   slug: string;
   code_sku?: string | null;
   description?: string | null;
+  price?: number | null;
+  original_price?: number | null;
   is_published: boolean;
   is_featured: boolean;
   display_order: number;
@@ -48,6 +50,7 @@ export interface QuoteItem {
   sku?: string | null;
   coverImage?: string;
   quantity: number;
+  price?: number | null;
   selectedSize?: string;
   sizeBreakdown?: Record<string, number>; // Grade de atacado: { 'PP': 2, 'P': 4, 'M': 6, 'G': 4 }
   notes?: string;

@@ -38,6 +38,9 @@ export const useQuoteCart = create<QuoteCartState>()(
           if (existingIndex > -1) {
             const updatedItems = [...state.items];
             updatedItems[existingIndex].quantity += quantity;
+            if (product.price != null) {
+              updatedItems[existingIndex].price = product.price;
+            }
             if (notes) {
               updatedItems[existingIndex].notes = notes;
             }
@@ -53,6 +56,7 @@ export const useQuoteCart = create<QuoteCartState>()(
             productSlug: product.slug,
             sku: product.code_sku,
             coverImage: coverImage,
+            price: product.price ?? null,
             quantity: Math.max(1, quantity),
             selectedSize: selectedSize || undefined,
             notes: notes || undefined,
@@ -98,6 +102,7 @@ export const useQuoteCart = create<QuoteCartState>()(
               ...currentItem,
               quantity: newTotal,
               sizeBreakdown: mergedBreakdown,
+              price: product.price ?? currentItem.price ?? null,
               notes: notes || currentItem.notes,
             };
 
@@ -110,6 +115,7 @@ export const useQuoteCart = create<QuoteCartState>()(
             productSlug: product.slug,
             sku: product.code_sku,
             coverImage: coverImage,
+            price: product.price ?? null,
             quantity: totalQty,
             sizeBreakdown: validBreakdown,
             notes: notes || undefined,
@@ -214,7 +220,10 @@ export const useQuoteCart = create<QuoteCartState>()(
 
         items.forEach((item, index) => {
           const skuText = item.sku ? ` [SKU: ${item.sku}]` : '';
-          message += `\n${index + 1}. *${item.productName}*${skuText}\n`;
+          const priceText = item.price != null && item.price > 0 
+            ? ` | R$ ${item.price.toFixed(2).replace('.', ',')} un.`
+            : '';
+          message += `\n${index + 1}. *${item.productName}*${skuText}${priceText}\n`;
 
           if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
             const breakdownStr = Object.entries(item.sizeBreakdown)
@@ -231,6 +240,13 @@ export const useQuoteCart = create<QuoteCartState>()(
             message += `   • Obs: ${item.notes.trim()}\n`;
           }
         });
+
+        // Calcula total se houver preços
+        const pricedItems = items.filter(it => it.price != null && it.price > 0);
+        if (pricedItems.length > 0) {
+          const totalEstimated = pricedItems.reduce((acc, it) => acc + (it.price! * it.quantity), 0);
+          message += `\n💰 *Total Estimado dos Produtos:* R$ ${totalEstimated.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+        }
 
         message += `\nPor favor, enviem as condições de atacado e faturamento. Obrigado!`;
 

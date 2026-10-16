@@ -133,6 +133,19 @@ export default function AdminDashboardPage() {
   // Filtro de Linha Esportiva na Tabela de Categorias
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('all');
 
+  // Modal de Cadastro de Lojista / Cliente
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientStore, setNewClientStore] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientCnpj, setNewClientCnpj] = useState('');
+  const [newClientCity, setNewClientCity] = useState('');
+  const [newClientState, setNewClientState] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientPassword, setNewClientPassword] = useState('');
+  const [savingClient, setSavingClient] = useState(false);
+  const [clientError, setClientError] = useState('');
+
   // Toast feedback
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -732,6 +745,91 @@ export default function AdminDashboardPage() {
   };
 
   // ==========================================
+  // OPERAÇÕES DE CLIENTES / LOJISTAS B2B
+  // ==========================================
+  const handleOpenClientModal = () => {
+    setNewClientName('');
+    setNewClientStore('');
+    setNewClientPhone('');
+    setNewClientCnpj('');
+    setNewClientCity('');
+    setNewClientState('');
+    setNewClientEmail('');
+    setNewClientPassword('');
+    setClientError('');
+    setIsClientModalOpen(true);
+  };
+
+  const handleSaveClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientEmail.trim() || !newClientPassword) {
+      setClientError('E-mail e senha inicial são obrigatórios.');
+      return;
+    }
+    if (newClientPassword.length < 6) {
+      setClientError('A senha inicial deve ter no mínimo 6 dígitos.');
+      return;
+    }
+
+    setSavingClient(true);
+    setClientError('');
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newClientEmail,
+          password: newClientPassword,
+          contact_name: newClientName,
+          store_name: newClientStore,
+          phone: newClientPhone,
+          cnpj_cpf: newClientCnpj,
+          city: newClientCity,
+          state: newClientState,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Lojista "${newClientStore || newClientEmail}" cadastrado com sucesso!`);
+        setIsClientModalOpen(false);
+        fetchDashboardData();
+      } else {
+        setClientError(data.error || 'Erro ao cadastrar lojista.');
+      }
+    } catch {
+      setClientError('Erro de conexão ao salvar lojista.');
+    } finally {
+      setSavingClient(false);
+    }
+  };
+
+  const handleDeleteClient = async (client: any) => {
+    if (client.email === 'patrickbrank@outlook.com') {
+      alert('A conta master de administração não pode ser excluída.');
+      return;
+    }
+    const confirm = window.confirm(
+      `Deseja realmente remover o acesso de "${client.store_name || client.email}"?\n\nO lojista não conseguirá mais entrar no catálogo com essa conta.`
+    );
+    if (!confirm) return;
+
+    try {
+      const res = await fetch(`/api/admin/users?id=${client.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Conta do lojista removida com sucesso.');
+        setClients((prev) => prev.filter((c) => c.id !== client.id));
+      } else {
+        alert(data.error || 'Erro ao excluir lojista.');
+      }
+    } catch {
+      showToast('Erro de comunicação.');
+    }
+  };
+
+  // ==========================================
   // FILTRAGEM E PAGINAÇÃO
   // ==========================================
   const filteredProducts = useMemo(() => {
@@ -1318,6 +1416,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Imagem</th>
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
+                      <th className="py-3 px-4">Preço Atacado</th>
                       <th className="py-3 px-4 text-center">Disponibilidade / Estoque</th>
                       <th className="py-3 px-4 text-center">Destaque</th>
                       <th className="py-3 px-4 text-right">Ações</th>
@@ -1326,7 +1425,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {paginatedProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400">
+                        <td colSpan={7} className="py-12 text-center text-slate-400">
                           Nenhum produto localizado com os filtros selecionados.
                         </td>
                       </tr>
@@ -1366,6 +1465,16 @@ export default function AdminDashboardPage() {
                                   <span className="text-[10px] text-slate-400 italic">Sem categoria</span>
                                 )}
                               </div>
+                            </td>
+
+                            <td className="py-3 px-4 font-mono font-bold text-zeiq-black whitespace-nowrap">
+                              {prod.price != null && prod.price > 0 ? (
+                                <span className="text-emerald-700">
+                                  R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-normal italic text-[11px]">Sob consulta</span>
+                              )}
                             </td>
 
                             <td className="py-3 px-4 text-center">
@@ -1753,8 +1862,8 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Busca de Clientes */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+            {/* Busca e Ações de Clientes */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="relative flex-1 max-w-md">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -1766,29 +1875,41 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <span className="text-xs text-slate-500">
-                Total de <strong>{filteredClients.length}</strong> lojistas listados
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 hidden md:inline">
+                  Total: <strong>{filteredClients.length}</strong> lojistas
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleOpenClientModal}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-zeiq-orange" />
+                  <span>Cadastrar Novo Lojista</span>
+                </button>
+              </div>
             </div>
 
             {/* Tabela de Clientes */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[650px] text-left border-collapse">
+                <table className="w-full min-w-[700px] text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Loja / Arena</th>
                       <th className="py-3 px-4">Responsável</th>
                       <th className="py-3 px-4">WhatsApp</th>
-                      <th className="py-3 px-4">E-mail Cadastrado</th>
+                      <th className="py-3 px-4">E-mail de Acesso</th>
                       <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-right">Data de Cadastro</th>
+                      <th className="py-3 px-4 text-center">Cadastro</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {filteredClients.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-slate-400">
+                        <td colSpan={7} className="py-12 text-center text-slate-400">
                           Nenhum cliente ou revendedor localizado.
                         </td>
                       </tr>
@@ -1838,10 +1959,23 @@ export default function AdminDashboardPage() {
                               </span>
                             </td>
 
-                            <td className="py-3.5 px-4 text-right text-slate-500">
+                            <td className="py-3.5 px-4 text-center text-slate-500">
                               {client.created_at
                                 ? new Date(client.created_at).toLocaleDateString('pt-BR')
                                 : 'Recente'}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              {client.email !== 'patrickbrank@outlook.com' && client.role !== 'admin' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteClient(client)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Remover acesso do lojista"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
@@ -1917,7 +2051,7 @@ export default function AdminDashboardPage() {
                   const assignedCount = categories.filter((c) =>
                     dept.categoryNames.some((n) => n.toLowerCase() === c.name.toLowerCase())
                   ).length;
-                  const isDefault = ['equipamentos', 'vestuario-masculino', 'vestuario-feminino', 'acessorios'].includes(dept.id);
+                  const isDefault = ['equipamentos', 'vestuario-masculino', 'vestuario-feminino', 'vestuario-infantil', 'acessorios'].includes(dept.id);
                   const isFiltered = selectedDeptFilter === dept.id;
 
                   return (
@@ -2935,6 +3069,195 @@ export default function AdminDashboardPage() {
                   className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50"
                 >
                   {savingDept ? 'Salvando...' : editingDept ? 'Salvar Alterações' : 'Criar Linha Esportiva'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 6: CADASTRO DE LOJISTA / REVENDEDOR               */}
+      {/* ======================================================== */}
+      {isClientModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95">
+            <button
+              onClick={() => setIsClientModalOpen(false)}
+              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-zeiq-orange/15 text-zeiq-orange border border-zeiq-orange/30 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-zeiq-black leading-tight">
+                  Cadastrar Novo Lojista
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Crie os dados de acesso para o revendedor entrar no catálogo B2B.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveClient} className="space-y-4">
+              {clientError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">
+                  {clientError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nome da Loja / Arena *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newClientStore}
+                    onChange={(e) => setNewClientStore(e.target.value)}
+                    placeholder="Ex: Arena Beach Point"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nome do Responsável *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    placeholder="Ex: Carlos Silva"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    WhatsApp com DDD *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={newClientPhone}
+                    onChange={(e) => setNewClientPhone(e.target.value)}
+                    placeholder="Ex: 16 99123-4567"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    CNPJ ou CPF (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newClientCnpj}
+                    onChange={(e) => setNewClientCnpj(e.target.value)}
+                    placeholder="Ex: 00.000.000/0001-00"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3.5">
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Cidade
+                  </label>
+                  <input
+                    type="text"
+                    value={newClientCity}
+                    onChange={(e) => setNewClientCity(e.target.value)}
+                    placeholder="Ex: Ribeirão Preto"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    UF
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={2}
+                    value={newClientState}
+                    onChange={(e) => setNewClientState(e.target.value.toUpperCase())}
+                    placeholder="SP"
+                    className="w-full px-3.5 py-2 text-sm uppercase bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black text-center font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Credenciais de Acesso */}
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Credenciais de Login no Catálogo
+                </p>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    E-mail de Acesso *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={newClientEmail}
+                    onChange={(e) => setNewClientEmail(e.target.value)}
+                    placeholder="cliente@loja.com.br"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Senha Inicial *</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomPwd = 'Zeiq@' + Math.floor(1000 + Math.random() * 9000);
+                        setNewClientPassword(randomPwd);
+                      }}
+                      className="text-[11px] text-zeiq-orange hover:underline font-bold cursor-pointer"
+                    >
+                      Gerar Senha
+                    </button>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    minLength={6}
+                    value={newClientPassword}
+                    onChange={(e) => setNewClientPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsClientModalOpen(false)}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-zeiq-black rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingClient}
+                  className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer"
+                >
+                  {savingClient ? 'Criando Conta...' : 'Cadastrar Lojista'}
                 </button>
               </div>
             </form>
