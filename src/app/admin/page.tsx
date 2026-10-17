@@ -1218,9 +1218,10 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Barra de Filtros e Busca de Produtos */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="relative flex-1 max-w-md">
+            <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-3">
+              {/* Linha 1: Busca e Ação Principal (Cadastrar Produto) */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
+                <div className="relative flex-1">
                   <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
@@ -1230,28 +1231,43 @@ export default function AdminDashboardPage() {
                       setCurrentPage(1);
                     }}
                     placeholder="Pesquisar por nome ou SKU..."
-                    className="w-full pl-10 pr-4 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-10 pr-9 py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                   {productSearch && (
                     <button
                       onClick={() => setProductSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black p-0.5"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
 
-                {/* 1. Seletor Customizado de Categoria (Adeus Select Nativo) */}
-                <div ref={catDropdownRef} className="relative w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProduct(null);
+                    setIsProductModalOpen(true);
+                  }}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Cadastrar Novo Produto</span>
+                </button>
+              </div>
+
+              {/* Linha 2: Filtros de Categoria e Segmented Control de Estoque */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100">
+                {/* 1. Seletor Customizado de Categoria */}
+                <div ref={catDropdownRef} className="relative w-full lg:w-auto">
                   <button
                     type="button"
                     onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
-                    className="w-full sm:w-auto px-3.5 py-2.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black flex items-center justify-between gap-2.5 transition-all shadow-2xs"
+                    className="w-full lg:w-auto px-3.5 py-2.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black flex items-center justify-between gap-2.5 transition-all shadow-2xs"
                   >
                     <div className="flex items-center gap-2 truncate">
                       <Filter className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
-                      <span className="truncate max-w-[170px]">
+                      <span className="truncate max-w-[240px] sm:max-w-[280px] lg:max-w-[220px]">
                         {filterCategory === 'all'
                           ? `Todas as Categorias (${categories.length})`
                           : categories.find((c) => c.id === filterCategory)?.name || 'Categoria'}
@@ -1261,7 +1277,7 @@ export default function AdminDashboardPage() {
                   </button>
 
                   {isCatDropdownOpen && (
-                    <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                    <div className="absolute left-0 mt-1.5 w-full sm:w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in slide-in-from-top-1">
                       <div className="relative px-1 pt-1 pb-0.5">
                         <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
@@ -1334,12 +1350,12 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* 2. Pílulas Customizadas de Status e Estoque */}
-                <div className="inline-flex p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0 flex-wrap sm:flex-nowrap">
+                {/* 2. Segmented Control de Status de Estoque (100% simétrico no mobile em grid-cols-3) */}
+                <div className="w-full lg:w-auto grid grid-cols-3 lg:flex p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center whitespace-nowrap ${
                       filterStatus === 'all' ? 'bg-zeiq-black text-white shadow-2xs' : 'text-slate-600 hover:text-zeiq-black'
                     }`}
                   >
@@ -1348,36 +1364,25 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                       filterStatus === 'published' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
                     }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Em Estoque ({publishedCount})
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    <span>Em Estoque ({publishedCount})</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                       filterStatus === 'draft' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
                     }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    Sem Estoque ({draftCount})
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                    <span>Sem Estoque ({draftCount})</span>
                   </button>
                 </div>
               </div>
-
-              <button
-                onClick={() => {
-                  setEditingProduct(null);
-                  setIsProductModalOpen(true);
-                }}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                Cadastrar Novo Produto
-              </button>
             </div>
 
             {/* Banner Informativo quando filtrado por Sem Estoque / Pausados */}
