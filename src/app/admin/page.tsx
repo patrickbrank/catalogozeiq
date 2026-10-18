@@ -42,6 +42,10 @@ import {
   Upload,
   ArrowUp,
   ArrowDown,
+  UserCheck,
+  UserX,
+  Key,
+  ShieldAlert,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Product, Category, Order, OrderStatus, QuoteItem, BannerItem, StoreSettings } from '@/types';
@@ -133,8 +137,11 @@ export default function AdminDashboardPage() {
   // Filtro de Linha Esportiva na Tabela de Categorias
   const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('all');
 
-  // Modal de Cadastro de Lojista / Cliente
+  // Modal de Cadastro e Edição de Lojista / Membro Administrativo
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [clientModalMode, setClientModalMode] = useState<'create' | 'edit'>('create');
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [clientRole, setClientRole] = useState<'admin' | 'reseller'>('reseller');
   const [newClientName, setNewClientName] = useState('');
   const [newClientStore, setNewClientStore] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -143,8 +150,13 @@ export default function AdminDashboardPage() {
   const [newClientState, setNewClientState] = useState('');
   const [newClientEmail, setNewClientEmail] = useState('');
   const [newClientPassword, setNewClientPassword] = useState('');
+  const [clientApproved, setClientApproved] = useState(true);
+  const [clientIsMaster, setClientIsMaster] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
   const [clientError, setClientError] = useState('');
+
+  // Filtro de Papel de Usuários (Todos / Lojistas / Administradores)
+  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'reseller' | 'admin'>('all');
 
   // Toast feedback
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -745,84 +757,154 @@ export default function AdminDashboardPage() {
   };
 
   // ==========================================
-  // OPERAÇÕES DE CLIENTES / LOJISTAS B2B
+  // OPERAÇÕES DE CLIENTES E MEMBROS ADMINISTRATIVOS
   // ==========================================
-  const handleOpenClientModal = () => {
+  const handleOpenCreateUserModal = (role: 'reseller' | 'admin' = 'reseller') => {
+    setClientModalMode('create');
+    setEditingClientId(null);
+    setClientRole(role);
     setNewClientName('');
-    setNewClientStore('');
+    setNewClientStore(role === 'admin' ? 'Equipe Zeiq' : '');
     setNewClientPhone('');
     setNewClientCnpj('');
     setNewClientCity('');
     setNewClientState('');
     setNewClientEmail('');
     setNewClientPassword('');
+    setClientApproved(true);
+    setClientIsMaster(false);
+    setClientError('');
+    setIsClientModalOpen(true);
+  };
+
+  const handleOpenClientModal = () => handleOpenCreateUserModal('reseller');
+
+  const handleOpenEditUserModal = (client: any) => {
+    setClientModalMode('edit');
+    setEditingClientId(client.id);
+    const isMaster = client.is_master || client.email?.toLowerCase() === 'patrickbrank@outlook.com';
+    setClientRole(isMaster ? 'admin' : (client.role === 'admin' ? 'admin' : 'reseller'));
+    setNewClientName(client.contact_name || '');
+    setNewClientStore(client.store_name || '');
+    setNewClientPhone(client.phone || '');
+    setNewClientCnpj(client.cnpj_cpf || '');
+    setNewClientCity(client.city || '');
+    setNewClientState(client.state || '');
+    setNewClientEmail(client.email || '');
+    setNewClientPassword(''); // em branco = mantém a senha atual
+    setClientApproved(client.is_approved ?? true);
+    setClientIsMaster(isMaster);
     setClientError('');
     setIsClientModalOpen(true);
   };
 
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClientEmail.trim() || !newClientPassword) {
-      setClientError('E-mail e senha inicial são obrigatórios.');
-      return;
-    }
-    if (newClientPassword.length < 6) {
-      setClientError('A senha inicial deve ter no mínimo 6 dígitos.');
-      return;
+
+    if (clientModalMode === 'create') {
+      if (!newClientEmail.trim() || !newClientPassword) {
+        setClientError('E-mail e senha inicial são obrigatórios para novo cadastro.');
+        return;
+      }
+      if (newClientPassword.length < 6) {
+        setClientError('A senha inicial deve ter no mínimo 6 dígitos.');
+        return;
+      }
+    } else {
+      // Modo de edição
+      if (newClientPassword && newClientPassword.length < 6) {
+        setClientError('Se desejar alterar a senha, digite no mínimo 6 dígitos.');
+        return;
+      }
     }
 
     setSavingClient(true);
     setClientError('');
 
     try {
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: newClientEmail,
-          password: newClientPassword,
-          contact_name: newClientName,
-          store_name: newClientStore,
-          phone: newClientPhone,
-          cnpj_cpf: newClientCnpj,
-          city: newClientCity,
-          state: newClientState,
-        }),
-      });
+      if (clientModalMode === 'create') {
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: newClientEmail,
+            password: newClientPassword,
+            contact_name: newClientName,
+            store_name: newClientStore,
+            phone: newClientPhone,
+            cnpj_cpf: newClientCnpj,
+            city: newClientCity,
+            state: newClientState,
+            role: clientRole,
+          }),
+        });
 
-      const data = await res.json();
-      if (data.success) {
-        showToast(`Lojista "${newClientStore || newClientEmail}" cadastrado com sucesso!`);
-        setIsClientModalOpen(false);
-        fetchDashboardData();
+        const data = await res.json();
+        if (data.success) {
+          const roleLabel = clientRole === 'admin' ? 'Administrador' : 'Lojista B2B';
+          showToast(`${roleLabel} "${newClientStore || newClientName || newClientEmail}" cadastrado com sucesso!`);
+          setIsClientModalOpen(false);
+          fetchDashboardData();
+        } else {
+          setClientError(data.error || 'Erro ao cadastrar usuário.');
+        }
       } else {
-        setClientError(data.error || 'Erro ao cadastrar lojista.');
+        // Modo de edição (PATCH/PUT)
+        const res = await fetch('/api/admin/users', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingClientId,
+            contact_name: newClientName,
+            store_name: newClientStore,
+            phone: newClientPhone,
+            cnpj_cpf: newClientCnpj,
+            city: newClientCity,
+            state: newClientState,
+            role: clientRole,
+            password: newClientPassword.trim() ? newClientPassword : undefined,
+            is_approved: clientApproved,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Informações de "${newClientStore || newClientName || newClientEmail}" atualizadas com sucesso!`);
+          setIsClientModalOpen(false);
+          fetchDashboardData();
+        } else {
+          setClientError(data.error || 'Erro ao atualizar dados.');
+        }
       }
     } catch {
-      setClientError('Erro de conexão ao salvar lojista.');
+      setClientError('Erro de conexão ao salvar informações.');
     } finally {
       setSavingClient(false);
     }
   };
 
   const handleDeleteClient = async (client: any) => {
-    if (client.email === 'patrickbrank@outlook.com') {
+    if (client.is_master || client.email === 'patrickbrank@outlook.com') {
       alert('A conta master de administração não pode ser excluída.');
       return;
     }
-    const confirm = window.confirm(
-      `Deseja realmente remover o acesso de "${client.store_name || client.email}"?\n\nO lojista não conseguirá mais entrar no catálogo com essa conta.`
-    );
+
+    const isAdminUser = client.role === 'admin';
+    const confirmMessage = isAdminUser
+      ? `Atenção: Deseja realmente remover o administrador "${client.contact_name || client.email}"?\n\nEsta conta perderá imediatamente todo o acesso ao painel administrativo.`
+      : `Deseja realmente remover o acesso do lojista "${client.store_name || client.email}"?\n\nO revendedor não conseguirá mais entrar no catálogo com essa conta.`;
+
+    const confirm = window.confirm(confirmMessage);
     if (!confirm) return;
 
     try {
       const res = await fetch(`/api/admin/users?id=${client.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
-        showToast('Conta do lojista removida com sucesso.');
+        showToast(isAdminUser ? 'Membro administrativo removido com sucesso.' : 'Conta do lojista removida com sucesso.');
         setClients((prev) => prev.filter((c) => c.id !== client.id));
       } else {
-        alert(data.error || 'Erro ao excluir lojista.');
+        alert(data.error || 'Erro ao excluir usuário.');
       }
     } catch {
       showToast('Erro de comunicação.');
@@ -876,19 +958,24 @@ export default function AdminDashboardPage() {
     });
   }, [orders, orderSearch, orderStatusFilter]);
 
-  // Filtro de Clientes
+  // Filtro de Clientes e Membros Administrativos
   const filteredClients = useMemo(() => {
     return clients.filter((c) => {
       const q = clientSearch.toLowerCase();
-      return (
+      const matchesSearch =
         clientSearch === '' ||
         c.contact_name?.toLowerCase().includes(q) ||
         c.store_name?.toLowerCase().includes(q) ||
         c.email?.toLowerCase().includes(q) ||
-        c.phone?.includes(clientSearch)
-      );
+        c.phone?.includes(clientSearch);
+
+      const matchesRole =
+        userRoleFilter === 'all' ||
+        (userRoleFilter === 'admin' ? c.role === 'admin' : c.role !== 'admin');
+
+      return matchesSearch && matchesRole;
     });
-  }, [clients, clientSearch]);
+  }, [clients, clientSearch, userRoleFilter]);
 
   // Filtro de Categorias por Linha Esportiva
   const displayedCategories = useMemo(() => {
@@ -913,19 +1000,19 @@ export default function AdminDashboardPage() {
   const renderStatusBadge = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Recebido</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">Recebido</span>;
       case 'approved':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">Aprovado</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">Aprovado</span>;
       case 'processing':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">Em Separação</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">Em Separação</span>;
       case 'shipped':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200">Despachado</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">Despachado</span>;
       case 'delivered':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Entregue</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Entregue</span>;
       case 'cancelled':
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">Cancelado</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">Cancelado</span>;
       default:
-        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{status}</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">{status}</span>;
     }
   };
 
@@ -1004,7 +1091,7 @@ export default function AdminDashboardPage() {
                   className="h-full w-auto object-contain object-left"
                 />
               </div>
-              <span className="text-[10px] font-black bg-white/10 text-zeiq-orange border border-zeiq-orange/30 px-2 py-0.5 rounded uppercase tracking-wider">
+              <span className="text-xs font-black bg-white/10 text-zeiq-orange border border-zeiq-orange/30 px-2 py-0.5 rounded uppercase tracking-wider">
                 Painel B2B
               </span>
             </div>
@@ -1015,7 +1102,7 @@ export default function AdminDashboardPage() {
               <span className="text-xs font-bold text-white">
                 {user?.email || 'Administrador'}
               </span>
-              <span className="text-[10px] text-slate-400">
+              <span className="text-xs text-slate-400">
                 Acesso Total • Gestão Master
               </span>
             </div>
@@ -1032,101 +1119,113 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
-      {/* 2. Barra de Navegação de Módulos (Tabs) */}
+      {/* 2. Barra de Navegação de Módulos (Tabs Responsivas no Mobile) */}
       <nav className="bg-white border-b border-zeiq-muted sticky top-16 sm:top-18 z-30 shadow-2xs">
-        <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 flex items-center overflow-x-auto no-scrollbar gap-1 py-1.5">
+        <div className="max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-10 flex items-center overflow-x-auto no-scrollbar gap-1.5 py-1.5">
           <button
+            type="button"
             onClick={() => setActiveTab('products')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
               activeTab === 'products'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>Catálogo de Produtos</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              activeTab === 'products' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            <span className="sm:hidden">Produtos</span>
+            <span className="hidden sm:inline">Catálogo de Produtos</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+              activeTab === 'products' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
             }`}>
               {products.length}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('orders')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
               activeTab === 'orders'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>Pedidos & Cotações</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            <span className="sm:hidden">Pedidos</span>
+            <span className="hidden sm:inline">Pedidos & Cotações</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+              activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
             }`}>
               {orders.length}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('banners')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
               activeTab === 'banners'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
             }`}
           >
             <ImageIcon className="w-4 h-4" />
-            <span>Banners da Home</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              activeTab === 'banners' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            <span className="sm:hidden">Banners</span>
+            <span className="hidden sm:inline">Banners da Home</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+              activeTab === 'banners' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
             }`}>
               {banners.length}/5
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('settings')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
               activeTab === 'settings'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
             }`}
           >
             <Settings className="w-4 h-4" />
-            <span>WhatsApp & Contato</span>
+            <span className="sm:hidden">Contato</span>
+            <span className="hidden sm:inline">WhatsApp & Contato</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('users')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
               activeTab === 'users'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Clientes & Lojistas</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            <span className="sm:hidden">Clientes</span>
+            <span className="hidden sm:inline">Clientes & Lojistas</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+              activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
             }`}>
               {clients.length}
             </span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('categories')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
               activeTab === 'categories'
                 ? 'bg-zeiq-black text-white shadow-xs'
                 : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
             }`}
           >
             <FolderTree className="w-4 h-4" />
-            <span>Categorias do Catálogo</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+            <span className="sm:hidden">Categorias</span>
+            <span className="hidden sm:inline">Categorias do Catálogo</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+              activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
             }`}>
               {categories.length}
             </span>
@@ -1158,7 +1257,7 @@ export default function AdminDashboardPage() {
                     <Package className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total de Produtos</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Produtos</p>
                     <h3 className="text-xl sm:text-2xl font-black text-zeiq-black">{products.length}</h3>
                   </div>
                 </div>
@@ -1178,7 +1277,7 @@ export default function AdminDashboardPage() {
                     <CheckCircle className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Em Estoque (Visíveis)</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Em Estoque (Visíveis)</p>
                     <h3 className="text-xl sm:text-2xl font-black text-emerald-600">{publishedCount}</h3>
                   </div>
                 </div>
@@ -1198,7 +1297,7 @@ export default function AdminDashboardPage() {
                     <EyeOff className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sem Estoque (Ocultos)</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sem Estoque (Ocultos)</p>
                     <h3 className="text-xl sm:text-2xl font-black text-amber-600">{draftCount}</h3>
                   </div>
                 </div>
@@ -1210,7 +1309,7 @@ export default function AdminDashboardPage() {
                     <FolderTree className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Categorias Ativas</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Categorias Ativas</p>
                     <h3 className="text-xl sm:text-2xl font-black text-zeiq-black">{categories.length}</h3>
                   </div>
                 </div>
@@ -1306,7 +1405,7 @@ export default function AdminDashboardPage() {
                           }`}
                         >
                           <span>Todas as Categorias</span>
-                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                          <span className={`text-xs font-mono px-1.5 py-0.2 rounded ${
                             filterCategory === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                           }`}>
                             {categories.length}
@@ -1335,7 +1434,7 @@ export default function AdminDashboardPage() {
                             >
                               <span className="truncate pr-2">{c.name}</span>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                                <span className={`text-xs font-mono px-1.5 py-0.2 rounded ${
                                   isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                                 }`}>
                                   {prodCount}
@@ -1355,7 +1454,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center whitespace-nowrap ${
+                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-bold transition-all text-center whitespace-nowrap ${
                       filterStatus === 'all' ? 'bg-zeiq-black text-white shadow-2xs' : 'text-slate-600 hover:text-zeiq-black'
                     }`}
                   >
@@ -1364,7 +1463,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                       filterStatus === 'published' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
                     }`}
                   >
@@ -1374,7 +1473,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
                       filterStatus === 'draft' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
                     }`}
                   >
@@ -1396,7 +1495,7 @@ export default function AdminDashboardPage() {
                     <span className="font-bold block">
                       Filtrando por Produtos Sem Estoque ({draftCount})
                     </span>
-                    <span className="text-[11px] text-amber-800 block">
+                    <span className="text-xs text-amber-800 block">
                       Estes itens estão pausados e não aparecem na vitrine para os revendedores. Clique em &quot;Sem Estoque&quot; na linha do produto para reativá-lo.
                     </span>
                   </div>
@@ -1405,19 +1504,19 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] shrink-0 transition-colors self-start sm:self-auto"
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs shrink-0 transition-colors self-start sm:self-auto"
                 >
                   Ver Todos os Produtos
                 </button>
               </div>
             )}
 
-            {/* Tabela de Produtos */}
+            {/* Tabela de Produtos (Desktop) + Cards (Mobile) */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto hidden md:block">
                 <table className="w-full min-w-[680px] text-left border-collapse">
                   <thead>
-                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Imagem</th>
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
@@ -1452,7 +1551,7 @@ export default function AdminDashboardPage() {
                             <td className="py-3 px-4 max-w-sm">
                               <p className="font-bold text-zeiq-black line-clamp-1">{prod.name}</p>
                               {prod.code_sku && (
-                                <span className="font-mono text-[10px] text-slate-500 font-semibold block mt-0.5">
+                                <span className="font-mono text-xs text-slate-500 font-semibold block mt-0.5">
                                   SKU: {prod.code_sku}
                                 </span>
                               )}
@@ -1462,12 +1561,12 @@ export default function AdminDashboardPage() {
                               <div className="flex flex-wrap gap-1 max-w-xs">
                                 {prod.categories && prod.categories.length > 0 ? (
                                   prod.categories.map((c) => (
-                                    <span key={c.id} className="text-[10px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                                    <span key={c.id} className="text-xs font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
                                       {c.name}
                                     </span>
                                   ))
                                 ) : (
-                                  <span className="text-[10px] text-slate-400 italic">Sem categoria</span>
+                                  <span className="text-xs text-slate-400 italic">Sem categoria</span>
                                 )}
                               </div>
                             </td>
@@ -1478,7 +1577,7 @@ export default function AdminDashboardPage() {
                                   R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               ) : (
-                                <span className="text-slate-400 font-normal italic text-[11px]">Sob consulta</span>
+                                <span className="text-slate-400 font-normal italic text-xs">Sob consulta</span>
                               )}
                             </td>
 
@@ -1486,7 +1585,7 @@ export default function AdminDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => handleTogglePublished(prod)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-2xs active:scale-95 cursor-pointer ${
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer ${
                                   prod.is_published
                                     ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
                                     : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
@@ -1558,6 +1657,104 @@ export default function AdminDashboardPage() {
                 </table>
               </div>
 
+              {/* Visualização de Produtos em Cards para Dispositivos Móveis */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {paginatedProducts.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs px-4">
+                    Nenhum produto localizado com os filtros selecionados.
+                  </div>
+                ) : (
+                  paginatedProducts.map((prod) => {
+                    const cover = prod.images?.find((i) => i.is_cover)?.public_url || prod.images?.[0]?.public_url;
+                    return (
+                      <div key={prod.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-[#f8f9fa] border border-slate-200 overflow-hidden flex items-center justify-center p-1 shrink-0">
+                            {cover ? (
+                              <img src={cover} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                            ) : (
+                              <ImageIcon className="w-5 h-5 text-slate-300" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-zeiq-black text-xs line-clamp-2 leading-snug">{prod.name}</h4>
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {prod.code_sku && (
+                                <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  {prod.code_sku}
+                                </span>
+                              )}
+                              {prod.categories?.[0] && (
+                                <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded truncate max-w-[120px]">
+                                  {prod.categories[0].name}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 font-mono font-bold text-xs">
+                              {prod.price != null && prod.price > 0 ? (
+                                <span className="text-emerald-700">
+                                  R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic">Sob consulta</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Ações e Controles em Linha no Mobile */}
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePublished(prod)}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                                prod.is_published
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : 'bg-amber-50 text-amber-800 border-amber-300'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${prod.is_published ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                              <span>{prod.is_published ? 'Em Estoque' : 'Sem Estoque'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleFeatured(prod)}
+                              className={`p-1 rounded-lg ${prod.is_featured ? 'text-amber-500' : 'text-slate-300'}`}
+                              title={prod.is_featured ? 'Destaque ativo' : 'Sem destaque'}
+                            >
+                              <Star className={`w-4 h-4 ${prod.is_featured ? 'fill-amber-400' : ''}`} />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingProduct(prod);
+                                setIsProductModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProduct(prod)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="Excluir produto"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
               {/* Paginação Suave */}
               <div className="p-4 bg-[#f8f9fa] border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
                 <span>
@@ -1600,33 +1797,33 @@ export default function AdminDashboardPage() {
             {/* Métricas de Pedidos */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total de Pedidos</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Pedidos</p>
                 <h3 className="text-xl sm:text-2xl font-black text-zeiq-black mt-1">{orders.length}</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Todas as ordens de compra</p>
+                <p className="text-xs text-slate-500 mt-0.5">Todas as ordens de compra</p>
               </div>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Em Andamento</p>
+                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Em Andamento</p>
                 <h3 className="text-xl sm:text-2xl font-black text-amber-600 mt-1">
                   {orders.filter((o) => ['pending', 'approved', 'processing', 'shipped'].includes(o.status)).length}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Pendentes ou em trânsito</p>
+                <p className="text-xs text-slate-500 mt-0.5">Pendentes ou em trânsito</p>
               </div>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Entregues</p>
+                <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Entregues</p>
                 <h3 className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
                   {orders.filter((o) => o.status === 'delivered').length}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Concluídos com sucesso</p>
+                <p className="text-xs text-slate-500 mt-0.5">Concluídos com sucesso</p>
               </div>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total de Peças</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Peças</p>
                 <h3 className="text-xl sm:text-2xl font-black text-indigo-600 mt-1">
                   {orders.reduce((acc, o) => acc + (o.total_pieces || 0), 0)}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Grade física total</p>
+                <p className="text-xs text-slate-500 mt-0.5">Grade física total</p>
               </div>
             </div>
 
@@ -1668,12 +1865,12 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Tabela de Pedidos */}
+            {/* Tabela de Pedidos (Desktop) + Cards (Mobile) */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto hidden md:block">
                 <table className="w-full min-w-[700px] text-left border-collapse">
                   <thead>
-                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
                       <th className="py-3 px-4">Pedido</th>
                       <th className="py-3 px-4">Lojista / Arena</th>
                       <th className="py-3 px-4">Contato WhatsApp</th>
@@ -1696,7 +1893,7 @@ export default function AdminDashboardPage() {
                           <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4 font-mono">
                               <span className="font-bold text-zeiq-black block">#{order.order_number}</span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-xs text-slate-400">
                                 {new Date(order.created_at || '').toLocaleDateString('pt-BR')}
                               </span>
                             </td>
@@ -1706,7 +1903,7 @@ export default function AdminDashboardPage() {
                                 {order.buyer_company || order.buyer_name}
                               </strong>
                               {order.buyer_company && (
-                                <span className="text-[10px] text-slate-500 block">
+                                <span className="text-xs text-slate-500 block">
                                   Resp: {order.buyer_name}
                                 </span>
                               )}
@@ -1732,7 +1929,7 @@ export default function AdminDashboardPage() {
 
                             <td className="py-3.5 px-4 text-center">
                               <span className="font-bold text-zeiq-black">{order.total_pieces} un.</span>
-                              <span className="text-[10px] text-slate-400 block">
+                              <span className="text-xs text-slate-400 block">
                                 ({order.items?.length || 0} modelos)
                               </span>
                             </td>
@@ -1751,7 +1948,7 @@ export default function AdminDashboardPage() {
                                           e.stopPropagation();
                                           setOpenStatusOrderId(isOpen ? null : order.id);
                                         }}
-                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${currentOpt.bg} ${currentOpt.text} ${currentOpt.border}`}
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${currentOpt.bg} ${currentOpt.text} ${currentOpt.border}`}
                                         title="Clique para alterar o status operacional"
                                       >
                                         <span className={`w-1.5 h-1.5 rounded-full ${currentOpt.dot}`} />
@@ -1761,7 +1958,7 @@ export default function AdminDashboardPage() {
 
                                       {isOpen && (
                                         <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-52 bg-white rounded-xl border border-slate-200 shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 text-left">
-                                          <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                          <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                                             Alterar Status do Pedido
                                           </div>
                                           {STATUS_OPTIONS.map((opt) => (
@@ -1825,6 +2022,129 @@ export default function AdminDashboardPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Visualização de Pedidos em Cards no Mobile */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {filteredOrders.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs px-4">
+                    Nenhum pedido localizado nesta visualização.
+                  </div>
+                ) : (
+                  filteredOrders.map((order) => {
+                    const cleanPhone = (order.buyer_phone || '').replace(/\D/g, '');
+                    const currentOpt = STATUS_OPTIONS.find((s) => s.key === order.status) || STATUS_OPTIONS[0];
+                    const isOpen = openStatusOrderId === order.id;
+
+                    return (
+                      <div key={order.id} className="p-3.5 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="font-mono font-bold text-zeiq-black text-sm block">#{order.order_number}</span>
+                            <span className="text-xs text-slate-400">
+                              {new Date(order.created_at || '').toLocaleDateString('pt-BR')} • {order.total_pieces} un. ({order.items?.length || 0} modelos)
+                            </span>
+                          </div>
+
+                          {/* Popover Status no Mobile */}
+                          <div className="relative inline-block text-left status-popover-container">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenStatusOrderId(isOpen ? null : order.id);
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${currentOpt.bg} ${currentOpt.text} ${currentOpt.border}`}
+                              title="Alterar status"
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${currentOpt.dot}`} />
+                              <span>{currentOpt.label.split(' ')[0]}</span>
+                              <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {isOpen && (
+                              <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-xl border border-slate-200 shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 text-left">
+                                <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                  Alterar Status do Pedido
+                                </div>
+                                {STATUS_OPTIONS.map((opt) => (
+                                  <button
+                                    key={opt.key}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUpdateOrderStatus(order.id, opt.key);
+                                      setOpenStatusOrderId(null);
+                                    }}
+                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                                      order.status === opt.key
+                                        ? `${opt.bg} ${opt.text} font-bold`
+                                        : 'hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                  >
+                                    <span className="flex items-center gap-2">
+                                      <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
+                                      <span>{opt.label}</span>
+                                    </span>
+                                    {order.status === opt.key && <Check className="w-3.5 h-3.5 text-current" />}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <strong className="text-zeiq-black text-xs block">{order.buyer_company || order.buyer_name}</strong>
+                          {order.buyer_company && (
+                            <span className="text-xs text-slate-500 block">Resp: {order.buyer_name}</span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                          {cleanPhone ? (
+                            <a
+                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                                `Olá ${order.buyer_name}! Aqui é da Zeiq Sports sobre o seu pedido #${order.order_number}.`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200 transition-colors"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>{order.buyer_phone}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic text-xs">Sem telefone</span>
+                          )}
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTrackingModalOrder(order);
+                                setNewTrackingCode(order.tracking_code || '');
+                                setNewTrackingUrl(order.tracking_url || '');
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors cursor-pointer"
+                              title="Cadastrar Rastreamento"
+                            >
+                              Rastreio
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderDetails(order)}
+                              className="px-3 py-1.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl font-bold transition-all cursor-pointer"
+                            >
+                              Ver Grade
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1834,78 +2154,181 @@ export default function AdminDashboardPage() {
         {/* ======================================================== */}
         {activeTab === 'users' && (
           <div className="space-y-6">
-            {/* Métricas de Clientes */}
+            {/* Métricas de Clientes e Administradores */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total de Lojistas</p>
-                <h3 className="text-xl sm:text-2xl font-black text-zeiq-black mt-1">{clients.length}</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Contas cadastradas no portal</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setUserRoleFilter('reseller')}
+                className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                  userRoleFilter === 'reseller'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-zeiq-orange/20'
+                    : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs font-bold uppercase tracking-wider ${
+                    userRoleFilter === 'reseller' ? 'text-slate-300' : 'text-slate-400'
+                  }`}>
+                    Lojistas B2B
+                  </p>
+                  <Building2 className={`w-4 h-4 ${
+                    userRoleFilter === 'reseller' ? 'text-zeiq-orange' : 'text-slate-400'
+                  }`} />
+                </div>
+                <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
+                  userRoleFilter === 'reseller' ? 'text-white' : 'text-zeiq-black'
+                }`}>
+                  {clients.filter((c) => c.role !== 'admin').length}
+                </h3>
+                <p className={`text-xs mt-0.5 ${
+                  userRoleFilter === 'reseller' ? 'text-slate-300' : 'text-slate-500'
+                }`}>
+                  Acesso exclusivo ao catálogo no site
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUserRoleFilter('admin')}
+                className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                  userRoleFilter === 'admin'
+                    ? 'bg-amber-950 text-white border-amber-900 shadow-md ring-2 ring-amber-500/20'
+                    : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs font-bold uppercase tracking-wider ${
+                    userRoleFilter === 'admin' ? 'text-amber-200' : 'text-amber-700'
+                  }`}>
+                    Membros Administrativos
+                  </p>
+                  <ShieldCheck className={`w-4 h-4 ${
+                    userRoleFilter === 'admin' ? 'text-zeiq-orange' : 'text-amber-600'
+                  }`} />
+                </div>
+                <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
+                  userRoleFilter === 'admin' ? 'text-white' : 'text-amber-900'
+                }`}>
+                  {clients.filter((c) => c.role === 'admin').length}
+                </h3>
+                <p className={`text-xs mt-0.5 ${
+                  userRoleFilter === 'admin' ? 'text-amber-200/80' : 'text-slate-500'
+                }`}>
+                  Gestão completa do painel administrativo
+                </p>
+              </button>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Contas Ativas</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Contas Ativas</p>
+                  <UserCheck className="w-4 h-4 text-emerald-600" />
+                </div>
                 <h3 className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
                   {clients.filter((c) => c.is_approved).length}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Revendedores autorizados</p>
+                <p className="text-xs text-slate-500 mt-0.5">Acessos liberados no portal</p>
               </div>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Arenas & Lojas</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Arenas & Lojas</p>
+                  <Layers className="w-4 h-4 text-slate-400" />
+                </div>
                 <h3 className="text-xl sm:text-2xl font-black text-zeiq-black mt-1">
                   {clients.filter((c) => c.store_name).length}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Pontos de venda mapeados</p>
-              </div>
-
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">E-mails Confirmados</p>
-                <h3 className="text-xl sm:text-2xl font-black text-blue-600 mt-1">
-                  {clients.filter((c) => c.email_confirmed).length}
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Autenticação validada</p>
+                <p className="text-xs text-slate-500 mt-0.5">Pontos de venda mapeados</p>
               </div>
             </div>
 
-            {/* Busca e Ações de Clientes */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Pesquisar por loja, responsável ou e-mail..."
-                  className="w-full pl-10 pr-4 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
+            {/* Busca, Filtros de Papel e Ações */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                {/* Campo de Busca */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Pesquisar por loja, responsável ou e-mail..."
+                    className="w-full pl-10 pr-4 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                {/* Filtros em Abas/Pílulas */}
+                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl shrink-0 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      userRoleFilter === 'all'
+                        ? 'bg-white text-zeiq-black shadow-2xs'
+                        : 'text-slate-600 hover:text-zeiq-black'
+                    }`}
+                  >
+                    Todos ({clients.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('reseller')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      userRoleFilter === 'reseller'
+                        ? 'bg-white text-zeiq-black shadow-2xs'
+                        : 'text-slate-600 hover:text-zeiq-black'
+                    }`}
+                  >
+                    Lojistas B2B ({clients.filter((c) => c.role !== 'admin').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('admin')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      userRoleFilter === 'admin'
+                        ? 'bg-white text-amber-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-zeiq-black'
+                    }`}
+                  >
+                    Admins ({clients.filter((c) => c.role === 'admin').length})
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 hidden md:inline">
-                  Total: <strong>{filteredClients.length}</strong> lojistas
-                </span>
+              {/* Botões de Ação */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateUserModal('reseller')}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-zeiq-black rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
+                  title="Cadastrar lojista parceiro para compras no atacado"
+                >
+                  <Plus className="w-4 h-4 text-emerald-600" />
+                  <span>Novo Lojista B2B</span>
+                </button>
 
                 <button
                   type="button"
-                  onClick={handleOpenClientModal}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
+                  onClick={() => handleOpenCreateUserModal('admin')}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
+                  title="Cadastrar membro da equipe com acesso ao painel de controle"
                 >
-                  <Plus className="w-4 h-4 text-zeiq-orange" />
-                  <span>Cadastrar Novo Lojista</span>
+                  <ShieldCheck className="w-4 h-4 text-zeiq-orange" />
+                  <span>Novo Administrador</span>
                 </button>
               </div>
             </div>
 
-            {/* Tabela de Clientes */}
+            {/* Tabela de Clientes e Membros Administrativos */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px] text-left border-collapse">
+                <table className="w-full min-w-[760px] text-left border-collapse">
                   <thead>
-                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Loja / Arena</th>
+                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4">Loja / Membro</th>
                       <th className="py-3 px-4">Responsável</th>
                       <th className="py-3 px-4">WhatsApp</th>
                       <th className="py-3 px-4">E-mail de Acesso</th>
+                      <th className="py-3 px-4 text-center">Tipo de Acesso</th>
                       <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-center">Cadastro</th>
                       <th className="py-3 px-4 text-right">Ações</th>
@@ -1914,25 +2337,26 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {filteredClients.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400">
-                          Nenhum cliente ou revendedor localizado.
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                          Nenhum usuário ou lojista localizado para o filtro selecionado.
                         </td>
                       </tr>
                     ) : (
                       filteredClients.map((client) => {
                         const cleanPhone = (client.phone || '').replace(/\D/g, '');
+                        const isMaster = client.is_master || client.email?.toLowerCase() === 'patrickbrank@outlook.com';
+                        const isAdminUser = client.role === 'admin';
+
                         return (
                           <tr key={client.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4">
-                              <strong className="text-zeiq-black block">{client.store_name}</strong>
-                              {client.role === 'admin' && (
-                                <span className="text-[9px] font-black uppercase text-zeiq-orange">
-                                  Administrador
-                                </span>
-                              )}
+                              <strong className="text-zeiq-black block font-semibold">{client.store_name}</strong>
+                              <span className="text-xs text-slate-400">
+                                {client.city ? `${client.city}${client.state ? ` - ${client.state}` : ''}` : 'Local não informado'}
+                              </span>
                             </td>
 
-                            <td className="py-3.5 px-4 text-slate-700">
+                            <td className="py-3.5 px-4 text-slate-700 font-medium">
                               {client.contact_name}
                             </td>
 
@@ -1959,9 +2383,34 @@ export default function AdminDashboardPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                Ativo
-                              </span>
+                              {isMaster ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-zinc-900 text-amber-400 border border-amber-500/30">
+                                  <span>👑</span>
+                                  <span>Master</span>
+                                </span>
+                              ) : isAdminUser ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-50 text-amber-900 border border-amber-200">
+                                  <span>🛡️</span>
+                                  <span>Administrador</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                  <span>🏪</span>
+                                  <span>Lojista B2B</span>
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              {client.is_approved ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  Ativo
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                                  Bloqueado
+                                </span>
+                              )}
                             </td>
 
                             <td className="py-3.5 px-4 text-center text-slate-500">
@@ -1971,16 +2420,29 @@ export default function AdminDashboardPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-right">
-                              {client.email !== 'patrickbrank@outlook.com' && client.role !== 'admin' && (
+                              <div className="flex items-center justify-end gap-1">
+                                {/* Botão de Edição Completa */}
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteClient(client)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Remover acesso do lojista"
+                                  onClick={() => handleOpenEditUserModal(client)}
+                                  className="p-1.5 text-slate-500 hover:text-zeiq-black hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                  title="Editar informações cadastrais e permissões"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Edit3 className="w-4 h-4" />
                                 </button>
-                              )}
+
+                                {/* Botão de Exclusão (protege apenas a conta master) */}
+                                {!isMaster && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteClient(client)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    title={isAdminUser ? 'Remover membro administrativo' : 'Remover acesso do lojista'}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -2001,29 +2463,29 @@ export default function AdminDashboardPage() {
             {/* Métricas de Categorias e Linhas */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total de Categorias</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Categorias</p>
                 <h3 className="text-xl sm:text-2xl font-black text-zeiq-black mt-1">{categories.length}</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Seções ativas no catálogo</p>
+                <p className="text-xs text-slate-500 mt-0.5">Seções ativas no catálogo</p>
               </div>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Linhas Esportivas Ativas</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Linhas Esportivas Ativas</p>
                 <h3 className="text-xl sm:text-2xl font-black text-zeiq-orange mt-1">{departments.length}</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Departamentos no menu do site</p>
+                <p className="text-xs text-slate-500 mt-0.5">Departamentos no menu do site</p>
               </div>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Produtos Distribuídos</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Produtos Distribuídos</p>
                 <h3 className="text-xl sm:text-2xl font-black text-zeiq-black mt-1">{products.length}</h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Catálogo completo vinculado</p>
+                <p className="text-xs text-slate-500 mt-0.5">Catálogo completo vinculado</p>
               </div>
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Lançamentos</p>
+                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Lançamentos</p>
                 <h3 className="text-xl sm:text-2xl font-black text-amber-600 mt-1">
                   {products.filter((p) => p.tags?.some((t) => t.toLowerCase().includes('lança')) || p.is_featured).length}
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">Novidades 2026</p>
+                <p className="text-xs text-slate-500 mt-0.5">Novidades 2026</p>
               </div>
             </div>
 
@@ -2073,7 +2535,7 @@ export default function AdminDashboardPage() {
                           <span className="font-bold text-xs text-zeiq-black block truncate" title={dept.name}>
                             {dept.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                          <span className="text-xs text-slate-500 font-medium block mt-0.5">
                             Botão: <strong className="text-zeiq-black">{dept.shortName}</strong>
                           </span>
                         </div>
@@ -2101,17 +2563,17 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-[11px]">
+                      <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 text-xs">
                         <button
                           type="button"
                           onClick={() => setSelectedDeptFilter(isFiltered ? 'all' : dept.id)}
-                          className="font-mono font-bold text-[10px] text-slate-600 hover:text-zeiq-black flex items-center gap-1 transition-colors"
+                          className="font-mono font-bold text-xs text-slate-600 hover:text-zeiq-black flex items-center gap-1 transition-colors"
                           title="Clique para filtrar as categorias desta linha abaixo"
                         >
                           <Filter className={`w-3 h-3 ${isFiltered ? 'text-zeiq-orange' : 'text-slate-400'}`} />
                           <span>{assignedCount} {assignedCount === 1 ? 'categoria' : 'categorias'}</span>
                         </button>
-                        <span className="text-[10px] font-mono text-slate-400 bg-white px-1.5 py-0.2 rounded border border-slate-200">
+                        <span className="text-xs font-mono text-slate-400 bg-white px-1.5 py-0.2 rounded border border-slate-200">
                           #{dept.id}
                         </span>
                       </div>
@@ -2152,7 +2614,7 @@ export default function AdminDashboardPage() {
                   }`}
                 >
                   <span>Todas as Linhas</span>
-                  <span className="text-[10px] opacity-80 font-mono">({categories.length})</span>
+                  <span className="text-xs opacity-80 font-mono">({categories.length})</span>
                 </button>
 
                 {departments.map((dept) => {
@@ -2173,7 +2635,7 @@ export default function AdminDashboardPage() {
                       }`}
                     >
                       <span>{dept.shortName}</span>
-                      <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                      <span className="text-xs opacity-80 font-mono">({count})</span>
                     </button>
                   );
                 })}
@@ -2184,7 +2646,7 @@ export default function AdminDashboardPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[650px] text-left border-collapse">
                     <thead>
-                      <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
                         <th className="py-3 px-4 w-16 text-center">Ordem</th>
                         <th className="py-3 px-4">Nome da Categoria</th>
                         <th className="py-3 px-4">Linha Esportiva Vinculada</th>
@@ -2422,7 +2884,7 @@ export default function AdminDashboardPage() {
                               <label className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
                                 <span>Imagem Desktop (Widescreen)</span>
                               </label>
-                              <span className="text-[10px] text-slate-400 font-medium">Recomendado: ~1720x430 px</span>
+                              <span className="text-xs text-slate-400 font-medium">Recomendado: ~1720x430 px</span>
                             </div>
 
                             <div className="relative aspect-[16/4.5] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
@@ -2435,7 +2897,7 @@ export default function AdminDashboardPage() {
                               ) : (
                                 <div className="text-center p-4 text-slate-400">
                                   <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
-                                  <span className="text-[11px]">Nenhuma imagem selecionada</span>
+                                  <span className="text-xs">Nenhuma imagem selecionada</span>
                                 </div>
                               )}
 
@@ -2477,7 +2939,7 @@ export default function AdminDashboardPage() {
                               <label className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
                                 <span>Imagem Mobile (Celulares)</span>
                               </label>
-                              <span className="text-[10px] text-slate-400 font-medium">Recomendado: ~800x600 px</span>
+                              <span className="text-xs text-slate-400 font-medium">Recomendado: ~800x600 px</span>
                             </div>
 
                             <div className="relative aspect-[16/6] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
@@ -2490,7 +2952,7 @@ export default function AdminDashboardPage() {
                               ) : (
                                 <div className="text-center p-4 text-slate-400">
                                   <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
-                                  <span className="text-[11px]">Nenhuma imagem selecionada</span>
+                                  <span className="text-xs">Nenhuma imagem selecionada</span>
                                 </div>
                               )}
 
@@ -2532,7 +2994,7 @@ export default function AdminDashboardPage() {
                         <div className="pt-3 border-t border-slate-100 space-y-2">
                           <label className="text-xs font-bold text-zeiq-black flex items-center justify-between">
                             <span>Link de Destino ao Clicar</span>
-                            <span className="text-[10px] text-slate-400 font-normal">Ao tocar no banner, o cliente vai para este link</span>
+                            <span className="text-xs text-slate-400 font-normal">Ao tocar no banner, o cliente vai para este link</span>
                           </label>
                           <input
                             type="text"
@@ -2544,46 +3006,46 @@ export default function AdminDashboardPage() {
 
                           {/* Atalhos Rápidos para Links Frequentes */}
                           <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                            <span className="text-[10px] text-slate-400 font-medium mr-1">Atalhos rápidos:</span>
+                            <span className="text-xs text-slate-400 font-medium mr-1">Atalhos rápidos:</span>
                             <button
                               type="button"
                               onClick={() => handleUpdateBanner(index, 'link', '?search=Leo+Branco')}
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                             >
                               Coleção Leo Branco
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateBanner(index, 'link', '?dept=equipamentos&cat=raquetes')}
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                             >
                               Raquetes Beach Tennis
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateBanner(index, 'link', '?dept=lancamentos')}
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                             >
                               Lançamentos
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateBanner(index, 'link', '?dept=vestuario-masculino')}
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                             >
                               Masculino
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateBanner(index, 'link', '?dept=vestuario-feminino')}
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                             >
                               Feminino
                             </button>
                             <button
                               type="button"
                               onClick={() => handleUpdateBanner(index, 'link', '/portal')}
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                              className="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
                             >
                               Meus Pedidos
                             </button>
@@ -2641,7 +3103,7 @@ export default function AdminDashboardPage() {
                     </a>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400">
                   Insira com código do país e DDD (ex: 5516991667020). Quando o cliente clicar em &quot;Enviar Pedido no WhatsApp&quot; na gaveta de cotação ou no rodapé, a mensagem será aberta para este número.
                 </p>
               </div>
@@ -2660,7 +3122,7 @@ export default function AdminDashboardPage() {
                   placeholder="Ex: contato@zeiq.com.br"
                   className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400">
                   E-mail exibido no rodapé do catálogo e no portal do revendedor.
                 </p>
               </div>
@@ -2753,11 +3215,11 @@ export default function AdminDashboardPage() {
                     </div>
                     <div>
                       <strong className="text-zeiq-black block">{it.productName}</strong>
-                      {it.sku && <span className="font-mono text-[10px] text-slate-500">SKU: {it.sku}</span>}
+                      {it.sku && <span className="font-mono text-xs text-slate-500">SKU: {it.sku}</span>}
                       {it.sizeBreakdown && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {Object.entries(it.sizeBreakdown).map(([sz, qty]) => (
-                            <span key={sz} className="px-1.5 py-0.2 bg-white border border-slate-200 rounded font-bold text-[10px]">
+                            <span key={sz} className="px-1.5 py-0.2 bg-white border border-slate-200 rounded font-bold text-xs">
                               {sz}: {qty}
                             </span>
                           ))}
@@ -2938,7 +3400,7 @@ export default function AdminDashboardPage() {
                 <label className="block text-xs font-semibold text-slate-700">
                   Linha Esportiva Vinculada *
                 </label>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400">
                   Selecione o departamento onde esta categoria ficará agrupada no menu:
                 </p>
 
@@ -2963,7 +3425,7 @@ export default function AdminDashboardPage() {
                           }`}>
                             {dept.name}
                           </span>
-                          <span className={`block text-[10px] mt-0.5 truncate ${
+                          <span className={`block text-xs mt-0.5 truncate ${
                             isSelected ? 'text-slate-300' : 'text-slate-400'
                           }`}>
                             Menu: {dept.shortName}
@@ -3082,50 +3544,160 @@ export default function AdminDashboardPage() {
       )}
 
       {/* ======================================================== */}
-      {/* MODAL 6: CADASTRO DE LOJISTA / REVENDEDOR               */}
+      {/* MODAL 6: CADASTRO E EDIÇÃO DE LOJISTA / ADMINISTRADOR   */}
       {/* ======================================================== */}
       {isClientModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 my-8">
             <button
+              type="button"
               onClick={() => setIsClientModalOpen(false)}
-              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors"
+              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
+            {/* Cabeçalho do Modal */}
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-zeiq-orange/15 text-zeiq-orange border border-zeiq-orange/30 flex items-center justify-center shrink-0">
-                <Users className="w-5 h-5" />
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
+                clientRole === 'admin'
+                  ? 'bg-amber-50 text-amber-600 border-amber-200'
+                  : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+              }`}>
+                {clientRole === 'admin' ? <ShieldCheck className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
               </div>
               <div>
                 <h3 className="text-base font-bold text-zeiq-black leading-tight">
-                  Cadastrar Novo Lojista
+                  {clientModalMode === 'create'
+                    ? (clientRole === 'admin' ? 'Cadastrar Novo Administrador' : 'Cadastrar Novo Lojista B2B')
+                    : (clientIsMaster
+                        ? 'Editar Administrador Master'
+                        : clientRole === 'admin'
+                        ? 'Editar Membro Administrativo'
+                        : 'Editar Lojista B2B')}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Crie os dados de acesso para o revendedor entrar no catálogo B2B.
+                  {clientModalMode === 'create'
+                    ? 'Defina os dados de cadastro e permissões de acesso ao sistema.'
+                    : 'Atualize os dados cadastrais, cargo de acesso e status da conta.'}
                 </p>
               </div>
             </div>
 
             <form onSubmit={handleSaveClient} className="space-y-4">
               {clientError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">
-                  {clientError}
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                  <span>{clientError}</span>
                 </div>
               )}
 
+              {/* Seletor de Tipo de Acesso / Papel */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Tipo de Conta & Permissão de Acesso *
+                </label>
+                {clientIsMaster ? (
+                  <div className="p-3 bg-zinc-900 text-white rounded-xl border border-zinc-800 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">👑</span>
+                      <div>
+                        <strong className="block text-amber-400 font-bold">Administrador Master Zeiq</strong>
+                        <span className="text-xs text-zinc-400">Conta principal protegida com privilégios permanentes.</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setClientRole('reseller')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        clientRole === 'reseller'
+                          ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20'
+                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Lojista B2B
+                        </span>
+                        {clientRole === 'reseller' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                      </div>
+                      <p className="text-xs text-slate-600 leading-tight">
+                        Acesso <strong>exclusivo ao site</strong> (catálogo e cotações). Bloqueado neste painel.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setClientRole('admin')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        clientRole === 'admin'
+                          ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
+                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                          Administrador
+                        </span>
+                        {clientRole === 'admin' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                      </div>
+                      <p className="text-xs text-slate-600 leading-tight">
+                        Acesso <strong>completo a este painel</strong> (produtos, pedidos, banners e equipe).
+                      </p>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Status da Conta (Ativo / Bloqueado) */}
+              {clientModalMode === 'edit' && !clientIsMaster && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <strong className="block text-xs font-semibold text-slate-800">Status do Acesso</strong>
+                    <span className="text-xs text-slate-500">
+                      {clientApproved ? 'Conta ativa e liberada para login.' : 'Acesso temporariamente bloqueado.'}
+                    </span>
+                  </div>
+                  <div className="inline-flex rounded-lg p-0.5 bg-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setClientApproved(true)}
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                        clientApproved ? 'bg-white text-emerald-700 shadow-2xs' : 'text-slate-600'
+                      }`}
+                    >
+                      Ativo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClientApproved(false)}
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                        !clientApproved ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600'
+                      }`}
+                    >
+                      Bloqueado
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Dados Cadastrais */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nome da Loja / Arena *
+                    {clientRole === 'admin' ? 'Identificação / Setor *' : 'Nome da Loja / Arena *'}
                   </label>
                   <input
                     type="text"
                     required
                     value={newClientStore}
                     onChange={(e) => setNewClientStore(e.target.value)}
-                    placeholder="Ex: Arena Beach Point"
+                    placeholder={clientRole === 'admin' ? 'Ex: Equipe Comercial Zeiq' : 'Ex: Arena Beach Point'}
                     className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
@@ -3205,8 +3777,8 @@ export default function AdminDashboardPage() {
 
               {/* Credenciais de Acesso */}
               <div className="pt-2 border-t border-slate-100 space-y-3">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Credenciais de Login no Catálogo
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Credenciais de Login ({clientRole === 'admin' ? 'Painel Administrativo' : 'Catálogo do Site'})
                 </p>
 
                 <div>
@@ -3216,39 +3788,52 @@ export default function AdminDashboardPage() {
                   <input
                     type="email"
                     required
+                    disabled={clientModalMode === 'edit'}
                     value={newClientEmail}
                     onChange={(e) => setNewClientEmail(e.target.value)}
-                    placeholder="cliente@loja.com.br"
-                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    placeholder="usuario@zeiq.com.br"
+                    className={`w-full px-3.5 py-2 text-sm border rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black ${
+                      clientModalMode === 'edit'
+                        ? 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'
+                        : 'bg-[#f8f9fa] border-slate-200'
+                    }`}
                   />
+                  {clientModalMode === 'edit' && (
+                    <span className="text-xs text-slate-400 mt-1 block">
+                      O e-mail é a chave de login. Para alterá-lo, crie um novo cadastro.
+                    </span>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>Senha Inicial *</span>
+                    <span>
+                      {clientModalMode === 'create' ? 'Senha Inicial *' : 'Redefinir Senha (Opcional)'}
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
                         const randomPwd = 'Zeiq@' + Math.floor(1000 + Math.random() * 9000);
                         setNewClientPassword(randomPwd);
                       }}
-                      className="text-[11px] text-zeiq-orange hover:underline font-bold cursor-pointer"
+                      className="text-xs text-zeiq-orange hover:underline font-bold cursor-pointer"
                     >
                       Gerar Senha
                     </button>
                   </label>
                   <input
                     type="text"
-                    required
+                    required={clientModalMode === 'create'}
                     minLength={6}
                     value={newClientPassword}
                     onChange={(e) => setNewClientPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder={clientModalMode === 'create' ? 'Mínimo 6 caracteres' : 'Deixar em branco para manter a senha atual'}
                     className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
                   />
                 </div>
               </div>
 
+              {/* Botões do Rodapé */}
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
@@ -3262,7 +3847,11 @@ export default function AdminDashboardPage() {
                   disabled={savingClient}
                   className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer"
                 >
-                  {savingClient ? 'Criando Conta...' : 'Cadastrar Lojista'}
+                  {savingClient
+                    ? (clientModalMode === 'create' ? 'Criando Conta...' : 'Salvando...')
+                    : (clientModalMode === 'create'
+                        ? (clientRole === 'admin' ? 'Cadastrar Administrador' : 'Cadastrar Lojista B2B')
+                        : 'Salvar Alterações')}
                 </button>
               </div>
             </form>

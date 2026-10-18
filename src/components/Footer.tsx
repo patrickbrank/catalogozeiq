@@ -75,7 +75,7 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Atacado de Fábrica</h4>
-                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Tabela comercial e preços diretos da indústria Zeiq.</p>
+                <p className="text-xs text-slate-400 leading-snug mt-0.5">Tabela comercial e preços diretos da indústria Zeiq.</p>
               </div>
             </div>
 
@@ -85,7 +85,7 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Envio para Todo o Brasil</h4>
-                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Despacho ágil com código de rastreamento em tempo real.</p>
+                <p className="text-xs text-slate-400 leading-snug mt-0.5">Despacho ágil com código de rastreamento em tempo real.</p>
               </div>
             </div>
 
@@ -95,7 +95,7 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Grade Livre</h4>
-                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Monte os tamanhos conforme a demanda da sua arena.</p>
+                <p className="text-xs text-slate-400 leading-snug mt-0.5">Monte os tamanhos conforme a demanda da sua arena.</p>
               </div>
             </div>
 
@@ -105,7 +105,7 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Cotação Rápida</h4>
-                <p className="text-[11px] text-slate-400 leading-snug mt-0.5">Atendimento comercial consultivo direto no WhatsApp.</p>
+                <p className="text-xs text-slate-400 leading-snug mt-0.5">Atendimento comercial consultivo direto no WhatsApp.</p>
               </div>
             </div>
 
@@ -136,14 +136,14 @@ export function Footer({ settings: initialSettings }: FooterProps) {
             </p>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold text-slate-300">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-bold text-slate-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 Catálogo B2B 2026
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold text-slate-300">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-bold text-slate-300">
                 Fábrica Oficial
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-[10px] font-bold text-slate-300">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-bold text-slate-300">
                 Venda PJ
               </span>
             </div>
@@ -231,9 +231,9 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[11px] font-bold text-white uppercase tracking-wider">Atendimento Comercial</span>
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Atendimento Comercial</span>
                 </div>
-                <span className="text-[10px] font-medium text-slate-400">Atacado B2B</span>
+                <span className="text-xs font-medium text-slate-400">Atacado B2B</span>
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
@@ -281,11 +281,11 @@ export function Footer({ settings: initialSettings }: FooterProps) {
                 </div>
 
                 <div className="flex items-center justify-between text-slate-400 pt-1 border-t border-white/[0.06]">
-                  <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1.5 text-xs text-slate-400">
                     <Clock className="w-3.5 h-3.5 text-slate-500" />
                     <span>Horário Comercial:</span>
                   </span>
-                  <span className="text-[11px] font-medium text-slate-300">08h às 18h (Seg - Sex)</span>
+                  <span className="text-xs font-medium text-slate-300">08h às 18h (Seg - Sex)</span>
                 </div>
               </div>
 
@@ -298,12 +298,12 @@ export function Footer({ settings: initialSettings }: FooterProps) {
         <div className="mt-10 pt-6 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="text-center sm:text-left">
             <p>© {currentYear} Zeiq Sports. Todos os direitos reservados.</p>
-            <p className="text-[11px] text-slate-600 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Catálogo de revenda e cotações de atacado exclusivo para pessoas jurídicas, lojistas e arenas esportivas.
             </p>
           </div>
 
-          <div className="flex items-center justify-center sm:justify-end gap-3 sm:gap-4 text-[11px] flex-wrap sm:flex-nowrap">
+          <div className="flex items-center justify-center sm:justify-end gap-3 sm:gap-4 text-xs flex-wrap sm:flex-nowrap">
             <Link href="/portal" className="text-slate-400 hover:text-white transition-colors whitespace-nowrap">
               Rastrear Pedido
             </Link>

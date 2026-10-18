@@ -337,24 +337,24 @@ export function ProductFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4">
+      <div className="relative w-full max-w-3xl min-h-dvh sm:min-h-0 bg-white rounded-none sm:rounded-3xl shadow-2xl border-0 sm:border border-slate-200 overflow-hidden my-0 sm:my-8 flex flex-col">
         
         {/* Cabeçalho */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
           <h2 className="text-base font-bold text-slate-900">
             {product ? 'Editar Produto' : 'Cadastrar Novo Produto'}
           </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Formulário */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6 flex-1 overflow-y-auto max-h-[calc(100dvh-130px)] sm:max-h-[75vh]">
           {errorMsg && (
             <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
               {errorMsg}
@@ -396,7 +396,7 @@ export function ProductFormModal({
             <div>
               <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
                 <span>Preço de Atacado / Revenda (R$)</span>
-                <span className="text-[10px] text-emerald-700 font-normal">Exibido aos lojistas</span>
+                <span className="text-xs text-emerald-700 font-normal">Exibido aos lojistas</span>
               </label>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-800">
@@ -415,7 +415,7 @@ export function ProductFormModal({
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
                 <span>Preço Sugerido Varejo (R$)</span>
-                <span className="text-[10px] text-slate-500 font-normal">Opcional</span>
+                <span className="text-xs text-slate-500 font-normal">Opcional</span>
               </label>
               <div className="relative">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
@@ -454,7 +454,7 @@ export function ProductFormModal({
                   <Layers className="w-3.5 h-3.5 text-zeiq-orange" />
                   <span>Categorias do Produto</span>
                 </label>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Selecione onde o produto será classificado no catálogo:
                 </p>
               </div>
@@ -486,14 +486,14 @@ export function ProductFormModal({
               <button
                 type="button"
                 onClick={() => setCatDeptFilter('all')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1 ${
                   catDeptFilter === 'all'
                     ? 'bg-zeiq-black text-white shadow-2xs'
                     : 'bg-white hover:bg-slate-200/80 text-slate-700 border border-slate-200'
                 }`}
               >
                 <span>Todas</span>
-                <span className="text-[10px] opacity-75 font-mono">({categories.length})</span>
+                <span className="text-xs opacity-75 font-mono">({categories.length})</span>
               </button>
 
               {activeDepts.map((dept) => {
@@ -507,14 +507,14 @@ export function ProductFormModal({
                     key={dept.id}
                     type="button"
                     onClick={() => setCatDeptFilter(isSelected ? 'all' : dept.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap shrink-0 flex items-center gap-1 ${
                       isSelected
                         ? 'bg-zeiq-black text-white shadow-2xs'
                         : 'bg-white hover:bg-slate-200/80 text-slate-700 border border-slate-200'
                     }`}
                   >
                     <span>{dept.shortName}</span>
-                    <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                    <span className="text-xs opacity-75 font-mono">({count})</span>
                   </button>
                 );
               })}
@@ -523,12 +523,12 @@ export function ProductFormModal({
             {/* Resumo de Categorias Selecionadas em Destaque */}
             {selectedCategories.length > 0 && (
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500">
                   <span>Selecionadas ({selectedCategories.length}):</span>
                   <button
                     type="button"
                     onClick={() => setSelectedCategoryIds([])}
-                    className="text-slate-400 hover:text-rose-600 transition-colors font-medium hover:underline text-[10px]"
+                    className="text-slate-400 hover:text-rose-600 transition-colors font-medium hover:underline text-xs"
                   >
                     Limpar todas
                   </button>
@@ -582,7 +582,7 @@ export function ProductFormModal({
                             {cat.name}
                           </span>
                           {currentDept && (
-                            <span className={`text-[10px] block mt-0.5 truncate ${isChecked ? 'text-slate-300' : 'text-slate-400'}`}>
+                            <span className={`text-xs block mt-0.5 truncate ${isChecked ? 'text-slate-300' : 'text-slate-400'}`}>
                               {currentDept.shortName}
                             </span>
                           )}
@@ -609,14 +609,14 @@ export function ProductFormModal({
               <label className="text-xs font-semibold text-slate-700">
                 Grade de Tamanhos Disponíveis
               </label>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-xs text-slate-500">
                 Clique nos botões para ativar/desativar
               </span>
             </div>
 
             {/* Grade de Roupas */}
             <div className="mb-2">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                 Vestuário & Roupas
               </span>
               <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
@@ -646,7 +646,7 @@ export function ProductFormModal({
 
             {/* Grade de Calçados e Chinelos */}
             <div className="mb-2">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                 Chinelos & Calçados
               </span>
               <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
@@ -713,7 +713,7 @@ export function ProductFormModal({
               <label className="text-xs font-semibold text-slate-700">
                 Destaques & Especificações Técnicas (até 5 itens opcionais)
               </label>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs text-slate-400">
                 Ideal para raquetes, materiais e acessórios técnicos
               </span>
             </div>
@@ -821,7 +821,7 @@ export function ProductFormModal({
                     </div>
 
                     {img.is_cover && (
-                      <span className="absolute top-1 left-1 bg-zeiq-black text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                      <span className="absolute top-1 left-1 bg-zeiq-black text-white text-xs font-bold px-1.5 py-0.5 rounded shadow-sm">
                         Capa
                       </span>
                     )}
@@ -835,7 +835,7 @@ export function ProductFormModal({
           <div className="pt-2 border-t border-slate-100">
             <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
               <span>Tags & Palavras-chave de Busca</span>
-              <span className="text-[11px] text-slate-400 font-normal">Separadas por vírgula</span>
+              <span className="text-xs text-slate-400 font-normal">Separadas por vírgula</span>
             </label>
             <input
               type="text"
@@ -853,7 +853,7 @@ export function ProductFormModal({
                 <span className="text-xs font-bold text-zeiq-black block">
                   Disponibilidade & Visibilidade de Estoque
                 </span>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Defina se o produto está disponível para pedidos ou se deve ser pausado temporariamente por falta de estoque.
                 </p>
               </div>
@@ -873,7 +873,7 @@ export function ProductFormModal({
                   <span className={`w-3 h-3 rounded-full shrink-0 ${isPublished ? 'bg-emerald-500 ring-4 ring-emerald-100 animate-pulse' : 'bg-slate-300'}`} />
                   <div>
                     <span className="text-xs font-bold block text-zeiq-black">Em Estoque (Visível)</span>
-                    <span className="text-[11px] text-slate-500 font-normal block">Ativo e disponível no catálogo dos lojistas</span>
+                    <span className="text-xs text-slate-500 font-normal block">Ativo e disponível no catálogo dos lojistas</span>
                   </div>
                 </div>
                 {isPublished && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
@@ -892,7 +892,7 @@ export function ProductFormModal({
                   <span className={`w-3 h-3 rounded-full shrink-0 ${!isPublished ? 'bg-amber-500 ring-4 ring-amber-100' : 'bg-slate-300'}`} />
                   <div>
                     <span className="text-xs font-bold block text-zeiq-black">Sem Estoque (Oculto)</span>
-                    <span className="text-[11px] text-slate-500 font-normal block">Pausado temporariamente da vitrine</span>
+                    <span className="text-xs text-slate-500 font-normal block">Pausado temporariamente da vitrine</span>
                   </div>
                 </div>
                 {!isPublished && <Check className="w-4 h-4 text-amber-600 shrink-0" />}
@@ -911,7 +911,7 @@ export function ProductFormModal({
                 <span>Destacar este produto no topo da vitrine comercial (Estrela ⭐)</span>
               </label>
               {isFeatured && (
-                <span className="text-[10px] font-bold text-amber-600 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-200">
+                <span className="text-xs font-bold text-amber-600 bg-amber-100/70 px-2.5 py-0.5 rounded-full border border-amber-200">
                   Destaque Ativo
                 </span>
               )}
@@ -919,11 +919,11 @@ export function ProductFormModal({
           </div>
 
           {/* Botões do Rodapé */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+          <div className="pt-4 pb-safe border-t border-slate-200 flex items-center justify-end gap-3 sticky bottom-0 bg-white z-10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
             >
               Cancelar
             </button>
@@ -931,7 +931,7 @@ export function ProductFormModal({
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs disabled:opacity-50 transition-all"
+              className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs disabled:opacity-50 transition-all cursor-pointer active:scale-95"
             >
               {saving ? (
                 <>

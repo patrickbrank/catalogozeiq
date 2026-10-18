@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
 
   // Rotas que não exigem autenticação prévia
   const isPublicAuthRoute =
+    pathname === '/portal' ||
     pathname === '/login' ||
     pathname === '/portal/login' ||
     pathname === '/admin/login' ||
@@ -67,7 +68,8 @@ export async function middleware(request: NextRequest) {
         .maybeSingle();
 
       if (profile?.role !== 'admin') {
-        return NextResponse.redirect(new URL('/admin/login?error=unauthorized', request.url));
+        // Bloqueio rigoroso: clientes e lojistas cadastrados nunca entram no painel administrativo
+        return NextResponse.redirect(new URL('/?unauthorized_admin=1', request.url));
       }
     }
   }
@@ -79,20 +81,28 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // Se for admin e acessar /admin/login, vai para /admin
+    // Se acessar /admin/login:
+    // Se for admin, vai para /admin. Se for lojista comum, vai para o catálogo /
     if (pathname === '/admin/login') {
       const email = user.email?.toLowerCase();
-      if (email === 'patrickbrank@outlook.com' || user.app_metadata?.role === 'admin') {
+      const isMasterEmail = email === 'patrickbrank@outlook.com';
+      const hasAdminAppMeta = user.app_metadata?.role === 'admin';
+
+      if (isMasterEmail || hasAdminAppMeta) {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
+
       if (profile?.role === 'admin') {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
+
+      return NextResponse.redirect(new URL('/?unauthorized_admin=1', request.url));
     }
   }
 

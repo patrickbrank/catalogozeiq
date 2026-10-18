@@ -165,7 +165,7 @@ export function QuoteDrawer() {
                 <h2 className="text-xs sm:text-sm font-bold text-zeiq-black leading-tight">
                   Lista de Cotação
                 </h2>
-                <span className="text-[11px] text-slate-500 font-medium">
+                <span className="text-xs text-slate-500 font-medium">
                   {totalItemsCount} {totalItemsCount === 1 ? 'peça selecionada' : 'peças no pedido'}
                 </span>
               </div>
@@ -220,7 +220,7 @@ export function QuoteDrawer() {
                             className="w-full h-full object-contain mix-blend-multiply"
                           />
                         ) : (
-                          <div className="text-[10px] text-slate-300 font-bold">ZEIQ</div>
+                          <div className="text-xs text-slate-300 font-bold">ZEIQ</div>
                         )}
                       </div>
 
@@ -241,7 +241,7 @@ export function QuoteDrawer() {
                         </div>
                         
                         {item.sku && (
-                          <span className="text-[10px] font-mono text-slate-500 font-medium block mt-0.5">
+                          <span className="text-xs font-mono text-slate-500 font-medium block mt-0.5">
                             SKU: {item.sku}
                           </span>
                         )}
@@ -251,7 +251,7 @@ export function QuoteDrawer() {
                             <span className="font-extrabold text-zeiq-black font-mono">
                               R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-medium">
+                            <span className="text-xs text-slate-400 font-medium">
                               (Subtotal: R$ {(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                             </span>
                           </div>
@@ -260,7 +260,7 @@ export function QuoteDrawer() {
                         {/* EXIBIÇÃO DA GRADE DETALHADA POR TAMANHOS (CONTROLES AUMENTADOS) */}
                         {hasGrade ? (
                           <div className="mt-2 p-2.5 bg-[#f8f9fa] rounded-xl border border-slate-200">
-                            <div className="flex items-center justify-between text-[11px] font-bold text-zeiq-black mb-1.5">
+                            <div className="flex items-center justify-between text-xs font-bold text-zeiq-black mb-1.5">
                               <span className="flex items-center gap-1">
                                 <Layers className="w-3.5 h-3.5 text-slate-500" />
                                 Grade de Tamanhos:
@@ -274,12 +274,12 @@ export function QuoteDrawer() {
                                   key={sz}
                                   className="inline-flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs shadow-2xs"
                                 >
-                                  <span className="font-extrabold text-zeiq-black text-[11px]">{sz}:</span>
+                                  <span className="font-extrabold text-zeiq-black text-xs">{sz}:</span>
                                   <div className="flex items-center gap-1">
                                     <button
                                       type="button"
                                       onClick={() => updateSizeQuantity(item.productId, sz, qty - 1)}
-                                      className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black active:scale-90 transition-all"
+                                      className="w-7 h-7 sm:w-6 sm:h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black active:scale-90 transition-all cursor-pointer"
                                       title="Diminuir"
                                     >
                                       -
@@ -288,7 +288,7 @@ export function QuoteDrawer() {
                                     <button
                                       type="button"
                                       onClick={() => updateSizeQuantity(item.productId, sz, qty + 1)}
-                                      className="w-6 h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black active:scale-90 transition-all"
+                                      className="w-7 h-7 sm:w-6 sm:h-6 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-black active:scale-90 transition-all cursor-pointer"
                                       title="Aumentar"
                                     >
                                       +
@@ -323,162 +323,162 @@ export function QuoteDrawer() {
                               </button>
                             </div>
 
-                            <span className="text-[11px] text-slate-500 font-medium">unidades</span>
+                              <span className="text-xs text-slate-500 font-medium">unidades</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Observação de grade/item (Colapsável para economizar espaço visual no celular) */}
+                      <div>
+                        {item.notes || openNotesIds[item.productId] ? (
+                          <div className="mt-1">
+                            <input
+                              type="text"
+                              autoFocus={!item.notes}
+                              value={item.notes || ''}
+                              onChange={(e) => updateNotes(item.productId, e.target.value)}
+                              placeholder="Observações deste item (ex: cor, prazo)..."
+                              className="w-full px-3 py-1.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                            />
                           </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setOpenNotesIds((prev) => ({ ...prev, [item.productId]: true }))}
+                            className="text-xs text-slate-400 hover:text-zeiq-black inline-flex items-center gap-1 font-medium transition-colors pt-0.5 cursor-pointer"
+                          >
+                            <span>+ Adicionar observação deste item</span>
+                          </button>
                         )}
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    {/* Observação de grade/item (Colapsável para economizar espaço visual no celular) */}
-                    <div>
-                      {item.notes || openNotesIds[item.productId] ? (
-                        <div className="mt-1">
-                          <input
-                            type="text"
-                            autoFocus={!item.notes}
-                            value={item.notes || ''}
-                            onChange={(e) => updateNotes(item.productId, e.target.value)}
-                            placeholder="Observações deste item (ex: cor, prazo)..."
-                            className="w-full px-3 py-1.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-lg text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                          />
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setOpenNotesIds((prev) => ({ ...prev, [item.productId]: true }))}
-                          className="text-[11px] text-slate-400 hover:text-zeiq-black inline-flex items-center gap-1 font-medium transition-colors pt-0.5"
-                        >
-                          <span>+ Adicionar observação deste item</span>
-                        </button>
+            {/* Rodapé da Gaveta com Visual Redesenhado, Limpo e Moderno */}
+            {items.length > 0 && (
+              <div className="p-4 sm:p-5 pb-safe border-t border-slate-200 bg-white space-y-2.5">
+                {/* Resumo de Peças e Total Estimado */}
+                <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Quantidade Total:</span>
+                    <span className="font-extrabold text-zeiq-black font-mono">{totalItemsCount} peças</span>
+                  </div>
+                  {items.some((it) => it.price != null && it.price > 0) && (
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
+                      <span className="font-bold text-zeiq-black">Total Estimado Atacado:</span>
+                      <span className="text-sm font-extrabold text-emerald-700 font-mono">
+                        R$ {items.reduce((sum, it) => sum + ((it.price || 0) * it.quantity), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dados do Comprador Cadastrado (Compacto para liberar espaço para ver os produtos) */}
+                <div className="p-2.5 bg-[#f8f9fa] rounded-xl border border-slate-200/80">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <UserCheck className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
+                      <span className="font-bold text-zeiq-black truncate">
+                        {buyerName || 'Lojista Zeiq'}
+                      </span>
+                      {buyerCompany && (
+                        <span className="text-slate-400 text-xs truncate hidden xs:inline">
+                          • {buyerCompany}
+                        </span>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingBuyer(!isEditingBuyer)}
+                      className="text-xs font-bold text-slate-500 hover:text-zeiq-black ml-2 shrink-0 underline cursor-pointer"
+                    >
+                      {isEditingBuyer ? 'Recolher' : 'Alterar dados'}
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-          )}
 
-          {/* Rodapé da Gaveta com Visual Redesenhado, Limpo e Moderno */}
-          {items.length > 0 && (
-            <div className="p-4 sm:p-5 border-t border-slate-200 bg-white space-y-2.5">
-              {/* Resumo de Peças e Total Estimado */}
-              <div className="p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-medium">Quantidade Total:</span>
-                  <span className="font-extrabold text-zeiq-black font-mono">{totalItemsCount} peças</span>
+                  {isEditingBuyer && (
+                    <div className="space-y-1.5 pt-2 mt-2 border-t border-slate-200 animate-in fade-in">
+                      <input
+                        type="text"
+                        value={buyerName}
+                        onChange={(e) => setBuyerName(e.target.value)}
+                        placeholder="Seu nome ou responsável"
+                        className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                      />
+                      <input
+                        type="text"
+                        value={buyerCompany}
+                        onChange={(e) => setBuyerCompany(e.target.value)}
+                        placeholder="Nome da sua loja ou arena"
+                        className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                      />
+                      <input
+                        type="tel"
+                        value={buyerPhone}
+                        onChange={(e) => setBuyerPhone(e.target.value)}
+                        placeholder="Seu WhatsApp com DDD (para confirmação)"
+                        className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                      />
+                    </div>
+                  )}
                 </div>
-                {items.some((it) => it.price != null && it.price > 0) && (
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
-                    <span className="font-bold text-zeiq-black">Total Estimado Atacado:</span>
-                    <span className="text-sm font-extrabold text-emerald-700 font-mono">
-                      R$ {items.reduce((sum, it) => sum + ((it.price || 0) * it.quantity), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                )}
-              </div>
 
-              {/* Dados do Comprador Cadastrado (Compacto para liberar espaço para ver os produtos) */}
-              <div className="p-2.5 bg-[#f8f9fa] rounded-xl border border-slate-200/80">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <UserCheck className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
-                    <span className="font-bold text-zeiq-black truncate">
-                      {buyerName || 'Lojista Zeiq'}
-                    </span>
-                    {buyerCompany && (
-                      <span className="text-slate-400 text-[11px] truncate hidden xs:inline">
-                        • {buyerCompany}
-                      </span>
-                    )}
-                  </div>
+                {/* Botão de Envio WhatsApp (Ação Principal com Altura 48px e Raio Padronizado) */}
+                <button
+                  type="button"
+                  onClick={handleSendWhatsApp}
+                  className="w-full h-12 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Enviar Pedido via WhatsApp</span>
+                </button>
+
+                {/* Botões Secundários em Linha com Alturas e Bordas 100% Harmônicas */}
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsEditingBuyer(!isEditingBuyer)}
-                    className="text-[11px] font-bold text-slate-500 hover:text-zeiq-black ml-2 shrink-0 underline cursor-pointer"
+                    onClick={() => setIsOpen(false)}
+                    className="w-full h-11 px-3 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer border border-slate-200"
                   >
-                    {isEditingBuyer ? 'Recolher' : 'Alterar dados'}
+                    <ArrowLeft className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
+                    <span className="truncate">Voltar ao Catálogo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendEmail}
+                    className="w-full h-11 px-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="truncate">Enviar por E-mail</span>
                   </button>
                 </div>
 
-                {isEditingBuyer && (
-                  <div className="space-y-1.5 pt-2 mt-2 border-t border-slate-200 animate-in fade-in">
-                    <input
-                      type="text"
-                      value={buyerName}
-                      onChange={(e) => setBuyerName(e.target.value)}
-                      placeholder="Seu nome ou responsável"
-                      className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                    />
-                    <input
-                      type="text"
-                      value={buyerCompany}
-                      onChange={(e) => setBuyerCompany(e.target.value)}
-                      placeholder="Nome da sua loja ou arena"
-                      className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                    />
-                    <input
-                      type="tel"
-                      value={buyerPhone}
-                      onChange={(e) => setBuyerPhone(e.target.value)}
-                      placeholder="Seu WhatsApp com DDD (para confirmação)"
-                      className="w-full px-3 h-11 text-xs bg-white border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                    />
-                  </div>
-                )}
+                {/* Link de Acesso ao Portal do Revendedor */}
+                <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs pb-1 sm:pb-0">
+                  <Link
+                    href="/portal"
+                    onClick={() => setIsOpen(false)}
+                    className="font-medium text-slate-500 hover:text-zeiq-black transition-colors inline-flex items-center gap-1"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+                    Área do Revendedor (Meus Pedidos)
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                  >
+                    Limpar lista
+                  </button>
+                </div>
               </div>
-
-              {/* Botão de Envio WhatsApp (Ação Principal com Altura 48px e Raio Padronizado) */}
-              <button
-                type="button"
-                onClick={handleSendWhatsApp}
-                className="w-full h-12 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-                <span>Enviar Pedido via WhatsApp</span>
-              </button>
-
-              {/* Botões Secundários em Linha com Alturas e Bordas 100% Harmônicas */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="w-full h-11 px-3 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer border border-slate-200"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
-                  <span className="truncate">Voltar ao Catálogo</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSendEmail}
-                  className="w-full h-11 px-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
-                >
-                  <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="truncate">Enviar por E-mail</span>
-                </button>
-              </div>
-
-              {/* Link de Acesso ao Portal do Revendedor */}
-              <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px] pb-1 sm:pb-0">
-                <Link
-                  href="/portal"
-                  onClick={() => setIsOpen(false)}
-                  className="font-medium text-slate-500 hover:text-zeiq-black transition-colors inline-flex items-center gap-1"
-                >
-                  <UserCheck className="w-3.5 h-3.5 text-slate-400" />
-                  Área do Revendedor (Meus Pedidos)
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={clearCart}
-                  className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                >
-                  Limpar lista
-                </button>
-              </div>
-            </div>
-          )}
+            )}
 
         </div>
       </div>

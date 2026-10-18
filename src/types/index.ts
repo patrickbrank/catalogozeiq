@@ -62,6 +62,7 @@ export interface Profile {
   id: string;
   email: string;
   role: 'admin' | 'reseller';
+  is_master?: boolean;
   store_name?: string | null;
   contact_name?: string | null;
   phone?: string | null;

@@ -133,10 +133,10 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
               />
             </div>
             <div className="hidden lg:flex flex-col border-l border-zeiq-muted pl-3">
-              <span className="text-[10px] font-bold tracking-wider text-zeiq-black uppercase">
+              <span className="text-xs font-bold tracking-wider text-zeiq-black uppercase">
                 Revenda B2B
               </span>
-              <span className="text-[9px] font-medium text-slate-500">
+              <span className="text-xs font-medium text-slate-500">
                 Catálogo Oficial
               </span>
             </div>
@@ -176,7 +176,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
             {/* Dropdown de Resultados Rápidos ao Vivo */}
             {isDropdownOpen && searchQuery.trim().length >= 2 && (
               <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden z-50">
-                <div className="bg-[#f8f9fa] px-4 py-2 border-b border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
+                <div className="bg-[#f8f9fa] px-4 py-2 border-b border-slate-200/80 flex items-center justify-between text-xs text-slate-500 font-semibold">
                   <span>Resultados da busca ({previewMatches.length})</span>
                   <span>Pressione Enter para ver tudo</span>
                 </div>
@@ -184,7 +184,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                 {previewMatches.length === 0 ? (
                   <div className="p-6 text-center text-slate-400 text-xs">
                     <p className="font-semibold text-slate-600">Nenhum produto correspondente</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Tente buscar por &quot;camiseta&quot;, &quot;raquete&quot;, &quot;bone&quot; ou pelo código SKU.</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Tente buscar por &quot;camiseta&quot;, &quot;raquete&quot;, &quot;bone&quot; ou pelo código SKU.</p>
                   </div>
                 ) : (
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
@@ -202,12 +202,12 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
                               {prod.code_sku && (
-                                <span className="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded bg-zeiq-black text-white">
+                                <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-zeiq-black text-white">
                                   {prod.code_sku}
                                 </span>
                               )}
                               {prod.categories && prod.categories.length > 0 && (
-                                <span className="text-[10px] text-slate-400 uppercase font-bold truncate">
+                                <span className="text-xs text-slate-400 uppercase font-bold truncate">
                                   {prod.categories[0].name}
                                 </span>
                               )}
@@ -267,7 +267,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
               <span className="font-semibold hidden sm:inline">Lista de Pedido</span>
               <span className="font-semibold sm:hidden">Lista</span>
               {mounted && totalItems > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold bg-white text-zeiq-black rounded-full">
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold bg-white text-zeiq-black rounded-full">
                   {totalItems}
                 </span>
               )}
@@ -287,7 +287,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                       <button
                         type="button"
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-full sm:rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 transition-all text-left shadow-2xs group cursor-pointer active:scale-95"
+                        className="flex items-center gap-2 p-1 sm:pl-1.5 sm:pr-2.5 sm:py-1 rounded-full sm:rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 transition-all text-left shadow-2xs group cursor-pointer active:scale-95"
                         title="Abrir menu da conta"
                         aria-expanded={isProfileOpen}
                       >
@@ -300,24 +300,12 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                           )}
                         </div>
 
-                        {/* Informações Textuais (Visíveis em Desktop e Tablet) */}
-                        <div className="hidden sm:flex flex-col min-w-0 pr-0.5">
-                          <span className="text-xs font-bold text-zeiq-black truncate max-w-[110px] leading-tight">
-                            {userDisplayName}
-                          </span>
-                          <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
-                            {isMasterOrAdmin ? (
-                              <span className="text-zeiq-orange font-bold uppercase tracking-wider text-[9px] flex items-center gap-0.5">
-                                <ShieldCheck className="w-2.5 h-2.5" />
-                                Admin
-                              </span>
-                            ) : (
-                              <span>Parceiro B2B</span>
-                            )}
-                          </span>
-                        </div>
+                        {/* Nome do Usuário em Linha Única */}
+                        <span className="hidden sm:inline-block text-xs font-bold text-zeiq-black truncate max-w-[120px] leading-none">
+                          {userDisplayName}
+                        </span>
 
-                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 hidden sm:block ${isProfileOpen ? 'rotate-180 text-zeiq-black' : ''}`} />
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-zeiq-black transition-transform duration-200 hidden sm:block ${isProfileOpen ? 'rotate-180 text-zeiq-black' : ''}`} />
                       </button>
 
                       {/* Popover Card Flutuante de Perfil */}
@@ -336,11 +324,11 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                               <h4 className="text-xs font-bold text-zeiq-black truncate">
                                 {userDisplayName}
                               </h4>
-                              <p className="text-[11px] font-mono text-slate-500 truncate mt-0.5">
+                              <p className="text-xs font-mono text-slate-500 truncate mt-0.5">
                                 {currentUser.email}
                               </p>
                               <div className="mt-1.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
                                   isMasterOrAdmin
                                     ? 'bg-amber-50 text-amber-900 border border-amber-200'
                                     : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
@@ -376,7 +364,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                                   <ShieldCheck className="w-4 h-4 text-zeiq-orange" />
                                   <span>Painel Administrativo B2B</span>
                                 </div>
-                                <span className="text-[9px] font-mono font-bold bg-zeiq-orange text-black px-1.5 py-0.2 rounded">
+                                <span className="text-xs font-mono font-bold bg-zeiq-orange text-black px-1.5 py-0.5 rounded">
                                   MASTER
                                 </span>
                               </Link>
@@ -397,7 +385,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                                 <LogOut className="w-4 h-4" />
                                 <span>Sair da Conta</span>
                               </div>
-                              <span className="text-[10px] text-slate-400 font-mono">Logout</span>
+                              <span className="text-xs text-slate-400 font-mono">Logout</span>
                             </button>
                           </div>
                         </div>

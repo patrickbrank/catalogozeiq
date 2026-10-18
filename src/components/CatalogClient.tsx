@@ -11,7 +11,7 @@ import { Footer } from '@/components/Footer';
 import { Product, Category, BannerItem, StoreSettings } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { DEPARTMENTS, Department, findDepartmentForCategory } from '@/lib/data/departments';
-import { Search, ArrowDown, X } from 'lucide-react';
+import { Search, ArrowDown, X, ShieldAlert } from 'lucide-react';
 
 export function normalizeSearchText(text: string | null | undefined): string {
   if (!text) return '';
@@ -46,7 +46,22 @@ export function CatalogClient({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  const [adminNotice, setAdminNotice] = useState<string | null>(null);
   const setIsOpenCart = useQuoteCart((state) => state.setIsOpen);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('unauthorized_admin') === '1') {
+        setAdminNotice(
+          'Acesso Restrito: Sua conta de lojista parceiro tem acesso exclusivo ao catálogo e cotações no site.'
+        );
+        window.history.replaceState({}, '', window.location.pathname);
+        const timer = setTimeout(() => setAdminNotice(null), 6500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
 
   // Filtra produtos por busca de texto, departamento e subcategoria selecionada
   const filteredProducts = useMemo(() => {
@@ -257,6 +272,24 @@ export function CatalogClient({
 
   return (
     <div className="flex-1 flex flex-col">
+      {/* Notificação de bloqueio ao painel administrativo para lojistas */}
+      {adminNotice && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-lg w-[92%] bg-amber-500 text-zeiq-black px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 font-semibold text-xs border border-amber-600/30 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-2.5">
+            <ShieldAlert className="w-5 h-5 shrink-0 text-zeiq-black" />
+            <span className="leading-snug">{adminNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAdminNotice(null)}
+            className="p-1 hover:bg-black/10 rounded-lg transition-colors cursor-pointer shrink-0"
+            title="Fechar aviso"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* 1. Header Widescreen Fixo */}
       <Header
         searchQuery={searchQuery}
@@ -296,7 +329,7 @@ export function CatalogClient({
                 {currentFilterTitle}
               </h2>
               {(selectedDepartment !== 'all' || selectedCategory) && (
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-zeiq-black text-white px-2 py-0.5 rounded">
+                <span className="text-xs font-bold uppercase tracking-wider bg-zeiq-black text-white px-2 py-0.5 rounded">
                   Filtrado
                 </span>
               )}

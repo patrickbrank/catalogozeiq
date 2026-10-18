@@ -243,7 +243,7 @@ export function CatalogNav({
               type="button"
               onMouseEnter={(e) => handleMouseEnter('lancamentos', e)}
               onClick={() => handleDepartmentClick('lancamentos')}
-              className={`whitespace-nowrap px-3.5 sm:px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs sm:text-[13px] lg:text-sm font-extrabold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 active:scale-95 cursor-pointer ${
+              className={`whitespace-nowrap px-3.5 sm:px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 active:scale-95 cursor-pointer ${
                 selectedDepartment === 'lancamentos' && !selectedCategory
                   ? 'bg-zeiq-black text-white shadow-xs ring-1 ring-amber-400/50'
                   : selectedDepartment === 'lancamentos'
@@ -255,7 +255,7 @@ export function CatalogNav({
               <span className="text-xs sm:text-sm">🔥</span>
               <span>Lançamentos</span>
               <span
-                className={`px-1.5 lg:px-2 py-0.2 lg:py-0.5 rounded-full text-[10px] lg:text-xs font-mono font-bold ${
+                className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
                   selectedDepartment === 'lancamentos' && !selectedCategory
                     ? 'bg-zeiq-orange text-zeiq-black'
                     : 'bg-white text-amber-900 border border-amber-200/90'
@@ -283,7 +283,7 @@ export function CatalogNav({
                   type="button"
                   onMouseEnter={(e) => handleMouseEnter(dept.id, e)}
                   onClick={() => handleDepartmentClick(dept.id)}
-                  className={`whitespace-nowrap px-3.5 sm:px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs sm:text-[13px] lg:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 active:scale-95 cursor-pointer ${
+                  className={`whitespace-nowrap px-3.5 sm:px-4 lg:px-5 py-2 lg:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 active:scale-95 cursor-pointer ${
                     isActive && !selectedCategory
                       ? 'bg-zeiq-black text-white shadow-xs'
                       : isActive
@@ -293,7 +293,7 @@ export function CatalogNav({
                 >
                   <span>{dept.name}</span>
                   <span
-                    className={`px-1.5 lg:px-2 py-0.2 lg:py-0.5 rounded-full text-[10px] lg:text-xs font-mono font-bold ${
+                    className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
                       isActive && !selectedCategory
                         ? 'bg-white/20 text-white'
                         : 'bg-white text-slate-700'
@@ -417,7 +417,7 @@ export function CatalogNav({
                 }`}
               >
                 <span>🔥 Ver Todos os Lançamentos</span>
-                <span className="text-[10px] lg:text-xs opacity-80 font-mono">({lancamentosCount})</span>
+                <span className="text-xs opacity-80 font-mono">({lancamentosCount})</span>
               </button>
             )}
 
@@ -432,7 +432,7 @@ export function CatalogNav({
                 }`}
               >
                 <span>Ver Todos de {activeDepartmentObj.shortName}</span>
-                <span className="text-[10px] lg:text-xs opacity-80 font-mono">({departmentCounts[selectedDepartment]})</span>
+                <span className="text-xs opacity-80 font-mono">({departmentCounts[selectedDepartment]})</span>
               </button>
             )}
 
@@ -454,7 +454,7 @@ export function CatalogNav({
                 >
                   <span>{cat.name}</span>
                   <span
-                    className={`text-[10px] lg:text-xs font-mono font-bold px-1.5 py-0.2 rounded ${
+                    className={`text-xs font-mono font-bold px-1.5 py-0.5 rounded ${
                       isCatSelected ? 'bg-white/20 text-white' : 'text-slate-500'
                     }`}
                   >

@@ -45,7 +45,7 @@ export default function AdminLoginPage() {
 
       if (!verifyData.success || !verifyData.isAdmin) {
         await supabase.auth.signOut();
-        throw new Error('Acesso negado: Sua conta não possui permissão de administrador.');
+        throw new Error('Acesso restrito: Esta conta é de lojista/revendedor e possui acesso exclusivo ao catálogo no site. Por favor, utilize o login principal do site.');
       }
 
       router.push('/admin');
@@ -87,7 +87,7 @@ export default function AdminLoginPage() {
           </div>
           <div className="border-l border-white/20 pl-3">
             <h1 className="text-sm font-bold text-white tracking-tight">PAINEL ADMINISTRATIVO</h1>
-            <p className="text-[11px] text-slate-400">Gestão de Catálogo B2B</p>
+            <p className="text-xs text-slate-400">Gestão de Catálogo B2B</p>
           </div>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function AdminLoginPage() {
           </form>
 
           <div className="mt-6 pt-6 border-t border-zeiq-charcoal text-center">
-            <p className="text-[11px] text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-500 leading-relaxed">
               Área de acesso restrito. Autenticação criptografada com políticas de Row Level Security (RLS) no Supabase.
             </p>
           </div>

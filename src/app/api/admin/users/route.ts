@@ -39,17 +39,21 @@ export async function GET(request: NextRequest) {
     const formattedUsers = authData.users.map((u) => {
       const p = profilesMap[u.id] || {};
       const meta = u.user_metadata || {};
+      const appMeta = u.app_metadata || {};
+      const isMaster = u.email?.toLowerCase() === 'patrickbrank@outlook.com';
+      const userRole = isMaster ? 'admin' : (p.role || appMeta.role || meta.role || 'reseller');
 
       return {
         id: u.id,
         email: u.email,
         contact_name: p.contact_name || meta.contact_name || u.email?.split('@')[0],
-        store_name: p.store_name || meta.store_name || 'Lojista B2B',
+        store_name: p.store_name || meta.store_name || (userRole === 'admin' ? 'Equipe Zeiq' : 'Lojista B2B'),
         phone: p.phone || meta.phone || '',
         cnpj_cpf: p.cnpj_cpf || meta.cnpj_cpf || '',
         city: p.city || meta.city || '',
         state: p.state || meta.state || '',
-        role: p.role || meta.role || (u.email === 'patrickbrank@outlook.com' ? 'admin' : 'reseller'),
+        role: userRole,
+        is_master: isMaster,
         is_approved: p.is_approved ?? true,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
@@ -101,16 +105,21 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const cleanRole = role === 'admin' ? 'admin' : 'reseller';
+    const defaultStore = cleanRole === 'admin' ? 'Equipe Zeiq' : 'Lojista B2B';
 
     // 1. Cria usuário autenticado no Supabase com confirmação imediata
     const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
       email: cleanEmail,
       password: password,
       email_confirm: true,
+      app_metadata: {
+        role: cleanRole,
+      },
       user_metadata: {
-        role: role === 'admin' ? 'admin' : 'reseller',
+        role: cleanRole,
         contact_name: contact_name?.trim() || cleanEmail.split('@')[0],
-        store_name: store_name?.trim() || 'Lojista B2B',
+        store_name: store_name?.trim() || defaultStore,
         phone: phone?.trim() || '',
         cnpj_cpf: cnpj_cpf?.trim() || '',
         city: city?.trim() || '',
@@ -129,9 +138,9 @@ export async function POST(request: NextRequest) {
       await adminSupabase.from('profiles').upsert({
         id: newUserId,
         email: cleanEmail,
-        role: role === 'admin' ? 'admin' : 'reseller',
+        role: cleanRole,
         contact_name: contact_name?.trim() || cleanEmail.split('@')[0],
-        store_name: store_name?.trim() || 'Lojista B2B',
+        store_name: store_name?.trim() || defaultStore,
         phone: phone?.trim() || '',
         cnpj_cpf: cnpj_cpf?.trim() || '',
         city: city?.trim() || '',
@@ -148,12 +157,12 @@ export async function POST(request: NextRequest) {
         id: newUserId,
         email: cleanEmail,
         contact_name: contact_name?.trim() || cleanEmail.split('@')[0],
-        store_name: store_name?.trim() || 'Lojista B2B',
+        store_name: store_name?.trim() || defaultStore,
         phone: phone?.trim() || '',
         cnpj_cpf: cnpj_cpf?.trim() || '',
         city: city?.trim() || '',
         state: state?.trim() || '',
-        role: role === 'admin' ? 'admin' : 'reseller',
+        role: cleanRole,
         is_approved: true,
       },
     });
@@ -162,7 +171,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Administrador exclui conta de lojista
+// DELETE: Administrador exclui conta de lojista ou membro administrativo
 export async function DELETE(request: NextRequest) {
   try {
     const { isAdmin } = await verifyAdmin();
@@ -182,7 +191,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Chave administrativa indisponível.' }, { status: 500 });
     }
 
-    // Impede exclusão da conta master
+    // Impede exclusão da conta master principal
     const { data: targetUser } = await adminSupabase.auth.admin.getUserById(userId);
     if (targetUser?.user?.email?.toLowerCase() === 'patrickbrank@outlook.com') {
       return NextResponse.json({ success: false, error: 'A conta administradora principal não pode ser excluída.' }, { status: 400 });
@@ -204,8 +213,8 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// PATCH: Atualização de senha ou status do lojista pelo administrador
-export async function PATCH(request: NextRequest) {
+// Atualização de dados cadastrais, cargo (admin/lojista), senha ou status pelo administrador
+async function handleUpdateUser(request: NextRequest) {
   try {
     const { isAdmin } = await verifyAdmin();
     if (!isAdmin) {
@@ -218,26 +227,117 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, password, is_approved } = body;
+    const {
+      id,
+      contact_name,
+      store_name,
+      phone,
+      cnpj_cpf,
+      city,
+      state,
+      role,
+      password,
+      is_approved,
+    } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID do usuário é obrigatório.' }, { status: 400 });
     }
 
-    if (password) {
+    // Busca usuário atual para validar restrições da conta master
+    const { data: targetUserRes, error: fetchErr } = await adminSupabase.auth.admin.getUserById(id);
+    if (fetchErr || !targetUserRes?.user) {
+      return NextResponse.json({ success: false, error: 'Usuário não localizado.' }, { status: 404 });
+    }
+
+    const targetUser = targetUserRes.user;
+    const isMaster = targetUser.email?.toLowerCase() === 'patrickbrank@outlook.com';
+
+    // A conta master nunca pode perder o papel de admin nem ser inativada
+    let targetRole = isMaster ? 'admin' : (role ? (role === 'admin' ? 'admin' : 'reseller') : undefined);
+    let targetApproved = isMaster ? true : is_approved;
+
+    // 1. Atualiza dados de autenticação no Supabase Auth
+    const authUpdates: any = {};
+
+    if (password && password.trim()) {
       if (password.length < 6) {
         return NextResponse.json({ success: false, error: 'A nova senha deve ter no mínimo 6 caracteres.' }, { status: 400 });
       }
-      const { error: pwdErr } = await adminSupabase.auth.admin.updateUserById(id, { password });
-      if (pwdErr) throw pwdErr;
+      authUpdates.password = password;
     }
 
-    if (is_approved !== undefined) {
-      await adminSupabase.from('profiles').update({ is_approved }).eq('id', id);
+    if (targetRole) {
+      authUpdates.app_metadata = {
+        ...(targetUser.app_metadata || {}),
+        role: targetRole,
+      };
     }
 
-    return NextResponse.json({ success: true });
+    const updatedUserMeta = {
+      ...(targetUser.user_metadata || {}),
+      ...(targetRole ? { role: targetRole } : {}),
+      ...(contact_name !== undefined ? { contact_name: contact_name.trim() } : {}),
+      ...(store_name !== undefined ? { store_name: store_name.trim() } : {}),
+      ...(phone !== undefined ? { phone: phone.trim() } : {}),
+      ...(cnpj_cpf !== undefined ? { cnpj_cpf: cnpj_cpf.trim() } : {}),
+      ...(city !== undefined ? { city: city.trim() } : {}),
+      ...(state !== undefined ? { state: state.trim() } : {}),
+    };
+    authUpdates.user_metadata = updatedUserMeta;
+
+    const { error: updateAuthErr } = await adminSupabase.auth.admin.updateUserById(id, authUpdates);
+    if (updateAuthErr) {
+      return NextResponse.json({ success: false, error: updateAuthErr.message }, { status: 400 });
+    }
+
+    // 2. Atualiza ou insere na tabela profiles
+    try {
+      const profileData: any = {
+        id,
+        email: targetUser.email,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (targetRole) profileData.role = targetRole;
+      if (contact_name !== undefined) profileData.contact_name = contact_name.trim();
+      if (store_name !== undefined) profileData.store_name = store_name.trim();
+      if (phone !== undefined) profileData.phone = phone.trim();
+      if (cnpj_cpf !== undefined) profileData.cnpj_cpf = cnpj_cpf.trim();
+      if (city !== undefined) profileData.city = city.trim();
+      if (state !== undefined) profileData.state = state.trim();
+      if (targetApproved !== undefined) profileData.is_approved = targetApproved;
+
+      await adminSupabase.from('profiles').upsert(profileData);
+    } catch (profileErr) {
+      console.warn('Aviso ao atualizar profiles:', profileErr);
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id,
+        email: targetUser.email,
+        contact_name: updatedUserMeta.contact_name,
+        store_name: updatedUserMeta.store_name,
+        phone: updatedUserMeta.phone,
+        cnpj_cpf: updatedUserMeta.cnpj_cpf,
+        city: updatedUserMeta.city,
+        state: updatedUserMeta.state,
+        role: targetRole || targetUser.user_metadata?.role || 'reseller',
+        is_approved: targetApproved ?? true,
+        is_master: isMaster,
+      },
+    });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
+}
+
+export async function PATCH(request: NextRequest) {
+  return handleUpdateUser(request);
+}
+
+export async function PUT(request: NextRequest) {
+  return handleUpdateUser(request);
 }

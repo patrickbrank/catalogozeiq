@@ -52,16 +52,16 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
       onClick={() => onOpenDetails(product)}
       className="group bg-white rounded-lg border border-slate-200 overflow-hidden hover:border-slate-400 hover:shadow-md transition-all duration-300 flex flex-col h-full cursor-pointer select-none"
     >
-      {/* Quadro da Foto amplo, limpo e com imagem em destaque */}
-      <div className="relative aspect-square w-full bg-[#f8f9fa] overflow-hidden flex items-center justify-center p-0">
-        {/* Foto de Capa (Preenchendo bem o espaço, nítida e otimizada pelo Next.js) */}
+      {/* Quadro da Foto amplo em proporção vertical 3:4 com foco no topo (preserva cabeça do modelo) */}
+      <div className="relative aspect-[3/4] w-full bg-[#f8f9fa] overflow-hidden flex items-center justify-center p-0">
+        {/* Foto de Capa (Preenchendo 100% do espaço, ancorada no topo) */}
         <Image
           src={coverUrl}
           alt={product.name}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           loading="lazy"
-          className="w-full h-full object-contain object-center mix-blend-multiply scale-[1.04] transition-transform duration-500 ease-out group-hover:scale-110"
+          className="w-full h-full object-cover object-top transition-transform duration-500 ease-out group-hover:scale-105"
         />
 
         {/* Segunda Foto em camada superior com isolamento (Hover fluido exclusivo para telas com cursor/mouse) */}
@@ -73,14 +73,14 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
               loading="lazy"
-              className="w-full h-full object-contain object-center mix-blend-multiply scale-[1.04] group-hover:scale-110 transition-transform duration-500 ease-out"
+              className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500 ease-out"
             />
           </div>
         )}
 
         {/* Badge de SKU Técnico */}
         {product.code_sku && (
-          <div className="absolute top-2 left-2 bg-zeiq-black text-white text-[9px] sm:text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shadow-xs z-20">
+          <div className="absolute top-2 left-2 bg-zeiq-black text-white text-xs font-mono font-bold px-2 py-0.5 rounded shadow-xs z-20">
             {product.code_sku}
           </div>
         )}
@@ -91,14 +91,14 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
         <div>
           {/* Categoria */}
           {product.categories && product.categories.length > 0 && (
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1 truncate">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1 truncate">
               {product.categories[0].name}
             </span>
           )}
 
           {/* Nome do Produto com suporte elegante a até 3 linhas e altura mínima travada */}
           <h3 
-            className="text-xs sm:text-sm font-semibold text-zeiq-black leading-snug line-clamp-3 min-h-[3.15rem] sm:min-h-[3.6rem]"
+            className="text-sm font-bold text-zeiq-black leading-snug line-clamp-3 min-h-[3.15rem] sm:min-h-[3.6rem]"
             title={product.name}
           >
             {displayTitle}
@@ -106,24 +106,24 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
 
           {/* Exibição rápida de tamanhos em linha única ou Tamanho Único com altura fixa */}
           {hasSizes ? (
-            <div className="mt-1.5 flex items-center gap-1 overflow-hidden h-5">
+            <div className="mt-1.5 flex items-center gap-1.5 overflow-hidden h-5">
               {sizes.slice(0, 4).map((sz) => (
                 <span
                   key={sz}
-                  className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200 shrink-0"
+                  className="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200 shrink-0"
                 >
                   {sz}
                 </span>
               ))}
               {sizes.length > 4 && (
-                <span className="text-[9px] font-bold px-1 py-0.5 text-slate-400 shrink-0">
+                <span className="text-xs font-bold px-1.5 py-0.5 text-slate-400 shrink-0">
                   +{sizes.length - 4}
                 </span>
               )}
             </div>
           ) : (
             <div className="mt-1.5 h-5 flex items-center">
-              <span className="text-[10px] text-slate-400 font-medium">Tamanho único</span>
+              <span className="text-xs text-slate-400 font-medium">Tamanho único</span>
             </div>
           )}
         </div>
@@ -132,16 +132,16 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
         <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
           <div className="flex flex-col">
             {product.original_price != null && product.price != null && product.original_price > product.price && (
-              <span className="text-[9px] line-through text-slate-400 font-mono">
+              <span className="text-xs line-through text-slate-400 font-mono">
                 R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
             {product.price != null && product.price > 0 ? (
-              <span className="text-xs sm:text-sm font-extrabold text-zeiq-black font-mono tracking-tight">
+              <span className="text-sm font-black text-zeiq-black font-mono tracking-tight">
                 R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             ) : (
-              <span className="text-[10px] sm:text-[11px] font-medium text-slate-500">
+              <span className="text-xs font-medium text-slate-500">
                 Sob consulta
               </span>
             )}
@@ -150,7 +150,7 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
           <button
             type="button"
             onClick={handleActionClick}
-            className={`w-full sm:w-auto inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-semibold transition-all active:scale-95 shrink-0 whitespace-nowrap ${
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer ${
               isAdded
                 ? 'bg-emerald-600 text-white'
                 : 'bg-zeiq-black hover:bg-zeiq-charcoal text-white'

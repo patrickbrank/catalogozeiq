@@ -63,7 +63,7 @@ export default function B2BLoginPage() {
               className="h-full w-auto object-contain"
             />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-zeiq-orange bg-zeiq-orange/10 border border-zeiq-orange/30 px-3 py-1 rounded-full">
+          <span className="text-xs font-black uppercase tracking-widest text-zeiq-orange bg-zeiq-orange/10 border border-zeiq-orange/30 px-3 py-1 rounded-full">
             Catálogo Exclusivo B2B
           </span>
           <h1 className="text-xl sm:text-2xl font-black text-white mt-3 tracking-tight">
@@ -96,7 +96,7 @@ export default function B2BLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seuemail@loja.com.br"
-                  className="w-full pl-10 pr-4 py-2.5 bg-zeiq-charcoal border border-white/10 rounded-xl text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-zeiq-orange focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-zeiq-charcoal border border-white/10 rounded-xl text-white placeholder:text-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-zeiq-orange focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -113,7 +113,7 @@ export default function B2BLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-zeiq-charcoal border border-white/10 rounded-xl text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-zeiq-orange focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-zeiq-charcoal border border-white/10 rounded-xl text-white placeholder:text-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-zeiq-orange focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -144,7 +144,7 @@ export default function B2BLoginPage() {
                 <ShieldCheck className="w-4 h-4 text-zeiq-orange" />
                 <span>Ainda não possui credencial de lojista?</span>
               </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-400 leading-relaxed">
                 O catálogo é restrito para revenda e atacado. Entre em contato direto com a equipe comercial da Zeiq para obter seu login e senha.
               </p>
               <a

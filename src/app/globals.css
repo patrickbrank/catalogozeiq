@@ -11,6 +11,10 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
+  html, body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     color: #0a0a0a;
     background-color: #f4f5f7;
@@ -18,10 +22,24 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.015em;
+    overscroll-behavior-y: contain;
+  }
+
+  .overflow-x-auto, .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
   }
 
   button, input, select, textarea {
     font-family: inherit;
+  }
+
+  /* Previne zoom automático do iOS Safari e mobile browsers ao focar inputs com font-size < 16px */
+  @media screen and (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
   }
 
   /* Oculta as setinhas de incremento nativas de inputs de número */
@@ -48,5 +66,17 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+  .h-dvh {
+    height: 100dvh;
   }
 }

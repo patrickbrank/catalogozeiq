@@ -41,7 +41,7 @@ export default function ErrorBoundary({
             Ocorreu uma instabilidade temporária ao carregar este módulo. Tente atualizar a página.
           </p>
           {error?.message && (
-            <p className="text-[11px] font-mono text-rose-300 bg-rose-950/40 p-2.5 rounded-lg border border-rose-900/50 break-words text-left max-h-24 overflow-y-auto">
+            <p className="text-xs font-mono text-rose-300 bg-rose-950/40 p-2.5 rounded-lg border border-rose-900/50 break-words text-left max-h-24 overflow-y-auto">
               {error.message}
             </p>
           )}
