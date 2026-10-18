@@ -30,6 +30,16 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
   const profileRef = useRef<HTMLDivElement>(null);
   const items = useQuoteCart((state) => state.items);
   const setIsOpen = useQuoteCart((state) => state.setIsOpen);
+  const lastAdded = useQuoteCart((state) => state.lastAdded);
+  const [isBouncing, setIsBouncing] = useState(false);
+
+  useEffect(() => {
+    if (lastAdded) {
+      setIsBouncing(true);
+      const timer = setTimeout(() => setIsBouncing(false), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [lastAdded?.id]);
 
   useEffect(() => {
     setMounted(true);
@@ -260,14 +270,22 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
 
             <button
               onClick={() => setIsOpen(true)}
-              className="relative inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white font-semibold text-xs sm:text-sm rounded-lg transition-all active:scale-95 shadow-xs shrink-0"
+              className={`relative inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white font-semibold text-xs sm:text-sm rounded-lg transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer ${
+                isBouncing ? 'scale-105 ring-2 ring-zeiq-orange shadow-md' : ''
+              }`}
               aria-label="Abrir lista de pedido"
             >
-              <ShoppingBag className="w-4 h-4 text-white" />
+              <ShoppingBag className={`w-4 h-4 transition-transform ${isBouncing ? 'scale-110 text-zeiq-orange' : 'text-white'}`} />
               <span className="font-semibold hidden sm:inline">Lista de Pedido</span>
               <span className="font-semibold sm:hidden">Lista</span>
               {mounted && totalItems > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold bg-white text-zeiq-black rounded-full">
+                <span
+                  className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full transition-all ${
+                    isBouncing
+                      ? 'bg-zeiq-orange text-zeiq-black scale-125'
+                      : 'bg-white text-zeiq-black'
+                  }`}
+                >
                   {totalItems}
                 </span>
               )}

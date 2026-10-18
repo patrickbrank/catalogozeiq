@@ -2,9 +2,21 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { QuoteItem, Product } from '@/types';
 
+export interface CartLastAdded {
+  id: string;
+  productName: string;
+  sku?: string | null;
+  coverImage?: string;
+  quantity: number;
+  selectedSize?: string;
+  sizeBreakdown?: Record<string, number>;
+}
+
 interface QuoteCartState {
   items: QuoteItem[];
   isOpen: boolean;
+  lastAdded: CartLastAdded | null;
+  clearLastAdded: () => void;
   setIsOpen: (isOpen: boolean) => void;
   addItem: (product: Product, quantity?: number, selectedSize?: string, notes?: string) => void;
   addBundle: (product: Product, sizeBreakdown: Record<string, number>, notes?: string) => void;
@@ -24,8 +36,10 @@ export const useQuoteCart = create<QuoteCartState>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      lastAdded: null,
 
       setIsOpen: (isOpen: boolean) => set({ isOpen }),
+      clearLastAdded: () => set({ lastAdded: null }),
 
       // Adiciona produto simples ou com tamanho único
       addItem: (product: Product, quantity = 1, selectedSize = '', notes = '') => {
@@ -34,6 +48,15 @@ export const useQuoteCart = create<QuoteCartState>()(
           const coverImage = product.images && product.images.length > 0 
             ? (product.images.find(img => img.is_cover)?.public_url || product.images[0].public_url)
             : undefined;
+
+          const lastAdded: CartLastAdded = {
+            id: `${product.id}-${Date.now()}`,
+            productName: product.name,
+            sku: product.code_sku,
+            coverImage,
+            quantity,
+            selectedSize: selectedSize || undefined,
+          };
 
           if (existingIndex > -1) {
             const updatedItems = [...state.items];
@@ -47,7 +70,7 @@ export const useQuoteCart = create<QuoteCartState>()(
             if (selectedSize) {
               updatedItems[existingIndex].selectedSize = selectedSize;
             }
-            return { items: updatedItems, isOpen: true };
+            return { items: updatedItems, lastAdded };
           }
 
           const newItem: QuoteItem = {
@@ -62,7 +85,7 @@ export const useQuoteCart = create<QuoteCartState>()(
             notes: notes || undefined,
           };
 
-          return { items: [...state.items, newItem], isOpen: true };
+          return { items: [...state.items, newItem], lastAdded };
         });
       },
 
@@ -85,6 +108,15 @@ export const useQuoteCart = create<QuoteCartState>()(
             ? (product.images.find(img => img.is_cover)?.public_url || product.images[0].public_url)
             : undefined;
 
+          const lastAdded: CartLastAdded = {
+            id: `${product.id}-${Date.now()}`,
+            productName: product.name,
+            sku: product.code_sku,
+            coverImage,
+            quantity: totalQty,
+            sizeBreakdown: validBreakdown,
+          };
+
           const existingIndex = state.items.findIndex((item) => item.productId === product.id);
 
           if (existingIndex > -1) {
@@ -106,7 +138,7 @@ export const useQuoteCart = create<QuoteCartState>()(
               notes: notes || currentItem.notes,
             };
 
-            return { items: updatedItems, isOpen: true };
+            return { items: updatedItems, lastAdded };
           }
 
           const newItem: QuoteItem = {
@@ -121,7 +153,7 @@ export const useQuoteCart = create<QuoteCartState>()(
             notes: notes || undefined,
           };
 
-          return { items: [...state.items, newItem], isOpen: true };
+          return { items: [...state.items, newItem], lastAdded };
         });
       },
 
@@ -180,9 +212,17 @@ export const useQuoteCart = create<QuoteCartState>()(
       },
 
       loadOrderItems: (itemsToLoad: QuoteItem[]) => {
+        const totalPieces = itemsToLoad.reduce((sum, it) => sum + it.quantity, 0);
         set({
           items: [...itemsToLoad],
-          isOpen: true,
+          lastAdded: itemsToLoad[0]
+            ? {
+                id: `reorder-${Date.now()}`,
+                productName: `${itemsToLoad.length} modelos de pedido anterior`,
+                coverImage: itemsToLoad[0].coverImage,
+                quantity: totalPieces,
+              }
+            : null,
         });
       },
 

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { QuoteDrawer } from '@/components/QuoteDrawer';
+import { CartToastNotification } from '@/components/CartToastNotification';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-zeiq-light text-zeiq-black font-sans selection:bg-zeiq-black selection:text-white">
         {children}
         <QuoteDrawer />
+        <CartToastNotification />
       </body>
     </html>
   );
