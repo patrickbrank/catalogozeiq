@@ -337,29 +337,31 @@ export function ProductFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4">
-      <div className="relative w-full max-w-3xl min-h-dvh sm:min-h-0 bg-white rounded-none sm:rounded-3xl shadow-2xl border-0 sm:border border-slate-200 overflow-hidden my-0 sm:my-8 flex flex-col">
-        
-        {/* Cabeçalho */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <h2 className="text-base font-bold text-slate-900">
-            {product ? 'Editar Produto' : 'Cadastrar Novo Produto'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="relative w-full max-w-3xl max-h-[92dvh] sm:max-h-[90vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border-t sm:border border-slate-200 overflow-hidden flex flex-col my-0 sm:my-8 animate-in slide-in-from-bottom-3 sm:slide-in-from-bottom-0 sm:fade-in duration-200">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          
+          {/* 1. Cabeçalho Fixo (shrink-0) */}
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <h2 className="text-base font-bold text-slate-900">
+              {product ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-        {/* Formulário */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6 flex-1 overflow-y-auto max-h-[calc(100dvh-130px)] sm:max-h-[75vh]">
-          {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
-              {errorMsg}
-            </div>
-          )}
+          {/* 2. Área de Conteúdo Rolável Isolada (flex-1 overflow-y-auto) */}
+          <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 flex-1 overflow-y-auto">
+            {errorMsg && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
+                {errorMsg}
+              </div>
+            )}
 
           {/* Dados Principais */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -863,9 +865,9 @@ export function ProductFormModal({
               <button
                 type="button"
                 onClick={() => setIsPublished(true)}
-                className={`p-3.5 rounded-xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-98 ${
+                className={`p-3.5 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-98 ${
                   isPublished
-                    ? 'bg-emerald-50/80 border-emerald-400 text-emerald-950 font-bold shadow-xs ring-1 ring-emerald-400/30'
+                    ? 'bg-emerald-50/80 border-emerald-500 text-emerald-950 font-bold shadow-xs'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100/70 hover:border-slate-300'
                 }`}
               >
@@ -882,9 +884,9 @@ export function ProductFormModal({
               <button
                 type="button"
                 onClick={() => setIsPublished(false)}
-                className={`p-3.5 rounded-xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-98 ${
+                className={`p-3.5 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-98 ${
                   !isPublished
-                    ? 'bg-amber-50/80 border-amber-400 text-amber-950 font-bold shadow-xs ring-1 ring-amber-400/30'
+                    ? 'bg-amber-50/80 border-amber-500 text-amber-950 font-bold shadow-xs'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100/70 hover:border-slate-300'
                 }`}
               >
@@ -910,20 +912,21 @@ export function ProductFormModal({
                 />
                 <span>Destacar este produto no topo da vitrine comercial (Estrela ⭐)</span>
               </label>
-              {isFeatured && (
-                <span className="text-xs font-bold text-amber-600 bg-amber-100/70 px-2.5 py-0.5 rounded-full border border-amber-200">
-                  Destaque Ativo
-                </span>
-              )}
+                {isFeatured && (
+                  <span className="text-xs font-bold text-amber-600 bg-amber-100/70 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    Destaque Ativo
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Botões do Rodapé */}
-          <div className="pt-4 pb-safe border-t border-slate-200 flex items-center justify-end gap-3 sticky bottom-0 bg-white z-10">
+          {/* 3. Rodapé Sólido Fixo (shrink-0) - 100% Isolado da Rolagem */}
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 pb-safe bg-white border-t border-slate-200 flex items-center justify-end gap-3 shrink-0 z-20 shadow-md">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
             >
               Cancelar
             </button>

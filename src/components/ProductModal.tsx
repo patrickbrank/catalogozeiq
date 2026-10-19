@@ -162,10 +162,10 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                     <button
                       key={img.id || idx}
                       onClick={() => setSelectedImageIndex(idx)}
-                      className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-[#f8f9fa] transition-all cursor-pointer ${
+                      className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-[#f8f9fa] border-2 transition-all cursor-pointer ${
                         selectedImageIndex === idx
-                          ? 'border-2 border-zeiq-black shadow-xs'
-                          : 'border border-slate-200 opacity-60 hover:opacity-100'
+                          ? 'border-zeiq-black shadow-xs'
+                          : 'border-transparent opacity-60 hover:opacity-100 hover:border-slate-200'
                       }`}
                     >
                       <img
@@ -267,10 +267,10 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                         return (
                           <div
                             key={sz}
-                            className={`h-10 sm:h-9 rounded-xl transition-all flex items-center justify-between overflow-hidden ${
+                            className={`h-10 sm:h-9 rounded-xl border-2 transition-all flex items-center justify-between overflow-hidden ${
                               qty > 0
-                                ? 'bg-white border-2 border-zeiq-black shadow-2xs'
-                                : 'bg-white border border-slate-200 hover:border-slate-300'
+                                ? 'bg-white border-zeiq-black shadow-2xs'
+                                : 'bg-white border-slate-200/90 hover:border-slate-300'
                             }`}
                           >
                             <span

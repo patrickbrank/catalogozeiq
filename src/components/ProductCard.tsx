@@ -104,26 +104,28 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
             {displayTitle}
           </h3>
 
-          {/* Exibição rápida de tamanhos em linha única ou Tamanho Único com altura fixa */}
+          {/* Exibição rápida de grade de tamanhos em micro-badges atléticos de alta precisão */}
           {hasSizes ? (
-            <div className="mt-1.5 flex items-center gap-1.5 overflow-hidden h-5">
+            <div className="mt-2 flex items-center gap-1 overflow-hidden h-5.5">
               {sizes.slice(0, 4).map((sz) => (
                 <span
                   key={sz}
-                  className="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200 shrink-0"
+                  className="h-5 min-w-[22px] px-1 rounded-md bg-white border border-slate-200 text-slate-800 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs group-hover:border-slate-300 transition-colors"
                 >
                   {sz}
                 </span>
               ))}
               {sizes.length > 4 && (
-                <span className="text-xs font-bold px-1.5 py-0.5 text-slate-400 shrink-0">
+                <span className="h-5 px-1.5 rounded-md bg-slate-100 border border-slate-200/80 text-slate-500 font-mono font-bold text-[10px] flex items-center justify-center shrink-0">
                   +{sizes.length - 4}
                 </span>
               )}
             </div>
           ) : (
-            <div className="mt-1.5 h-5 flex items-center">
-              <span className="text-xs text-slate-400 font-medium">Tamanho único</span>
+            <div className="mt-2 h-5.5 flex items-center">
+              <span className="h-5 px-2 rounded-md bg-slate-50 border border-slate-200/80 text-slate-500 font-mono font-bold text-[10px] inline-flex items-center">
+                ÚNICO
+              </span>
             </div>
           )}
         </div>

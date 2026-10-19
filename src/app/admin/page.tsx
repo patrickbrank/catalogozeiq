@@ -1246,9 +1246,9 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                className={`p-4 sm:p-5 rounded-2xl border text-left transition-all active:scale-98 cursor-pointer ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'all'
-                    ? 'bg-white border-zeiq-black ring-1 ring-zeiq-black shadow-sm'
+                    ? 'bg-white border-zeiq-black shadow-sm'
                     : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
                 }`}
               >
@@ -1266,9 +1266,9 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
-                className={`p-4 sm:p-5 rounded-2xl border text-left transition-all active:scale-98 cursor-pointer ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'published'
-                    ? 'bg-white border-emerald-500 ring-1 ring-emerald-500 shadow-sm'
+                    ? 'bg-white border-emerald-500 shadow-sm'
                     : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
                 }`}
               >
@@ -1286,9 +1286,9 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
-                className={`p-4 sm:p-5 rounded-2xl border text-left transition-all active:scale-98 cursor-pointer ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'draft'
-                    ? 'bg-white border-amber-500 ring-1 ring-amber-500 shadow-sm'
+                    ? 'bg-white border-amber-500 shadow-sm'
                     : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
                 }`}
               >
@@ -2524,9 +2524,9 @@ export default function AdminDashboardPage() {
                   return (
                     <div
                       key={dept.id}
-                      className={`p-3 rounded-xl border transition-all flex flex-col justify-between gap-2 ${
+                      className={`p-3 rounded-xl border-2 transition-all flex flex-col justify-between gap-2 ${
                         isFiltered
-                          ? 'bg-white border-zeiq-black ring-1 ring-zeiq-black shadow-xs'
+                          ? 'bg-white border-zeiq-black shadow-xs'
                           : 'bg-[#f8f9fa] border-slate-200 hover:border-slate-300'
                       }`}
                     >

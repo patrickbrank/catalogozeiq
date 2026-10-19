@@ -1170,12 +1170,12 @@ export default function ResellerPortalPage() {
                           return (
                             <div
                               key={step.key}
-                              className={`min-w-[130px] sm:min-w-0 shrink-0 sm:shrink flex-1 p-2.5 rounded-xl border text-center transition-all ${
+                              className={`min-w-[130px] sm:min-w-0 shrink-0 sm:shrink flex-1 p-2.5 rounded-xl text-center transition-all ${
                                 isCurrent
-                                  ? 'bg-white border-zeiq-black text-zeiq-black ring-1 ring-zeiq-black shadow-xs'
+                                  ? 'bg-white border-2 border-zeiq-black text-zeiq-black shadow-xs'
                                   : isCompleted
-                                  ? 'bg-white border-slate-200 text-slate-800'
-                                  : 'bg-slate-100/60 border-slate-200/50 text-slate-400'
+                                  ? 'bg-white border-2 border-slate-200 text-slate-800'
+                                  : 'bg-slate-50 border-2 border-slate-200/70 text-slate-400'
                               }`}
                             >
                                 <div className="flex items-center justify-center mb-1">
