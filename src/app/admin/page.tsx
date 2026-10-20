@@ -52,17 +52,9 @@ import { Product, Category, Order, OrderStatus, QuoteItem, BannerItem, StoreSett
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
+import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/OrderStatusPopover';
 
 const ITEMS_PER_PAGE = 25;
-
-const STATUS_OPTIONS: { key: OrderStatus; label: string; bg: string; text: string; border: string; dot: string }[] = [
-  { key: 'pending', label: 'Pendente (Recebido)', bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', dot: 'bg-amber-500' },
-  { key: 'approved', label: 'Aprovado', bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-200', dot: 'bg-blue-500' },
-  { key: 'processing', label: 'Em Separação', bg: 'bg-indigo-50', text: 'text-indigo-800', border: 'border-indigo-200', dot: 'bg-indigo-500' },
-  { key: 'shipped', label: 'Despachado', bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200', dot: 'bg-purple-500' },
-  { key: 'delivered', label: 'Entregue', bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-  { key: 'cancelled', label: 'Cancelado', bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-200', dot: 'bg-rose-500' },
-];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -285,9 +277,6 @@ export default function AdminDashboardPage() {
       if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
         setIsCatDropdownOpen(false);
       }
-      if (!(e.target as HTMLElement).closest('.status-popover-container')) {
-        setOpenStatusOrderId(null);
-      }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
@@ -488,6 +477,9 @@ export default function AdminDashboardPage() {
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
 
+    const statusLabel =
+      ORDER_STATUS_CONFIG.find((s) => s.key === newStatus)?.label || newStatus;
+
     try {
       const res = await fetch('/api/admin/orders', {
         method: 'PATCH',
@@ -496,12 +488,12 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(`Status do pedido atualizado para "${newStatus}".`);
+        showToast(`Status do pedido atualizado para "${statusLabel}".`);
       } else {
-        showToast('Status atualizado localmente.');
+        showToast(`Status atualizado localmente para "${statusLabel}".`);
       }
     } catch {
-      showToast('Status atualizado.');
+      showToast(`Status atualizado para "${statusLabel}".`);
     }
   };
 
@@ -1935,60 +1927,14 @@ export default function AdminDashboardPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-center">
-                              <div className="relative inline-block text-left status-popover-container">
-                                {(() => {
-                                  const currentOpt = STATUS_OPTIONS.find((s) => s.key === order.status) || STATUS_OPTIONS[0];
-                                  const isOpen = openStatusOrderId === order.id;
-
-                                  return (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setOpenStatusOrderId(isOpen ? null : order.id);
-                                        }}
-                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${currentOpt.bg} ${currentOpt.text} ${currentOpt.border}`}
-                                        title="Clique para alterar o status operacional"
-                                      >
-                                        <span className={`w-1.5 h-1.5 rounded-full ${currentOpt.dot}`} />
-                                        <span>{currentOpt.label.split(' ')[0]}</span>
-                                        <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                                      </button>
-
-                                      {isOpen && (
-                                        <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-52 bg-white rounded-xl border border-slate-200 shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 text-left">
-                                          <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                                            Alterar Status do Pedido
-                                          </div>
-                                          {STATUS_OPTIONS.map((opt) => (
-                                            <button
-                                              key={opt.key}
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleUpdateOrderStatus(order.id, opt.key);
-                                                setOpenStatusOrderId(null);
-                                              }}
-                                              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
-                                                order.status === opt.key
-                                                  ? `${opt.bg} ${opt.text} font-bold`
-                                                  : 'hover:bg-slate-50 text-slate-700'
-                                              }`}
-                                            >
-                                              <span className="flex items-center gap-2">
-                                                <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
-                                                <span>{opt.label}</span>
-                                              </span>
-                                              {order.status === opt.key && <Check className="w-3.5 h-3.5 text-current" />}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
+                              <OrderStatusPopover
+                                orderId={order.id}
+                                orderNumber={order.order_number}
+                                currentStatus={order.status}
+                                isOpen={openStatusOrderId === order.id}
+                                onOpenChange={(open) => setOpenStatusOrderId(open ? order.id : null)}
+                                onSelectStatus={(newStatus) => handleUpdateOrderStatus(order.id, newStatus)}
+                              />
                             </td>
 
                             <td className="py-3.5 px-4 text-right">
@@ -2032,8 +1978,6 @@ export default function AdminDashboardPage() {
                 ) : (
                   filteredOrders.map((order) => {
                     const cleanPhone = (order.buyer_phone || '').replace(/\D/g, '');
-                    const currentOpt = STATUS_OPTIONS.find((s) => s.key === order.status) || STATUS_OPTIONS[0];
-                    const isOpen = openStatusOrderId === order.id;
 
                     return (
                       <div key={order.id} className="p-3.5 space-y-3">
@@ -2045,52 +1989,14 @@ export default function AdminDashboardPage() {
                             </span>
                           </div>
 
-                          {/* Popover Status no Mobile */}
-                          <div className="relative inline-block text-left status-popover-container">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenStatusOrderId(isOpen ? null : order.id);
-                              }}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${currentOpt.bg} ${currentOpt.text} ${currentOpt.border}`}
-                              title="Alterar status"
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full ${currentOpt.dot}`} />
-                              <span>{currentOpt.label.split(' ')[0]}</span>
-                              <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {isOpen && (
-                              <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-xl border border-slate-200 shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in slide-in-from-top-1 text-left">
-                                <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                                  Alterar Status do Pedido
-                                </div>
-                                {STATUS_OPTIONS.map((opt) => (
-                                  <button
-                                    key={opt.key}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUpdateOrderStatus(order.id, opt.key);
-                                      setOpenStatusOrderId(null);
-                                    }}
-                                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
-                                      order.status === opt.key
-                                        ? `${opt.bg} ${opt.text} font-bold`
-                                        : 'hover:bg-slate-50 text-slate-700'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-2">
-                                      <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
-                                      <span>{opt.label}</span>
-                                    </span>
-                                    {order.status === opt.key && <Check className="w-3.5 h-3.5 text-current" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          <OrderStatusPopover
+                            orderId={order.id}
+                            orderNumber={order.order_number}
+                            currentStatus={order.status}
+                            isOpen={openStatusOrderId === order.id}
+                            onOpenChange={(open) => setOpenStatusOrderId(open ? order.id : null)}
+                            onSelectStatus={(newStatus) => handleUpdateOrderStatus(order.id, newStatus)}
+                          />
                         </div>
 
                         <div>
