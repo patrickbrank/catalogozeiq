@@ -133,6 +133,7 @@ export function OrderStatusPopover({
   const [mounted, setMounted] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTriggerVisible, setIsTriggerVisible] = useState(false);
   const [coords, setCoords] = useState<{
     top?: number;
     bottom?: number;
@@ -151,8 +152,18 @@ export function OrderStatusPopover({
 
   // Calcular posição precisa do popover no desktop (com auto-flip)
   const calculatePosition = useCallback(() => {
-    if (!triggerRef.current) return;
+    if (!triggerRef.current) {
+      setIsTriggerVisible(false);
+      return;
+    }
     const rect = triggerRef.current.getBoundingClientRect();
+
+    // Se o elemento estiver oculto (ex: display: none via md:hidden ou hidden md:block)
+    if (rect.width === 0 || rect.height === 0 || (rect.top === 0 && rect.left === 0 && rect.bottom === 0)) {
+      setIsTriggerVisible(false);
+      return;
+    }
+
     const menuWidth = 280;
     const menuHeight = 360;
     const padding = 12;
@@ -177,11 +188,16 @@ export function OrderStatusPopover({
         placement: 'bottom',
       });
     }
+
+    setIsTriggerVisible(true);
   }, []);
 
   // Recalcular quando abrir ou scroll/resize acontecer
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setIsTriggerVisible(false);
+      return;
+    }
 
     calculatePosition();
 
@@ -263,7 +279,7 @@ export function OrderStatusPopover({
       </button>
 
       {/* Popover / Sheet via Portal para escapar de overflow:hidden e overflow-x:auto */}
-      {isOpen && mounted && typeof document !== 'undefined' &&
+      {isOpen && isTriggerVisible && mounted && typeof document !== 'undefined' &&
         createPortal(
           isMobile ? (
             // ==========================================

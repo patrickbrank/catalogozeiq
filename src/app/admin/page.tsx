@@ -1931,8 +1931,8 @@ export default function AdminDashboardPage() {
                                 orderId={order.id}
                                 orderNumber={order.order_number}
                                 currentStatus={order.status}
-                                isOpen={openStatusOrderId === order.id}
-                                onOpenChange={(open) => setOpenStatusOrderId(open ? order.id : null)}
+                                isOpen={openStatusOrderId === `desktop-${order.id}`}
+                                onOpenChange={(open) => setOpenStatusOrderId(open ? `desktop-${order.id}` : null)}
                                 onSelectStatus={(newStatus) => handleUpdateOrderStatus(order.id, newStatus)}
                               />
                             </td>
@@ -1993,8 +1993,8 @@ export default function AdminDashboardPage() {
                             orderId={order.id}
                             orderNumber={order.order_number}
                             currentStatus={order.status}
-                            isOpen={openStatusOrderId === order.id}
-                            onOpenChange={(open) => setOpenStatusOrderId(open ? order.id : null)}
+                            isOpen={openStatusOrderId === `mobile-${order.id}`}
+                            onOpenChange={(open) => setOpenStatusOrderId(open ? `mobile-${order.id}` : null)}
                             onSelectStatus={(newStatus) => handleUpdateOrderStatus(order.id, newStatus)}
                           />
                         </div>
