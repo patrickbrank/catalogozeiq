@@ -97,7 +97,9 @@ export function getLocalCSVProducts(): { products: Product[]; categories: Catego
   }
   const departments = loadDepartmentsConfig();
   try {
-    const csvPath = path.join(process.cwd(), 'dados', 'wc-product-export-13-10-2026-1791938769430.csv');
+    const newCsv = path.join(process.cwd(), 'dados', 'lista novos produtos.csv');
+    const oldCsv = path.join(process.cwd(), 'dados', 'wc-product-export-13-10-2026-1791938769430.csv');
+    const csvPath = fs.existsSync(newCsv) ? newCsv : oldCsv;
     if (!fs.existsSync(csvPath)) {
       return { products: [], categories: [], departments };
     }

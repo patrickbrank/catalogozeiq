@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Upload, Trash2, Star, Loader2, Plus, Check, Search, Layers } from 'lucide-react';
+import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, Boxes, AlertTriangle } from 'lucide-react';
 import { Product, Category, ProductImage, ProductHighlight } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { COMMON_SIZES, parseProductSizes } from '@/lib/utils/sizes';
@@ -39,6 +39,9 @@ export function ProductFormModal({
   const [tagsInput, setTagsInput] = useState('');
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [customSizeInput, setCustomSizeInput] = useState('');
+  const [stockBySize, setStockBySize] = useState<Record<string, number>>({});
+  const [defaultStock, setDefaultStock] = useState<number>(0);
+  const [batchStockValue, setBatchStockValue] = useState('');
   const [highlights, setHighlights] = useState<ProductHighlight[]>([
     { label: '', value: '' },
     { label: '', value: '' },
@@ -61,7 +64,24 @@ export function ProductFormModal({
       const parsedSpecs = parseProductSpecifications(product.description, product.highlights);
       const parsedSizes = parseProductSizes(parsedSpecs.cleanDescription, product.sizes);
       setDescription(parsedSizes.cleanDescription || '');
-      setSelectedSizes(product.sizes && product.sizes.length > 0 ? product.sizes : parsedSizes.sizes);
+      const activeSizes = product.sizes && product.sizes.length > 0 ? product.sizes : parsedSizes.sizes;
+      setSelectedSizes(activeSizes);
+
+      // Carregar dados de estoque
+      const initialStock: Record<string, number> = product.stock_by_size || {};
+      const populatedStock: Record<string, number> = {};
+      activeSizes.forEach((sz) => {
+        populatedStock[sz] = typeof initialStock[sz] === 'number' ? initialStock[sz] : 0;
+      });
+      setStockBySize(populatedStock);
+      setDefaultStock(
+        typeof initialStock['_padrao'] === 'number'
+          ? initialStock['_padrao']
+          : typeof product.total_stock === 'number' && activeSizes.length === 0
+          ? product.total_stock
+          : 0
+      );
+      setBatchStockValue('');
       
       const currentHl = (product.highlights && product.highlights.length > 0) ? product.highlights : parsedSpecs.highlights;
       const hlSlots = [0, 1, 2, 3, 4].map((idx) => currentHl[idx] || { label: '', value: '' });
@@ -98,11 +118,59 @@ export function ProductFormModal({
       setSelectedCategoryIds([]);
       setTagsInput('');
       setImages([]);
+      setSelectedSizes([]);
+      setStockBySize({});
+      setDefaultStock(0);
+      setBatchStockValue('');
     }
     setCatDeptFilter('all');
     setCatSearchQuery('');
     setErrorMsg('');
   }, [product, isOpen]);
+
+  const totalCalculatedStock = useMemo(() => {
+    if (selectedSizes.length > 0) {
+      return selectedSizes.reduce((sum, sz) => sum + (stockBySize[sz] || 0), 0);
+    }
+    return defaultStock || 0;
+  }, [selectedSizes, stockBySize, defaultStock]);
+
+  const handleToggleSize = (sz: string) => {
+    setSelectedSizes((prev) => {
+      if (prev.includes(sz)) {
+        return prev.filter((s) => s !== sz);
+      } else {
+        setStockBySize((st) => ({ ...st, [sz]: st[sz] ?? 0 }));
+        return [...prev, sz];
+      }
+    });
+  };
+
+  const handleUpdateStock = (sz: string, qty: number) => {
+    setStockBySize((prev) => ({
+      ...prev,
+      [sz]: Math.max(0, qty),
+    }));
+  };
+
+  const handleBatchSetStock = () => {
+    const val = parseInt(batchStockValue, 10);
+    if (isNaN(val) || val < 0) return;
+    const updated: Record<string, number> = {};
+    selectedSizes.forEach((sz) => {
+      updated[sz] = val;
+    });
+    setStockBySize(updated);
+    setBatchStockValue('');
+  };
+
+  const handleZeroAllStock = () => {
+    const updated: Record<string, number> = {};
+    selectedSizes.forEach((sz) => {
+      updated[sz] = 0;
+    });
+    setStockBySize(updated);
+  };
 
   const visibleCategories = useMemo(() => {
     let result = categories;
@@ -238,6 +306,20 @@ export function ProductFormModal({
       const numPrice = price.trim() ? parseFloat(price.replace(/\./g, '').replace(',', '.')) : null;
       const numOriginalPrice = originalPrice.trim() ? parseFloat(originalPrice.replace(/\./g, '').replace(',', '.')) : null;
 
+      let finalStockBySize: Record<string, number> = {};
+      let finalTotalStock = 0;
+
+      if (selectedSizes.length > 0) {
+        selectedSizes.forEach((sz) => {
+          finalStockBySize[sz] = Math.max(0, stockBySize[sz] || 0);
+        });
+        finalTotalStock = Object.values(finalStockBySize).reduce((a, b) => a + b, 0);
+      } else {
+        const dStock = Math.max(0, defaultStock || 0);
+        finalStockBySize = { _padrao: dStock };
+        finalTotalStock = dStock;
+      }
+
       const basePayload: any = {
         name,
         code_sku: sku.trim() || null,
@@ -245,6 +327,8 @@ export function ProductFormModal({
         is_published: isPublished,
         is_featured: isFeatured,
         tags,
+        stock_by_size: finalStockBySize,
+        total_stock: finalTotalStock,
       };
 
       if (numPrice != null && !isNaN(numPrice)) {
@@ -266,9 +350,15 @@ export function ProductFormModal({
           .update(basePayload)
           .eq('id', product.id);
 
-        if (updateError && updateError.message?.includes('price')) {
-          delete basePayload.price;
-          delete basePayload.original_price;
+        if (updateError && (updateError.message?.includes('price') || updateError.message?.includes('stock'))) {
+          if (updateError.message?.includes('stock')) {
+            delete basePayload.stock_by_size;
+            delete basePayload.total_stock;
+          }
+          if (updateError.message?.includes('price')) {
+            delete basePayload.price;
+            delete basePayload.original_price;
+          }
           const retry = await supabase.from('products').update(basePayload).eq('id', product.id);
           updateError = retry.error;
         }
@@ -283,9 +373,15 @@ export function ProductFormModal({
           .select('id')
           .single();
 
-        if (insertError && insertError.message?.includes('price')) {
-          delete insertPayload.price;
-          delete insertPayload.original_price;
+        if (insertError && (insertError.message?.includes('price') || insertError.message?.includes('stock'))) {
+          if (insertError.message?.includes('stock')) {
+            delete insertPayload.stock_by_size;
+            delete insertPayload.total_stock;
+          }
+          if (insertError.message?.includes('price')) {
+            delete insertPayload.price;
+            delete insertPayload.original_price;
+          }
           const retry = await supabase.from('products').insert(insertPayload).select('id').single();
           newProd = retry.data;
           insertError = retry.error;
@@ -628,12 +724,8 @@ export function ProductFormModal({
                     <button
                       key={sz}
                       type="button"
-                      onClick={() => {
-                        setSelectedSizes((prev) =>
-                          prev.includes(sz) ? prev.filter((s) => s !== sz) : [...prev, sz]
-                        );
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
+                      onClick={() => handleToggleSize(sz)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
                           : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
@@ -658,12 +750,8 @@ export function ProductFormModal({
                     <button
                       key={sz}
                       type="button"
-                      onClick={() => {
-                        setSelectedSizes((prev) =>
-                          prev.includes(sz) ? prev.filter((s) => s !== sz) : [...prev, sz]
-                        );
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${
+                      onClick={() => handleToggleSize(sz)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
                           : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
@@ -688,7 +776,9 @@ export function ProductFormModal({
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     if (customSizeInput.trim() && !selectedSizes.includes(customSizeInput.trim())) {
-                      setSelectedSizes((prev) => [...prev, customSizeInput.trim()]);
+                      const newSz = customSizeInput.trim();
+                      setSelectedSizes((prev) => [...prev, newSz]);
+                      setStockBySize((prev) => ({ ...prev, [newSz]: 0 }));
                       setCustomSizeInput('');
                     }
                   }
@@ -698,15 +788,191 @@ export function ProductFormModal({
                 type="button"
                 onClick={() => {
                   if (customSizeInput.trim() && !selectedSizes.includes(customSizeInput.trim())) {
-                    setSelectedSizes((prev) => [...prev, customSizeInput.trim()]);
+                    const newSz = customSizeInput.trim();
+                    setSelectedSizes((prev) => [...prev, newSz]);
+                    setStockBySize((prev) => ({ ...prev, [newSz]: 0 }));
                     setCustomSizeInput('');
                   }
                 }}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
               >
                 Adicionar
               </button>
             </div>
+
+            {/* CONTROLE INTERNO DE ESTOQUE */}
+            {selectedSizes.length > 0 ? (
+              <div className="mt-4 p-4 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-zeiq-black text-white flex items-center justify-center shrink-0">
+                      <Boxes className="w-4 h-4 text-zeiq-orange" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-zeiq-black block">
+                        Estoque Interno por Tamanho
+                      </label>
+                      <span className="text-[11px] text-slate-500">
+                        Tamanhos com estoque 0 serão bloqueados para compra na vitrine.
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border self-start sm:self-auto ${
+                    totalCalculatedStock > 0
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                  }`}>
+                    Total: {totalCalculatedStock} un.
+                  </span>
+                </div>
+
+                {/* Ações em Lote */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60">
+                  <span className="text-xs text-slate-500 font-medium">Ajuste rápido:</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min="0"
+                      value={batchStockValue}
+                      onChange={(e) => setBatchStockValue(e.target.value)}
+                      placeholder="Qtd..."
+                      className="w-16 px-2 py-1 text-xs bg-white border border-slate-200 rounded-lg text-center font-mono focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBatchSetStock}
+                      disabled={!batchStockValue}
+                      className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg disabled:opacity-40 transition-colors cursor-pointer"
+                    >
+                      Definir em todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleZeroAllStock}
+                      className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Zerar todos
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grade de Inputs por Tamanho */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pt-1">
+                  {selectedSizes.map((sz) => {
+                    const currentQty = stockBySize[sz] ?? 0;
+                    const isZero = currentQty === 0;
+
+                    return (
+                      <div
+                        key={sz}
+                        className={`p-2 rounded-xl border transition-all ${
+                          isZero
+                            ? 'bg-rose-50/50 border-rose-200'
+                            : 'bg-white border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-xs text-zeiq-black font-mono">
+                            {sz}
+                          </span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            isZero
+                              ? 'bg-rose-100 text-rose-700'
+                              : currentQty <= 5
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {isZero ? 'Esgotado' : `${currentQty} un.`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStock(sz, Math.max(0, currentQty - 1))}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={currentQty}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              handleUpdateStock(sz, isNaN(val) ? 0 : Math.max(0, val));
+                            }}
+                            className="w-full text-center font-mono text-xs font-bold py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStock(sz, currentQty + 1)}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 p-4 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-zeiq-black text-white flex items-center justify-center shrink-0">
+                      <Boxes className="w-4 h-4 text-zeiq-orange" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-zeiq-black block">
+                        Estoque Geral (Produto sem variação de tamanho)
+                      </label>
+                      <span className="text-[11px] text-slate-500">
+                        Indicado para raquetes, capas, tubos de bolas, munhequeiras, etc.
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border self-start sm:self-auto ${
+                    defaultStock > 0
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border-rose-200'
+                  }`}>
+                    {defaultStock > 0 ? `${defaultStock} un. em estoque` : 'Esgotado (0 un.)'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 max-w-xs pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setDefaultStock((prev) => Math.max(0, prev - 1))}
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 transition-colors cursor-pointer"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    value={defaultStock}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setDefaultStock(isNaN(val) ? 0 : Math.max(0, val));
+                    }}
+                    className="w-24 text-center font-mono text-sm font-bold py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setDefaultStock((prev) => prev + 1)}
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-xs text-slate-500 font-medium">unidades disponíveis</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Destaques e Especificações Técnicas (até 5 tópicos opcionais) */}

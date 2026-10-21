@@ -18,7 +18,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const BUCKET_NAME = 'produtos';
-const CSV_PATH = path.join(__dirname, '..', 'dados', 'wc-product-export-13-10-2026-1791938769430.csv');
+const CSV_FILE_NAME = process.env.CSV_FILE || (fs.existsSync(path.join(__dirname, '..', 'dados', 'lista novos produtos.csv')) ? 'lista novos produtos.csv' : 'wc-product-export-13-10-2026-1791938769430.csv');
+const CSV_PATH = path.join(__dirname, '..', 'dados', CSV_FILE_NAME);
 const STATE_FILE = path.join(__dirname, 'migration-images-state.json');
 const CONCURRENCY_LIMIT = 8;
 
@@ -121,7 +122,9 @@ async function main() {
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if ((row[colPublished] || '').trim() === '1') {
+    const isPub = (row[colPublished] || '').trim() === '1';
+    const hasImgs = !!(row[colImages] && row[colImages].trim());
+    if (isPub || hasImgs) {
       const images = (row[colImages] || '').split(',').map(u => u.trim()).filter(Boolean);
       for (const imgUrl of images) {
         if (!uniqueImagesMap.has(imgUrl)) {

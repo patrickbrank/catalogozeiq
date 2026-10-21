@@ -37,6 +37,8 @@ export interface Product {
   tags: string[];
   sizes?: string[];
   highlights?: ProductHighlight[];
+  stock_by_size?: Record<string, number> | null;
+  total_stock?: number | null;
   created_at?: string;
   updated_at?: string;
   images?: ProductImage[];
@@ -87,6 +89,7 @@ export interface Order {
   total_pieces: number;
   tracking_code?: string | null;
   tracking_url?: string | null;
+  stock_deducted?: boolean | null;
   commercial_notes?: string | null;
   customer_notes?: string | null;
   created_at?: string;

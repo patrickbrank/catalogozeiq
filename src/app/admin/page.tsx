@@ -46,9 +46,13 @@ import {
   UserX,
   Key,
   ShieldAlert,
+  Boxes,
+  Minus,
+  AlertTriangle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Product, Category, Order, OrderStatus, QuoteItem, BannerItem, StoreSettings } from '@/types';
+import { parseProductSizes } from '@/lib/utils/sizes';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
@@ -80,8 +84,14 @@ export default function AdminDashboardPage() {
   // Filtros - Produtos
   const [productSearch, setProductSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft' | 'low_stock' | 'out_of_stock'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Modal de Ajuste Rápido de Estoque
+  const [quickStockProduct, setQuickStockProduct] = useState<Product | null>(null);
+  const [quickStockBySize, setQuickStockBySize] = useState<Record<string, number>>({});
+  const [quickDefaultStock, setQuickDefaultStock] = useState<number>(0);
+  const [savingQuickStock, setSavingQuickStock] = useState(false);
 
   // Dropdown Customizado de Categorias
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
@@ -466,6 +476,81 @@ export default function AdminDashboardPage() {
     } catch (err: any) {
       alert(`Falha ao excluir produto: ${err.message}`);
       fetchDashboardData();
+    }
+  };
+
+  const handleOpenQuickStock = (product: Product) => {
+    setQuickStockProduct(product);
+    const parsed = parseProductSizes(product.description, product.sizes, product.name);
+    const activeSizes = product.sizes && product.sizes.length > 0 ? product.sizes : parsed.sizes;
+    const initialStock: Record<string, number> = product.stock_by_size || {};
+    const populated: Record<string, number> = {};
+    activeSizes.forEach((sz) => {
+      populated[sz] = typeof initialStock[sz] === 'number' ? initialStock[sz] : 0;
+    });
+    setQuickStockBySize(populated);
+    setQuickDefaultStock(
+      typeof initialStock['_padrao'] === 'number'
+        ? initialStock['_padrao']
+        : typeof product.total_stock === 'number' && activeSizes.length === 0
+        ? product.total_stock
+        : 0
+    );
+  };
+
+  const handleSaveQuickStock = async () => {
+    if (!quickStockProduct) return;
+    setSavingQuickStock(true);
+
+    try {
+      const parsed = parseProductSizes(quickStockProduct.description, quickStockProduct.sizes, quickStockProduct.name);
+      const activeSizes = quickStockProduct.sizes && quickStockProduct.sizes.length > 0 ? quickStockProduct.sizes : parsed.sizes;
+
+      let finalStock: Record<string, number> = {};
+      let finalTotal = 0;
+
+      if (activeSizes.length > 0) {
+        activeSizes.forEach((sz) => {
+          finalStock[sz] = Math.max(0, quickStockBySize[sz] || 0);
+        });
+        finalTotal = Object.values(finalStock).reduce((a, b) => a + b, 0);
+      } else {
+        const dStock = Math.max(0, quickDefaultStock || 0);
+        finalStock = { _padrao: dStock };
+        finalTotal = dStock;
+      }
+
+      // Otimisticamente atualiza estado local
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === quickStockProduct.id
+            ? { ...p, stock_by_size: finalStock, total_stock: finalTotal }
+            : p
+        )
+      );
+
+      const supabase = createClient();
+      let { error } = await supabase
+        .from('products')
+        .update({
+          stock_by_size: finalStock,
+          total_stock: finalTotal,
+        })
+        .eq('id', quickStockProduct.id);
+
+      if (error && error.message?.includes('stock')) {
+        showToast('Aviso: Execute o script migration-add-stock.sql no Supabase.');
+      } else if (error) {
+        throw error;
+      } else {
+        showToast(`Estoque de "${quickStockProduct.name.slice(0, 20)}..." atualizado para ${finalTotal} un.`);
+      }
+
+      setQuickStockProduct(null);
+    } catch (err: any) {
+      showToast(`Erro ao salvar estoque: ${err.message}`);
+    } finally {
+      setSavingQuickStock(false);
     }
   };
 
@@ -919,8 +1004,10 @@ export default function AdminDashboardPage() {
 
       const matchesStatus =
         filterStatus === 'all' ||
-        (filterStatus === 'published' && p.is_published) ||
-        (filterStatus === 'draft' && !p.is_published);
+        (filterStatus === 'published' && p.is_published && (p.total_stock == null || p.total_stock > 0)) ||
+        (filterStatus === 'draft' && !p.is_published) ||
+        (filterStatus === 'low_stock' && typeof p.total_stock === 'number' && p.total_stock > 0 && p.total_stock <= 5) ||
+        (filterStatus === 'out_of_stock' && (typeof p.total_stock === 'number' ? p.total_stock <= 0 : !p.is_published));
 
       return matchesSearch && matchesCat && matchesStatus;
     });
@@ -985,8 +1072,11 @@ export default function AdminDashboardPage() {
     return categories.filter((c) => c.name.toLowerCase().includes(q));
   }, [categories, catFilterSearch]);
 
-  const publishedCount = products.filter((p) => p.is_published).length;
-  const draftCount = products.length - publishedCount;
+  const publishedCount = useMemo(() => products.filter((p) => p.is_published).length, [products]);
+  const draftCount = useMemo(() => products.length - publishedCount, [products, publishedCount]);
+  const totalPiecesInStock = useMemo(() => products.reduce((acc, p) => acc + (p.total_stock || 0), 0), [products]);
+  const lowStockCount = useMemo(() => products.filter((p) => (typeof p.total_stock === 'number' && p.total_stock > 0 && p.total_stock <= 5)).length, [products]);
+  const outOfStockCount = useMemo(() => products.filter((p) => (typeof p.total_stock === 'number' ? p.total_stock === 0 : false)).length, [products]);
 
   // Renderizador do Status Badge
   const renderStatusBadge = (status: OrderStatus) => {
@@ -1234,11 +1324,11 @@ export default function AdminDashboardPage() {
         {activeTab === 'products' && (
           <div className="space-y-6">
             {/* Métricas de Produtos */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                className={`p-4 sm:p-5 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'all'
                     ? 'bg-white border-zeiq-black shadow-sm'
                     : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
@@ -1249,16 +1339,28 @@ export default function AdminDashboardPage() {
                     <Package className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Produtos</p>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Produtos</p>
                     <h3 className="text-xl sm:text-2xl font-black text-zeiq-black">{products.length}</h3>
                   </div>
                 </div>
               </button>
 
+              <div className="p-4 rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Boxes className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Peças em Estoque</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-blue-600">{totalPiecesInStock} un.</h3>
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
-                className={`p-4 sm:p-5 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'published'
                     ? 'bg-white border-emerald-500 shadow-sm'
                     : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
@@ -1269,7 +1371,7 @@ export default function AdminDashboardPage() {
                     <CheckCircle className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Em Estoque (Visíveis)</p>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Disponíveis</p>
                     <h3 className="text-xl sm:text-2xl font-black text-emerald-600">{publishedCount}</h3>
                   </div>
                 </div>
@@ -1277,35 +1379,43 @@ export default function AdminDashboardPage() {
 
               <button
                 type="button"
-                onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
-                className={`p-4 sm:p-5 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
-                  filterStatus === 'draft'
+                onClick={() => { setFilterStatus('low_stock'); setCurrentPage(1); }}
+                className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
+                  filterStatus === 'low_stock'
                     ? 'bg-white border-amber-500 shadow-sm'
                     : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                    <EyeOff className="w-5 h-5" />
+                    <AlertTriangle className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sem Estoque (Ocultos)</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-amber-600">{draftCount}</h3>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Baixo Estoque</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-amber-600">{lowStockCount}</h3>
                   </div>
                 </div>
               </button>
 
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <button
+                type="button"
+                onClick={() => { setFilterStatus('out_of_stock'); setCurrentPage(1); }}
+                className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
+                  filterStatus === 'out_of_stock'
+                    ? 'bg-white border-rose-500 shadow-sm'
+                    : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-xs'
+                }`}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
-                    <FolderTree className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+                    <EyeOff className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Categorias Ativas</p>
-                    <h3 className="text-xl sm:text-2xl font-black text-zeiq-black">{categories.length}</h3>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Esgotados</p>
+                    <h3 className="text-xl sm:text-2xl font-black text-rose-600">{outOfStockCount}</h3>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Barra de Filtros e Busca de Produtos */}
@@ -1441,12 +1551,12 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* 2. Segmented Control de Status de Estoque (100% simétrico no mobile em grid-cols-3) */}
-                <div className="w-full lg:w-auto grid grid-cols-3 lg:flex p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0">
+                {/* 2. Segmented Control de Status de Estoque */}
+                <div className="w-full lg:w-auto flex flex-wrap p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-bold transition-all text-center whitespace-nowrap ${
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all text-center whitespace-nowrap cursor-pointer ${
                       filterStatus === 'all' ? 'bg-zeiq-black text-white shadow-2xs' : 'text-slate-600 hover:text-zeiq-black'
                     }`}
                   >
@@ -1455,26 +1565,99 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
                       filterStatus === 'published' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    <span>Em Estoque ({publishedCount})</span>
+                    <span>Disponíveis ({publishedCount})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFilterStatus('low_stock'); setCurrentPage(1); }}
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                      filterStatus === 'low_stock' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                    <span>Baixo Estoque ({lowStockCount})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFilterStatus('out_of_stock'); setCurrentPage(1); }}
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                      filterStatus === 'out_of_stock' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-rose-700'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+                    <span>Esgotados ({outOfStockCount})</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2 sm:px-3 rounded-lg text-xs sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                      filterStatus === 'draft' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                      filterStatus === 'draft' ? 'bg-slate-700 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-800'
                     }`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                    <span>Sem Estoque ({draftCount})</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                    <span>Ocultos ({draftCount})</span>
                   </button>
                 </div>
               </div>
             </div>
+
+            {/* Banner Informativo quando filtrado por Baixo Estoque ou Esgotados ou Ocultos */}
+            {filterStatus === 'low_stock' && (
+              <div className="p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold block">
+                      Filtrando por Produtos com Baixo Estoque ({lowStockCount})
+                    </span>
+                    <span className="text-xs text-amber-800 block">
+                      Itens com 5 ou menos unidades restantes. Clique em &quot;Ajustar Estoque&quot; na linha do produto para atualizar quantidades.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs shrink-0 transition-colors self-start sm:self-auto cursor-pointer"
+                >
+                  Ver Todos os Produtos
+                </button>
+              </div>
+            )}
+
+            {filterStatus === 'out_of_stock' && (
+              <div className="p-3.5 bg-rose-50/90 border border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-950 animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-700 flex items-center justify-center shrink-0">
+                    <EyeOff className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold block">
+                      Filtrando por Produtos Esgotados ({outOfStockCount})
+                    </span>
+                    <span className="text-xs text-rose-800 block">
+                      Itens com estoque zerado no momento. Na vitrine, estes tamanhos aparecem bloqueados com a etiqueta &quot;Esgotado&quot;.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 font-bold text-xs shrink-0 transition-colors self-start sm:self-auto cursor-pointer"
+                >
+                  Ver Todos os Produtos
+                </button>
+              </div>
+            )}
 
             {/* Banner Informativo quando filtrado por Sem Estoque / Pausados */}
             {filterStatus === 'draft' && (
@@ -1573,33 +1756,46 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3 px-4 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleTogglePublished(prod)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer ${
-                                  prod.is_published
-                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                    : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300'
-                                }`}
-                                title={
-                                  prod.is_published
-                                    ? 'Clique para pausar (ocultar por falta de estoque)'
-                                    : 'Clique para reativar e exibir no catálogo'
-                                }
-                              >
-                                {prod.is_published ? (
-                                  <>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span>Em Estoque</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <EyeOff className="w-3.5 h-3.5 text-amber-600" />
-                                    <span>Sem Estoque</span>
-                                  </>
-                                )}
-                              </button>
+                            <td className="py-3 px-4">
+                              <div className="flex flex-col items-center gap-1.5">
+                                {/* Botão de Ajuste Rápido de Estoque */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQuickStock(prod)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 ${
+                                    prod.total_stock != null && prod.total_stock > 5
+                                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                                      : prod.total_stock != null && prod.total_stock > 0
+                                      ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                                      : prod.total_stock === 0
+                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
+                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                                  }`}
+                                  title="Clique para ajustar o estoque interno deste produto"
+                                >
+                                  <Boxes className="w-3.5 h-3.5" />
+                                  <span>
+                                    {typeof prod.total_stock === 'number'
+                                      ? prod.total_stock === 0
+                                        ? '0 un. (Esgotado)'
+                                        : `${prod.total_stock} un.`
+                                      : 'Ajustar estoque'}
+                                  </span>
+                                </button>
+
+                                {/* Toggle de Publicado / Pausado */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleTogglePublished(prod)}
+                                  className={`text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                                    prod.is_published ? 'text-emerald-700 hover:text-emerald-900' : 'text-amber-700 hover:text-amber-900'
+                                  }`}
+                                  title={prod.is_published ? 'Produto visível no catálogo. Clique para ocultar.' : 'Produto oculto. Clique para exibir.'}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${prod.is_published ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                  <span>{prod.is_published ? 'Visível' : 'Oculto'}</span>
+                                </button>
+                              </div>
                             </td>
 
                             <td className="py-3 px-4 text-center">
@@ -1695,19 +1891,35 @@ export default function AdminDashboardPage() {
                         </div>
 
                         {/* Ações e Controles em Linha no Mobile */}
-                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenQuickStock(prod)}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                                prod.total_stock != null && prod.total_stock > 5
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : prod.total_stock != null && prod.total_stock > 0
+                                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                  : prod.total_stock === 0
+                                  ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                  : 'bg-slate-50 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              <Boxes className="w-3.5 h-3.5" />
+                              <span>{typeof prod.total_stock === 'number' ? `${prod.total_stock} un.` : 'Estoque'}</span>
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => handleTogglePublished(prod)}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                                prod.is_published
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                  : 'bg-amber-50 text-amber-800 border-amber-300'
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer ${
+                                prod.is_published ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'
                               }`}
+                              title={prod.is_published ? 'Produto visível. Clique para ocultar.' : 'Produto oculto. Clique para exibir.'}
                             >
                               <span className={`w-1.5 h-1.5 rounded-full ${prod.is_published ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                              <span>{prod.is_published ? 'Em Estoque' : 'Sem Estoque'}</span>
+                              <span>{prod.is_published ? 'Visível' : 'Oculto'}</span>
                             </button>
 
                             <button
@@ -3085,6 +3297,175 @@ export default function AdminDashboardPage() {
         onClose={() => setIsProductModalOpen(false)}
         onSaved={fetchDashboardData}
       />
+
+      {/* ======================================================== */}
+      {/* MODAL: AJUSTE RÁPIDO DE ESTOQUE                         */}
+      {/* ======================================================== */}
+      {quickStockProduct && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <button
+              onClick={() => setQuickStockProduct(null)}
+              className="absolute right-4 top-4 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-zeiq-black text-white flex items-center justify-center shrink-0">
+                <Boxes className="w-4 h-4 text-zeiq-orange" />
+              </div>
+              <h3 className="text-base font-bold text-zeiq-black">
+                Ajuste Rápido de Estoque
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4 line-clamp-1">
+              {quickStockProduct.name} {quickStockProduct.code_sku && `• SKU: ${quickStockProduct.code_sku}`}
+            </p>
+
+            {(() => {
+              const parsed = parseProductSizes(quickStockProduct.description, quickStockProduct.sizes, quickStockProduct.name);
+              const activeSizes = quickStockProduct.sizes && quickStockProduct.sizes.length > 0 ? quickStockProduct.sizes : parsed.sizes;
+              const hasSizes = activeSizes.length > 0;
+              const totalPieces = hasSizes
+                ? activeSizes.reduce((sum, sz) => sum + (quickStockBySize[sz] || 0), 0)
+                : quickDefaultStock;
+
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="text-xs font-bold text-slate-700">Total em Estoque:</span>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                      totalPieces > 0
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-rose-50 text-rose-800 border-rose-300'
+                    }`}>
+                      {totalPieces} unidades
+                    </span>
+                  </div>
+
+                  {hasSizes ? (
+                    <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {activeSizes.map((sz) => {
+                          const currentQty = quickStockBySize[sz] || 0;
+                          return (
+                            <div
+                              key={sz}
+                              className={`p-2.5 rounded-xl border transition-all ${
+                                currentQty === 0
+                                  ? 'bg-rose-50/50 border-rose-200'
+                                  : 'bg-white border-slate-200'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-bold text-xs text-zeiq-black font-mono">
+                                  {sz}
+                                </span>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                  currentQty === 0
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : currentQty <= 5
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-emerald-100 text-emerald-700'
+                                }`}>
+                                  {currentQty === 0 ? 'Esgotado' : `${currentQty} un.`}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setQuickStockBySize((prev) => ({ ...prev, [sz]: Math.max(0, currentQty - 1) }))}
+                                  className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={currentQty}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10);
+                                    setQuickStockBySize((prev) => ({ ...prev, [sz]: isNaN(val) ? 0 : Math.max(0, val) }));
+                                  }}
+                                  className="w-full text-center font-mono text-xs font-bold py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setQuickStockBySize((prev) => ({ ...prev, [sz]: currentQty + 1 }))}
+                                  className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-700">Quantidade geral:</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setQuickDefaultStock((prev) => Math.max(0, prev - 1))}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={quickDefaultStock}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            setQuickDefaultStock(isNaN(val) ? 0 : Math.max(0, val));
+                          }}
+                          className="w-20 text-center font-mono text-sm font-bold py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setQuickDefaultStock((prev) => prev + 1)}
+                          className="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuickStockProduct(null)}
+                      className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveQuickStock}
+                      disabled={savingQuickStock}
+                      className="px-5 py-2 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {savingQuickStock ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        'Salvar Estoque'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* ======================================================== */}
       {/* MODAL 2: DETALHES & GRADE DO PEDIDO                     */}

@@ -81,17 +81,53 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
   // Total de peças na grade
   const totalGradePieces = Object.values(sizeQuantities).reduce((acc, q) => acc + (q || 0), 0);
 
+  const isSizeOutOfStock = (sz: string) => {
+    if (!product?.stock_by_size) return false;
+    const stock = product.stock_by_size[sz];
+    return typeof stock === 'number' && stock <= 0;
+  };
+
+  const getAvailableStockForSize = (sz: string): number | undefined => {
+    if (!product?.stock_by_size) return undefined;
+    const stock = product.stock_by_size[sz];
+    return typeof stock === 'number' ? stock : undefined;
+  };
+
+  const isProductOutOfStock = React.useMemo(() => {
+    if (!product) return false;
+    if (hasSizes) {
+      if (product.stock_by_size && Object.keys(product.stock_by_size).length > 0) {
+        return sizes.every((sz) => isSizeOutOfStock(sz));
+      }
+      return false;
+    } else {
+      if (typeof product.total_stock === 'number' && product.total_stock <= 0) return true;
+      if (product.stock_by_size && typeof product.stock_by_size['_padrao'] === 'number' && product.stock_by_size['_padrao'] <= 0) return true;
+      return false;
+    }
+  }, [product, hasSizes, sizes]);
+
   const handleUpdateSizeQty = (sz: string, delta: number) => {
+    if (isSizeOutOfStock(sz)) return;
+    const maxStock = getAvailableStockForSize(sz);
     setSizeQuantities((prev) => {
       const current = prev[sz] || 0;
-      const updated = Math.max(0, current + delta);
+      let updated = Math.max(0, current + delta);
+      if (typeof maxStock === 'number') {
+        updated = Math.min(maxStock, updated);
+      }
       return { ...prev, [sz]: updated };
     });
   };
 
   const handleSetExactSizeQty = (sz: string, value: string) => {
+    if (isSizeOutOfStock(sz)) return;
+    const maxStock = getAvailableStockForSize(sz);
     const parsed = parseInt(value, 10);
-    const qty = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    let qty = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    if (typeof maxStock === 'number') {
+      qty = Math.min(maxStock, qty);
+    }
     setSizeQuantities((prev) => ({ ...prev, [sz]: qty }));
   };
 
@@ -104,6 +140,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
   };
 
   const handleAddToList = () => {
+    if (isProductOutOfStock) return;
     if (hasSizes) {
       if (totalGradePieces === 0) return;
       addBundle(product, sizeQuantities, notes);
@@ -264,6 +301,25 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                     <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 gap-2">
                       {sizes.map((sz) => {
                         const qty = sizeQuantities[sz] || 0;
+                        const outOfStock = isSizeOutOfStock(sz);
+
+                        if (outOfStock) {
+                          return (
+                            <div
+                              key={sz}
+                              className="h-10 sm:h-9 rounded-xl border border-dashed border-slate-200 bg-slate-100/70 flex items-center justify-between overflow-hidden opacity-60 cursor-not-allowed select-none px-2"
+                              title="Tamanho indisponível no momento"
+                            >
+                              <span className="text-xs font-bold text-slate-400 line-through">
+                                {sz}
+                              </span>
+                              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                Esgotado
+                              </span>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div
                             key={sz}
@@ -315,6 +371,21 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                         );
                       })}
                     </div>
+                  </div>
+                ) : isProductOutOfStock ? (
+                  /* Produto sem variação de tamanho: Sem Estoque */
+                  <div className="mb-4 p-3.5 bg-rose-50/70 rounded-xl border border-rose-200 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-rose-950 block">
+                        Produto Esgotado
+                      </span>
+                      <span className="text-[11px] text-rose-700 block mt-0.5">
+                        Este item está temporariamente sem estoque para novos pedidos.
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-rose-700 bg-white px-2.5 py-1 rounded-lg border border-rose-200 shrink-0">
+                      Indisponível
+                    </span>
                   </div>
                 ) : (
                   /* Produto sem variação de tamanho: Seletor de Quantidade Simples */
@@ -432,10 +503,12 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
           <button
             type="button"
             onClick={handleAddToList}
-            disabled={hasSizes && totalGradePieces === 0}
+            disabled={isProductOutOfStock || (hasSizes && totalGradePieces === 0)}
             className={`w-full sm:w-auto sm:min-w-[280px] h-11 px-6 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-98 shadow-sm ${
               isSuccess
                 ? 'bg-emerald-600 text-white'
+                : isProductOutOfStock
+                ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
                 : hasSizes && totalGradePieces === 0
                 ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
                 : 'bg-zeiq-black hover:bg-zeiq-charcoal text-white cursor-pointer'
@@ -446,6 +519,8 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                 <Check className="w-4 h-4" />
                 Adicionado à Lista!
               </>
+            ) : isProductOutOfStock ? (
+              'Produto Esgotado'
             ) : hasSizes && totalGradePieces === 0 ? (
               'Selecione as quantidades na grade'
             ) : (

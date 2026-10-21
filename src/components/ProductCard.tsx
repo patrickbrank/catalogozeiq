@@ -34,12 +34,29 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   const hasSizes = sizes && sizes.length > 0;
   const displayTitle = getCleanTitle(product.name);
 
+  const isOutOfStock = React.useMemo(() => {
+    if (hasSizes) {
+      if (product.stock_by_size && Object.keys(product.stock_by_size).length > 0) {
+        return sizes.every((sz) => {
+          const s = product.stock_by_size?.[sz];
+          return typeof s === 'number' && s <= 0;
+        });
+      }
+      return false;
+    } else {
+      if (typeof product.total_stock === 'number' && product.total_stock <= 0) return true;
+      if (product.stock_by_size && typeof product.stock_by_size['_padrao'] === 'number' && product.stock_by_size['_padrao'] <= 0) return true;
+      return false;
+    }
+  }, [product, hasSizes, sizes]);
+
   const handleActionClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (hasSizes) {
       // Se tem grade de tamanhos, abre o modal para o lojista escolher as quantidades
       onOpenDetails(product);
     } else {
+      if (isOutOfStock) return;
       // Produto sem tamanho: adiciona 1 direto com feedback rápido
       addItem(product, 1);
       setIsAdded(true);
@@ -82,6 +99,13 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
         {product.code_sku && (
           <div className="absolute top-2 left-2 bg-zeiq-black text-white text-xs font-mono font-bold px-2 py-0.5 rounded shadow-xs z-20">
             {product.code_sku}
+          </div>
+        )}
+
+        {/* Badge de Esgotado */}
+        {isOutOfStock && (
+          <div className="absolute top-2 right-2 bg-rose-600 text-white text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded shadow-xs z-20">
+            Esgotado
           </div>
         )}
       </div>
@@ -152,9 +176,14 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
           <button
             type="button"
             onClick={handleActionClick}
+            disabled={isOutOfStock && !hasSizes}
             className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer ${
               isAdded
                 ? 'bg-emerald-600 text-white'
+                : isOutOfStock && !hasSizes
+                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                : isOutOfStock && hasSizes
+                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                 : 'bg-zeiq-black hover:bg-zeiq-charcoal text-white'
             }`}
           >
@@ -163,10 +192,12 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
                 <Check className="w-3.5 h-3.5" />
                 Adicionado
               </>
+            ) : isOutOfStock && !hasSizes ? (
+              'Esgotado'
             ) : hasSizes ? (
               <>
                 <Layers className="w-3.5 h-3.5" />
-                Escolher Grade
+                {isOutOfStock ? 'Ver Grade' : 'Escolher Grade'}
               </>
             ) : (
               <>

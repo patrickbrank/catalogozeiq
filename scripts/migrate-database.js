@@ -18,7 +18,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const BUCKET_NAME = 'produtos';
-const CSV_PATH = path.join(__dirname, '..', 'dados', 'wc-product-export-13-10-2026-1791938769430.csv');
+const CSV_FILE_NAME = process.env.CSV_FILE || (fs.existsSync(path.join(__dirname, '..', 'dados', 'lista novos produtos.csv')) ? 'lista novos produtos.csv' : 'wc-product-export-13-10-2026-1791938769430.csv');
+const CSV_PATH = path.join(__dirname, '..', 'dados', CSV_FILE_NAME);
 const IMAGES_STATE_FILE = path.join(__dirname, 'migration-images-state.json');
 const REPORT_FILE = path.join(__dirname, 'migration-database-report.json');
 
@@ -114,14 +115,19 @@ async function main() {
   const colSku = header.indexOf('SKU');
   const colPosition = header.indexOf('Posição');
 
-  // 1. Filtrar somente os 454 produtos publicados
-  const publishedRows = rows.slice(1).filter(r => (r[colPublished] || '').trim() === '1');
-  console.log(`📋 Total de produtos publicados a importar: ${publishedRows.length}\n`);
+  // 1. Filtrar produtos a importar (publicados + novos rascunhos)
+  const targetRows = rows.slice(1).filter(r => {
+    const isPub = (r[colPublished] || '').trim() === '1';
+    const id = parseInt(r[colId] || '0', 10);
+    const isNewDraft = id >= 4753 && (r[colImages] || '').trim().length > 0;
+    return isPub || isNewDraft;
+  });
+  console.log(`📋 Total de produtos a importar: ${targetRows.length}\n`);
 
   // 2. Extrair e criar categorias em lote
   console.log('--- ETAPA 1: Sincronizando Categorias em Lote ---');
   const categoryNamesSet = new Set();
-  publishedRows.forEach(r => {
+  targetRows.forEach(r => {
     const cats = (r[colCategories] || '').split(',').map(c => c.trim()).filter(Boolean);
     cats.forEach(c => categoryNamesSet.add(c));
   });
@@ -150,8 +156,8 @@ async function main() {
   const productsToUpsert = [];
   const legacyToRawRow = new Map();
 
-  for (let i = 0; i < publishedRows.length; i++) {
-    const r = publishedRows[i];
+  for (let i = 0; i < targetRows.length; i++) {
+    const r = targetRows[i];
     const legacyId = (r[colId] || '').trim() || String(i + 1);
     const name = (r[colName] || '').trim();
     const rawSku = colSku !== -1 ? r[colSku] : '';
@@ -169,6 +175,7 @@ async function main() {
       .replace(/\\n/g, '\n')
       .trim();
 
+    const isPublished = (r[colPublished] || '').trim() === '1';
     const isFeatured = (r[colFeatured] || '').trim() === '1';
     const position = parseInt(r[colPosition], 10) || i;
     const tags = (r[colTags] || '').split(',').map(t => t.trim()).filter(Boolean);
@@ -181,7 +188,7 @@ async function main() {
       slug: slug,
       code_sku: sku,
       description: description,
-      is_published: true,
+      is_published: isPublished,
       is_featured: isFeatured,
       display_order: position,
       tags: tags
@@ -280,7 +287,7 @@ async function main() {
   }
 
   const report = {
-    totalTarget: publishedRows.length,
+    totalTarget: targetRows.length,
     success: legacyToDbId.size,
     categoriesCount: categoriesMap.size,
     imagesCount: allProductImages.length,
