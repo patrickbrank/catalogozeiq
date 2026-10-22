@@ -9,6 +9,7 @@ import { useQuoteCart } from '@/lib/store/quote-cart';
 import { Product } from '@/types';
 import { normalizeSearchText } from '@/components/CatalogClient';
 import { createClient } from '@/lib/supabase/client';
+import { triggerCartImpact } from '@/lib/utils/cart-animation';
 
 interface HeaderProps {
   searchQuery: string;
@@ -32,6 +33,18 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
   const setIsOpen = useQuoteCart((state) => state.setIsOpen);
   const lastAdded = useQuoteCart((state) => state.lastAdded);
   const [isBouncing, setIsBouncing] = useState(false);
+
+  useEffect(() => {
+    const handleCartArrived = () => {
+      const cartBtn = document.getElementById('header-cart-button');
+      if (cartBtn) {
+        triggerCartImpact(cartBtn);
+      }
+    };
+
+    window.addEventListener('cart-item-arrived', handleCartArrived);
+    return () => window.removeEventListener('cart-item-arrived', handleCartArrived);
+  }, []);
 
   useEffect(() => {
     if (lastAdded) {
@@ -269,6 +282,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
             </Link>
 
             <button
+              id="header-cart-button"
               onClick={() => setIsOpen(true)}
               className={`relative inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white font-semibold text-xs sm:text-sm rounded-lg transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer ${
                 isBouncing ? 'scale-105 ring-2 ring-zeiq-orange shadow-md' : ''

@@ -1,3 +1,5 @@
+import { Product } from '@/types';
+
 export const COMMON_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'G1', 'G2', 'Único'];
 
 export function parseProductSizes(
@@ -85,4 +87,27 @@ export function parseProductSizes(
     sizes: Array.from(new Set(extracted)),
     cleanDescription,
   };
+}
+
+export function isSizeOutOfStock(product?: Product | null, size?: string): boolean {
+  if (!product?.stock_by_size || !size) return false;
+  const stock = product.stock_by_size[size];
+  return typeof stock === 'number' && stock <= 0;
+}
+
+export function isProductOutOfStock(product?: Product | null): boolean {
+  if (!product) return false;
+  const { sizes } = parseProductSizes(product.description, product.sizes, product.name);
+  const hasSizes = sizes && sizes.length > 0;
+
+  if (hasSizes) {
+    if (product.stock_by_size && Object.keys(product.stock_by_size).length > 0) {
+      return sizes.every((sz) => isSizeOutOfStock(product, sz));
+    }
+    return typeof product.total_stock === 'number' && product.total_stock <= 0;
+  } else {
+    if (typeof product.total_stock === 'number' && product.total_stock <= 0) return true;
+    if (product.stock_by_size && typeof product.stock_by_size['_padrao'] === 'number' && product.stock_by_size['_padrao'] <= 0) return true;
+    return false;
+  }
 }

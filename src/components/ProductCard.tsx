@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { Plus, Check, Layers } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
-import { parseProductSizes } from '@/lib/utils/sizes';
+import { parseProductSizes, isProductOutOfStock } from '@/lib/utils/sizes';
+import { flyToCartAnimation } from '@/lib/utils/cart-animation';
 
 interface ProductCardProps {
   product: Product;
@@ -34,29 +35,22 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   const hasSizes = sizes && sizes.length > 0;
   const displayTitle = getCleanTitle(product.name);
 
-  const isOutOfStock = React.useMemo(() => {
-    if (hasSizes) {
-      if (product.stock_by_size && Object.keys(product.stock_by_size).length > 0) {
-        return sizes.every((sz) => {
-          const s = product.stock_by_size?.[sz];
-          return typeof s === 'number' && s <= 0;
-        });
-      }
-      return false;
-    } else {
-      if (typeof product.total_stock === 'number' && product.total_stock <= 0) return true;
-      if (product.stock_by_size && typeof product.stock_by_size['_padrao'] === 'number' && product.stock_by_size['_padrao'] <= 0) return true;
-      return false;
-    }
-  }, [product, hasSizes, sizes]);
+  const isOutOfStock = isProductOutOfStock(product);
 
-  const handleActionClick = (e: React.MouseEvent) => {
+  const handleActionClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (hasSizes) {
       // Se tem grade de tamanhos, abre o modal para o lojista escolher as quantidades
       onOpenDetails(product);
     } else {
       if (isOutOfStock) return;
+      // Animação GSAP balística do produto voando até a sacola
+      flyToCartAnimation({
+        startElement: e.currentTarget,
+        imageUrl: coverUrl,
+        count: 1,
+      });
+
       // Produto sem tamanho: adiciona 1 direto com feedback rápido
       addItem(product, 1);
       setIsAdded(true);

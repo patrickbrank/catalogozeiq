@@ -85,7 +85,11 @@ export default function AdminDashboardPage() {
   const [productSearch, setProductSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft' | 'low_stock' | 'out_of_stock'>('all');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleProductsCount, setVisibleProductsCount] = useState(ITEMS_PER_PAGE);
+
+  const handleLoadMoreProducts = () => {
+    setVisibleProductsCount((prev) => prev + ITEMS_PER_PAGE);
+  };
 
   // Modal de Ajuste Rápido de Estoque
   const [quickStockProduct, setQuickStockProduct] = useState<Product | null>(null);
@@ -1013,12 +1017,10 @@ export default function AdminDashboardPage() {
     });
   }, [products, productSearch, filterCategory, filterStatus]);
 
-  // Paginação dos produtos
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE) || 1;
+  // Produtos visíveis com carregamento progressivo contínuo (Carregar Mais)
   const paginatedProducts = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredProducts, currentPage]);
+    return filteredProducts.slice(0, visibleProductsCount);
+  }, [filteredProducts, visibleProductsCount]);
 
   // Filtro de Pedidos
   const filteredOrders = useMemo(() => {
@@ -1327,7 +1329,7 @@ export default function AdminDashboardPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
               <button
                 type="button"
-                onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                onClick={() => { setFilterStatus('all'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
                 className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'all'
                     ? 'bg-white border-zeiq-black shadow-sm'
@@ -1359,7 +1361,7 @@ export default function AdminDashboardPage() {
 
               <button
                 type="button"
-                onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
+                onClick={() => { setFilterStatus('published'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
                 className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'published'
                     ? 'bg-white border-emerald-500 shadow-sm'
@@ -1379,7 +1381,7 @@ export default function AdminDashboardPage() {
 
               <button
                 type="button"
-                onClick={() => { setFilterStatus('low_stock'); setCurrentPage(1); }}
+                onClick={() => { setFilterStatus('low_stock'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
                 className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'low_stock'
                     ? 'bg-white border-amber-500 shadow-sm'
@@ -1399,7 +1401,7 @@ export default function AdminDashboardPage() {
 
               <button
                 type="button"
-                onClick={() => { setFilterStatus('out_of_stock'); setCurrentPage(1); }}
+                onClick={() => { setFilterStatus('out_of_stock'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
                 className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-98 cursor-pointer ${
                   filterStatus === 'out_of_stock'
                     ? 'bg-white border-rose-500 shadow-sm'
@@ -1421,23 +1423,26 @@ export default function AdminDashboardPage() {
             {/* Barra de Filtros e Busca de Produtos */}
             <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col gap-3">
               {/* Linha 1: Busca e Ação Principal (Cadastrar Produto) */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
-                <div className="relative flex-1">
+              <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
+                <div className="relative flex-1 min-w-0">
                   <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={productSearch}
                     onChange={(e) => {
                       setProductSearch(e.target.value);
-                      setCurrentPage(1);
+                      setVisibleProductsCount(ITEMS_PER_PAGE);
                     }}
                     placeholder="Pesquisar por nome ou SKU..."
-                    className="w-full pl-10 pr-9 py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full pl-10 pr-9 py-2 sm:py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                   {productSearch && (
                     <button
-                      onClick={() => setProductSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black p-0.5"
+                      onClick={() => {
+                        setProductSearch('');
+                        setVisibleProductsCount(ITEMS_PER_PAGE);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black p-0.5 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -1450,10 +1455,11 @@ export default function AdminDashboardPage() {
                     setEditingProduct(null);
                     setIsProductModalOpen(true);
                   }}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Cadastrar Novo Produto</span>
+                  <Plus className="w-4 h-4 text-zeiq-orange" />
+                  <span className="hidden sm:inline">Cadastrar Novo Produto</span>
+                  <span className="sm:hidden">Novo</span>
                 </button>
               </div>
 
@@ -1496,11 +1502,11 @@ export default function AdminDashboardPage() {
                           type="button"
                           onClick={() => {
                             setFilterCategory('all');
-                            setCurrentPage(1);
+                            setVisibleProductsCount(ITEMS_PER_PAGE);
                             setIsCatDropdownOpen(false);
                             setCatFilterSearch('');
                           }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                             filterCategory === 'all'
                               ? 'bg-zeiq-black text-white font-bold'
                               : 'text-slate-700 hover:bg-slate-100'
@@ -1524,11 +1530,11 @@ export default function AdminDashboardPage() {
                               type="button"
                               onClick={() => {
                                 setFilterCategory(c.id);
-                                setCurrentPage(1);
+                                setVisibleProductsCount(ITEMS_PER_PAGE);
                                 setIsCatDropdownOpen(false);
                                 setCatFilterSearch('');
                               }}
-                              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                                 isSelected
                                   ? 'bg-zeiq-black text-white font-bold'
                                   : 'text-slate-700 hover:bg-slate-100'
@@ -1551,12 +1557,12 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* 2. Segmented Control de Status de Estoque */}
-                <div className="w-full lg:w-auto flex flex-wrap p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0">
+                {/* 2. Segmented Control de Status de Estoque com Rolagem Horizontal Suave */}
+                <div className="w-full lg:w-auto flex items-center overflow-x-auto no-scrollbar p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0 -mx-0.5">
                   <button
                     type="button"
-                    onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all text-center whitespace-nowrap cursor-pointer ${
+                    onClick={() => { setFilterStatus('all'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center whitespace-nowrap shrink-0 cursor-pointer ${
                       filterStatus === 'all' ? 'bg-zeiq-black text-white shadow-2xs' : 'text-slate-600 hover:text-zeiq-black'
                     }`}
                   >
@@ -1564,18 +1570,18 @@ export default function AdminDashboardPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setFilterStatus('published'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    onClick={() => { setFilterStatus('published'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                       filterStatus === 'published' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                    <span>Disponíveis ({publishedCount})</span>
+                    <span>Visíveis ({publishedCount})</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setFilterStatus('low_stock'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    onClick={() => { setFilterStatus('low_stock'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                       filterStatus === 'low_stock' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
                     }`}
                   >
@@ -1584,8 +1590,8 @@ export default function AdminDashboardPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setFilterStatus('out_of_stock'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    onClick={() => { setFilterStatus('out_of_stock'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                       filterStatus === 'out_of_stock' ? 'bg-rose-600 text-white shadow-2xs' : 'text-slate-600 hover:text-rose-700'
                     }`}
                   >
@@ -1594,8 +1600,8 @@ export default function AdminDashboardPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setFilterStatus('draft'); setCurrentPage(1); }}
-                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                    onClick={() => { setFilterStatus('draft'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                       filterStatus === 'draft' ? 'bg-slate-700 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-800'
                     }`}
                   >
@@ -1625,7 +1631,7 @@ export default function AdminDashboardPage() {
 
                 <button
                   type="button"
-                  onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                  onClick={() => { setFilterStatus('all'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
                   className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs shrink-0 transition-colors self-start sm:self-auto cursor-pointer"
                 >
                   Ver Todos os Produtos
@@ -1651,7 +1657,7 @@ export default function AdminDashboardPage() {
 
                 <button
                   type="button"
-                  onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
+                  onClick={() => { setFilterStatus('all'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
                   className="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-100 text-rose-900 border border-rose-300 font-bold text-xs shrink-0 transition-colors self-start sm:self-auto cursor-pointer"
                 >
                   Ver Todos os Produtos
@@ -1678,8 +1684,8 @@ export default function AdminDashboardPage() {
 
                 <button
                   type="button"
-                  onClick={() => { setFilterStatus('all'); setCurrentPage(1); }}
-                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs shrink-0 transition-colors self-start sm:self-auto"
+                  onClick={() => { setFilterStatus('all'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs shrink-0 transition-colors self-start sm:self-auto cursor-pointer"
                 >
                   Ver Todos os Produtos
                 </button>
@@ -1855,48 +1861,61 @@ export default function AdminDashboardPage() {
                   paginatedProducts.map((prod) => {
                     const cover = prod.images?.find((i) => i.is_cover)?.public_url || prod.images?.[0]?.public_url;
                     return (
-                      <div key={prod.id} className="p-3.5 space-y-2.5">
+                      <div key={prod.id} className="p-3.5 space-y-3 transition-colors hover:bg-slate-50/50">
                         <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-[#f8f9fa] border border-slate-200 overflow-hidden flex items-center justify-center p-1 shrink-0">
+                          {/* Imagem Proporção Vertical 4:5 */}
+                          <div className="w-16 h-20 rounded-xl bg-slate-50 border border-slate-200/90 overflow-hidden flex items-center justify-center p-1 shrink-0 relative shadow-2xs">
                             {cover ? (
                               <img src={cover} alt="" className="w-full h-full object-contain mix-blend-multiply" />
                             ) : (
                               <ImageIcon className="w-5 h-5 text-slate-300" />
                             )}
+                            {prod.is_featured && (
+                              <span className="absolute top-1 left-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white" title="Produto em destaque" />
+                            )}
                           </div>
+
+                          {/* Informações Centrais */}
                           <div className="min-w-0 flex-1">
-                            <h4 className="font-bold text-zeiq-black text-xs line-clamp-2 leading-snug">{prod.name}</h4>
-                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                            <h4 className="font-bold text-zeiq-black text-xs leading-snug line-clamp-2">
+                              {prod.name}
+                            </h4>
+
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               {prod.code_sku && (
-                                <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60">
                                   {prod.code_sku}
                                 </span>
                               )}
                               {prod.categories?.[0] && (
-                                <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded truncate max-w-[120px]">
+                                <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded truncate max-w-[130px]">
                                   {prod.categories[0].name}
                                 </span>
                               )}
                             </div>
+
                             <div className="mt-1 font-mono font-bold text-xs">
                               {prod.price != null && prod.price > 0 ? (
                                 <span className="text-emerald-700">
                                   R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               ) : (
-                                <span className="text-slate-400 italic">Sob consulta</span>
+                                <span className="text-slate-400 font-normal italic text-[11px]">
+                                  Sob consulta
+                                </span>
                               )}
                             </div>
                           </div>
                         </div>
 
                         {/* Ações e Controles em Linha no Mobile */}
-                        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-xs">
-                          <div className="flex items-center gap-1.5">
+                        <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-xs">
+                          {/* Controles de Estoque e Visibilidade */}
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <button
                               type="button"
                               onClick={() => handleOpenQuickStock(prod)}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
                                 prod.total_stock != null && prod.total_stock > 5
                                   ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                   : prod.total_stock != null && prod.total_stock > 0
@@ -1905,6 +1924,7 @@ export default function AdminDashboardPage() {
                                   ? 'bg-rose-50 text-rose-800 border-rose-300'
                                   : 'bg-slate-50 text-slate-700 border-slate-200'
                               }`}
+                              title="Ajustar estoque deste produto"
                             >
                               <Boxes className="w-3.5 h-3.5" />
                               <span>{typeof prod.total_stock === 'number' ? `${prod.total_stock} un.` : 'Estoque'}</span>
@@ -1913,40 +1933,46 @@ export default function AdminDashboardPage() {
                             <button
                               type="button"
                               onClick={() => handleTogglePublished(prod)}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold cursor-pointer ${
-                                prod.is_published ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-all active:scale-95 cursor-pointer ${
+                                prod.is_published
+                                  ? 'text-emerald-800 bg-emerald-50/80 border-emerald-200'
+                                  : 'text-amber-800 bg-amber-50/80 border-amber-200'
                               }`}
-                              title={prod.is_published ? 'Produto visível. Clique para ocultar.' : 'Produto oculto. Clique para exibir.'}
+                              title={prod.is_published ? 'Produto visível no catálogo. Clique para ocultar.' : 'Produto oculto. Clique para exibir.'}
                             >
                               <span className={`w-1.5 h-1.5 rounded-full ${prod.is_published ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                               <span>{prod.is_published ? 'Visível' : 'Oculto'}</span>
                             </button>
+                          </div>
 
+                          {/* Ações: Destaque, Editar e Excluir */}
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
                               onClick={() => handleToggleFeatured(prod)}
-                              className={`p-1 rounded-lg ${prod.is_featured ? 'text-amber-500' : 'text-slate-300'}`}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer active:scale-90 ${
+                                prod.is_featured ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-slate-400'
+                              }`}
                               title={prod.is_featured ? 'Destaque ativo' : 'Sem destaque'}
                             >
                               <Star className={`w-4 h-4 ${prod.is_featured ? 'fill-amber-400' : ''}`} />
                             </button>
-                          </div>
 
-                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => {
                                 setEditingProduct(prod);
                                 setIsProductModalOpen(true);
                               }}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors cursor-pointer"
+                              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs transition-colors active:scale-95 cursor-pointer"
                             >
                               Editar
                             </button>
+
                             <button
                               type="button"
                               onClick={() => handleDeleteProduct(prod)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors active:scale-90 cursor-pointer"
                               title="Excluir produto"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1959,35 +1985,48 @@ export default function AdminDashboardPage() {
                 )}
               </div>
 
-              {/* Paginação Suave */}
-              <div className="p-4 bg-[#f8f9fa] border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
-                <span>
-                  Exibindo <strong>{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong>–<strong>{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong> produtos
-                </span>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700"
-                    title="Página Anterior"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-
-                  <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg font-bold text-zeiq-black">
-                    Página {currentPage} de {totalPages}
+              {/* Rodapé: Carregar Mais Produtos (igual ao site) */}
+              <div className="p-4 sm:p-5 bg-[#f8f9fa] border-t border-slate-200 flex flex-col items-center justify-center gap-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                  <span>
+                    Exibindo <strong>{Math.min(visibleProductsCount, filteredProducts.length)}</strong> de <strong>{filteredProducts.length}</strong> produtos
                   </span>
-
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700"
-                    title="Próxima Página"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  {filteredProducts.length > 0 && (
+                    <span className="text-slate-300">•</span>
+                  )}
+                  {visibleProductsCount < filteredProducts.length ? (
+                    <span className="text-slate-400 font-mono text-[11px]">
+                      ({filteredProducts.length - visibleProductsCount} restantes)
+                    </span>
+                  ) : (
+                    <span className="text-emerald-600 font-bold text-[11px] flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Todos os produtos carregados
+                    </span>
+                  )}
                 </div>
+
+                {visibleProductsCount < filteredProducts.length && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={handleLoadMoreProducts}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white hover:bg-slate-100 text-zeiq-black border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                    >
+                      <ArrowDown className="w-4 h-4 text-zeiq-orange" />
+                      <span>Carregar mais produtos ({Math.min(ITEMS_PER_PAGE, filteredProducts.length - visibleProductsCount)} restantes)</span>
+                    </button>
+
+                    {filteredProducts.length - visibleProductsCount > ITEMS_PER_PAGE && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleProductsCount(filteredProducts.length)}
+                        className="px-3.5 py-2.5 text-xs text-slate-500 hover:text-zeiq-black hover:bg-slate-200/60 rounded-xl font-semibold transition-colors cursor-pointer"
+                      >
+                        Carregar todos ({filteredProducts.length})
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

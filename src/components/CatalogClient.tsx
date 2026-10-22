@@ -12,6 +12,7 @@ import { Product, Category, BannerItem, StoreSettings } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { DEPARTMENTS, Department, findDepartmentForCategory } from '@/lib/data/departments';
 import { Search, ArrowDown, X, ShieldAlert } from 'lucide-react';
+import { isProductOutOfStock } from '@/lib/utils/sizes';
 
 export function normalizeSearchText(text: string | null | undefined): string {
   if (!text) return '';
@@ -44,6 +45,7 @@ export function CatalogClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [hideOutOfStock, setHideOutOfStock] = useState(false);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
@@ -119,7 +121,12 @@ export function CatalogClient({
       }
     }
 
-    // 5. Ordenação estrita por lançamentos e data: do mais recente para o mais antigo
+    // 5. Filtragem por estoque (ocultar esgotados se ativado)
+    if (hideOutOfStock) {
+      result = result.filter((p) => !isProductOutOfStock(p));
+    }
+
+    // 6. Ordenação estrita por lançamentos e data: do mais recente para o mais antigo
     return [...result].sort((a, b) => {
       // Prioriza produtos marcados como destaque ou com tag de lançamento
       const aLanc = isProductLancamento(a) ? 1 : 0;
@@ -136,7 +143,7 @@ export function CatalogClient({
       const idB = parseInt(b.legacy_id || '0', 10) || 0;
       return idB - idA;
     });
-  }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, searchQuery]);
+  }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, searchQuery, hideOutOfStock]);
 
   // Carrega parâmetros da URL (?search=..., ?dept=..., ?cat=...) se presentes
   React.useEffect(() => {
@@ -268,7 +275,7 @@ export function CatalogClient({
       ? activeDepartmentObj.name
       : 'Todos os Equipamentos e Vestuário';
 
-  const isAnyFilterActive = selectedDepartment !== 'all' || selectedCategory !== null || searchQuery !== '';
+  const isAnyFilterActive = selectedDepartment !== 'all' || selectedCategory !== null || searchQuery !== '' || hideOutOfStock;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -336,23 +343,49 @@ export function CatalogClient({
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               Exibindo <strong>{visibleProducts.length}</strong> de <strong>{filteredProducts.length}</strong> produtos
+              {hideOutOfStock && (
+                <span className="text-emerald-700 font-semibold"> (apenas disponíveis)</span>
+              )}
               {searchQuery && ` para busca "${searchQuery}"`}
             </p>
           </div>
 
-          {isAnyFilterActive && (
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            {/* Botão de Alternância: Ocultar Esgotados */}
             <button
+              type="button"
               onClick={() => {
-                setSelectedDepartment('all');
-                setSelectedCategory(null);
-                setSearchQuery('');
+                setHideOutOfStock(!hideOutOfStock);
+                setVisibleCount(ITEMS_PER_PAGE);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-zeiq-black hover:bg-slate-50 transition-colors self-start sm:self-auto shadow-2xs"
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer select-none active:scale-95 ${
+                hideOutOfStock
+                  ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
+                  : 'bg-white text-slate-700 hover:text-zeiq-black hover:bg-slate-50 border-slate-200'
+              }`}
+              title={hideOutOfStock ? 'Mostrando apenas itens disponíveis. Clique para ver todos.' : 'Clique para ocultar itens esgotados'}
             >
-              <X className="w-3.5 h-3.5 text-slate-500" />
-              Limpar todos os filtros
+              <span className={`w-2 h-2 rounded-full transition-colors ${hideOutOfStock ? 'bg-emerald-400 animate-pulse' : 'bg-slate-300'}`} />
+              <span>{hideOutOfStock ? 'Apenas com estoque' : 'Ocultar esgotados'}</span>
             </button>
-          )}
+
+            {isAnyFilterActive && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDepartment('all');
+                  setSelectedCategory(null);
+                  setSearchQuery('');
+                  setHideOutOfStock(false);
+                  setVisibleCount(ITEMS_PER_PAGE);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-zeiq-black hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer active:scale-95"
+              >
+                <X className="w-3.5 h-3.5 text-slate-500" />
+                Limpar filtros
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Grid Widescreen de 5 a 6 Colunas no Desktop */}

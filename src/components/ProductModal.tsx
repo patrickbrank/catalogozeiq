@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Check, ShoppingBag, Tag, Layers, SlidersHorizontal } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
-import { parseProductSizes } from '@/lib/utils/sizes';
+import { parseProductSizes, isProductOutOfStock as checkProductOutOfStock, isSizeOutOfStock as checkSizeOutOfStock } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
+import { flyToCartAnimation } from '@/lib/utils/cart-animation';
 
 interface ProductModalProps {
   product: Product | null;
@@ -81,11 +82,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
   // Total de peças na grade
   const totalGradePieces = Object.values(sizeQuantities).reduce((acc, q) => acc + (q || 0), 0);
 
-  const isSizeOutOfStock = (sz: string) => {
-    if (!product?.stock_by_size) return false;
-    const stock = product.stock_by_size[sz];
-    return typeof stock === 'number' && stock <= 0;
-  };
+  const isSizeOutOfStock = (sz: string) => checkSizeOutOfStock(product, sz);
 
   const getAvailableStockForSize = (sz: string): number | undefined => {
     if (!product?.stock_by_size) return undefined;
@@ -93,19 +90,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
     return typeof stock === 'number' ? stock : undefined;
   };
 
-  const isProductOutOfStock = React.useMemo(() => {
-    if (!product) return false;
-    if (hasSizes) {
-      if (product.stock_by_size && Object.keys(product.stock_by_size).length > 0) {
-        return sizes.every((sz) => isSizeOutOfStock(sz));
-      }
-      return false;
-    } else {
-      if (typeof product.total_stock === 'number' && product.total_stock <= 0) return true;
-      if (product.stock_by_size && typeof product.stock_by_size['_padrao'] === 'number' && product.stock_by_size['_padrao'] <= 0) return true;
-      return false;
-    }
-  }, [product, hasSizes, sizes]);
+  const isProductOutOfStock = checkProductOutOfStock(product);
 
   const handleUpdateSizeQty = (sz: string, delta: number) => {
     if (isSizeOutOfStock(sz)) return;
@@ -139,7 +124,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
     setSizeQuantities(cleared);
   };
 
-  const handleAddToList = () => {
+  const handleAddToList = (e?: React.MouseEvent<HTMLButtonElement>) => {
     if (isProductOutOfStock) return;
     if (hasSizes) {
       if (totalGradePieces === 0) return;
@@ -148,11 +133,19 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
       addItem(product, simpleQuantity, undefined, notes);
     }
 
+    // Dispara animação GSAP balística do botão até a sacola no header
+    const startEl = e?.currentTarget || (document.getElementById('modal-add-button') as HTMLElement);
+    flyToCartAnimation({
+      startElement: startEl,
+      imageUrl: currentImage?.public_url,
+      count: hasSizes ? totalGradePieces : simpleQuantity,
+    });
+
     setIsSuccess(true);
     setTimeout(() => {
       setIsSuccess(false);
       onClose();
-    }, 850);
+    }, 750);
   };
 
   return (
@@ -501,8 +494,9 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
           </div>
 
           <button
+            id="modal-add-button"
             type="button"
-            onClick={handleAddToList}
+            onClick={(e) => handleAddToList(e)}
             disabled={isProductOutOfStock || (hasSizes && totalGradePieces === 0)}
             className={`w-full sm:w-auto sm:min-w-[280px] h-11 px-6 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-98 shadow-sm ${
               isSuccess
