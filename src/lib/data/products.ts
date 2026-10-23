@@ -32,6 +32,11 @@ let cachedCatalog: { products: Product[]; categories: Category[]; departments: D
 let cachedLocalCSV: { products: Product[]; categories: Category[]; departments: Department[] } | null = null;
 const CACHE_TTL_MS = 60 * 1000; // 60 segundos em memória
 
+export function invalidateCatalogCache() {
+  cachedCatalog = null;
+  cachedLocalCSV = null;
+}
+
 function slugify(text: string) {
   return text
     .toString()

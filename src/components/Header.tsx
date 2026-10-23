@@ -137,10 +137,10 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-zeiq-muted">
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10">
-        <div className="flex items-center justify-between h-16 sm:h-20 gap-4">
+        <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-3 lg:gap-4">
           
           {/* Logo Oficial Zeiq em Proporção Perfeita */}
-          <Link href="/" className="flex items-center gap-3 shrink-0">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 shrink-0">
             <div
               className="relative h-8 sm:h-9 w-28 sm:w-36 transition-opacity hover:opacity-85 flex items-center"
               style={{ position: 'relative', width: '130px', height: '36px', maxWidth: '100%' }}
@@ -155,7 +155,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                 style={{ width: 'auto', height: '100%', maxHeight: '36px', objectFit: 'contain' }}
               />
             </div>
-            <div className="hidden lg:flex flex-col border-l border-zeiq-muted pl-3">
+            <div className="hidden xl:flex flex-col border-l border-zeiq-muted pl-3">
               <span className="text-xs font-bold tracking-wider text-zeiq-black uppercase">
                 Revenda B2B
               </span>
@@ -165,8 +165,8 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
             </div>
           </Link>
 
-          {/* Campo de Busca em Tempo Real com Dropdown Autocomplete (Desktop) */}
-          <div ref={searchContainerRef} className="flex-1 max-w-lg hidden md:block relative">
+          {/* Campo de Busca em Tempo Real com Dropdown Autocomplete (Desktop & Tablet) */}
+          <div ref={searchContainerRef} className="flex-1 min-w-0 md:max-w-[200px] lg:max-w-sm xl:max-w-lg hidden md:block relative">
             <form onSubmit={handleSearchSubmit} className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <Search className="w-4 h-4" />
@@ -220,7 +220,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                           className="p-3 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3 group"
                         >
                           <div className="w-11 h-11 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
-                            <img src={cover} alt={prod.name} className="w-full h-full object-contain mix-blend-multiply" />
+                            <img src={cover} alt={prod.name} className="w-full h-full object-cover object-top" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
@@ -261,12 +261,12 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
           </div>
 
           {/* Ação: Botões de Meus Pedidos e Lista de Pedido */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
             {/* Botão de Busca no Mobile */}
             <button
               type="button"
               onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-              className="md:hidden p-2 rounded-lg border border-zeiq-muted text-slate-700 hover:text-zeiq-black bg-white"
+              className="md:hidden p-2 rounded-lg border border-zeiq-muted text-slate-700 hover:text-zeiq-black bg-white shrink-0"
               aria-label="Buscar no catálogo"
             >
               <Search className="w-4 h-4" />
@@ -274,24 +274,25 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
 
             <Link
               href="/portal"
-              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg border border-zeiq-muted hover:border-zeiq-black bg-white hover:bg-slate-50 text-zeiq-black font-semibold text-xs sm:text-sm transition-all shadow-xs"
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 lg:px-3.5 py-2 sm:py-2.5 rounded-lg border border-zeiq-muted hover:border-zeiq-black bg-white hover:bg-slate-50 text-zeiq-black font-semibold text-xs sm:text-sm transition-all shadow-xs shrink-0 whitespace-nowrap"
               title="Acompanhar meus pedidos e cotações"
             >
-              <Package className="w-4 h-4 text-slate-700" />
-              <span className="hidden sm:inline">Meus Pedidos</span>
+              <Package className="w-4 h-4 text-slate-700 shrink-0" />
+              <span className="hidden xl:inline">Meus Pedidos</span>
+              <span className="hidden md:inline xl:hidden">Pedidos</span>
             </Link>
 
             <button
               id="header-cart-button"
               onClick={() => setIsOpen(true)}
-              className={`relative inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white font-semibold text-xs sm:text-sm rounded-lg transition-all active:scale-95 shadow-xs shrink-0 cursor-pointer ${
+              className={`relative inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white font-semibold text-xs sm:text-sm rounded-lg transition-all active:scale-95 shadow-xs shrink-0 whitespace-nowrap cursor-pointer ${
                 isBouncing ? 'scale-105 ring-2 ring-zeiq-orange shadow-md' : ''
               }`}
               aria-label="Abrir lista de pedido"
             >
-              <ShoppingBag className={`w-4 h-4 transition-transform ${isBouncing ? 'scale-110 text-zeiq-orange' : 'text-white'}`} />
-              <span className="font-semibold hidden sm:inline">Lista de Pedido</span>
-              <span className="font-semibold sm:hidden">Lista</span>
+              <ShoppingBag className={`w-4 h-4 shrink-0 transition-transform ${isBouncing ? 'scale-110 text-zeiq-orange' : 'text-white'}`} />
+              <span className="font-semibold hidden lg:inline">Lista de Pedido</span>
+              <span className="font-semibold hidden sm:inline lg:hidden">Lista</span>
               {mounted && totalItems > 0 && (
                 <span
                   className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full transition-all ${
@@ -307,7 +308,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
 
             {/* 3. Chip Executivo de Perfil & Menu Suspenso (Desktop, Tablet e Mobile) */}
             {mounted && currentUser && (
-              <div ref={profileRef} className="relative">
+              <div ref={profileRef} className="relative shrink-0">
                 {(() => {
                   const userDisplayName = currentUser.user_metadata?.store_name || currentUser.user_metadata?.contact_name || currentUser.email?.split('@')[0] || 'Parceiro';
                   const userInitial = (userDisplayName[0] || 'Z').toUpperCase();
@@ -319,7 +320,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                       <button
                         type="button"
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="flex items-center gap-2 p-1 sm:pl-1.5 sm:pr-2.5 sm:py-1 rounded-full sm:rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 transition-all text-left shadow-2xs group cursor-pointer active:scale-95"
+                        className="flex items-center gap-1.5 lg:gap-2 p-1 lg:pl-1.5 lg:pr-2.5 lg:py-1 rounded-full lg:rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 transition-all text-left shadow-2xs group cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
                         title="Abrir menu da conta"
                         aria-expanded={isProfileOpen}
                       >
@@ -333,11 +334,11 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                         </div>
 
                         {/* Nome do Usuário em Linha Única */}
-                        <span className="hidden sm:inline-block text-xs font-bold text-zeiq-black truncate max-w-[120px] leading-none">
+                        <span className="hidden lg:inline-block text-xs font-bold text-zeiq-black truncate max-w-[90px] xl:max-w-[120px] leading-none">
                           {userDisplayName}
                         </span>
 
-                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-zeiq-black transition-transform duration-200 hidden sm:block ${isProfileOpen ? 'rotate-180 text-zeiq-black' : ''}`} />
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-zeiq-black transition-transform duration-200 hidden lg:block ${isProfileOpen ? 'rotate-180 text-zeiq-black' : ''}`} />
                       </button>
 
                       {/* Popover Card Flutuante de Perfil */}

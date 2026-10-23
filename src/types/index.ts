@@ -28,6 +28,7 @@ export interface Product {
   name: string;
   slug: string;
   code_sku?: string | null;
+  ean?: string | null;
   description?: string | null;
   price?: number | null;
   original_price?: number | null;

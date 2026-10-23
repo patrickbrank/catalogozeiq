@@ -1720,9 +1720,9 @@ export default function AdminDashboardPage() {
                         return (
                           <tr key={prod.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3 px-4">
-                              <div className="w-12 h-12 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden flex items-center justify-center p-0.5">
+                              <div className="w-12 h-12 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                                 {cover ? (
-                                  <img src={cover} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                                  <img src={cover} alt="" className="w-full h-full object-cover object-top" />
                                 ) : (
                                   <ImageIcon className="w-4 h-4 text-slate-300" />
                                 )}
@@ -1864,9 +1864,9 @@ export default function AdminDashboardPage() {
                       <div key={prod.id} className="p-3.5 space-y-3 transition-colors hover:bg-slate-50/50">
                         <div className="flex items-start gap-3">
                           {/* Imagem Proporção Vertical 4:5 */}
-                          <div className="w-16 h-20 rounded-xl bg-slate-50 border border-slate-200/90 overflow-hidden flex items-center justify-center p-1 shrink-0 relative shadow-2xs">
+                          <div className="w-16 h-20 rounded-xl bg-slate-50 border border-slate-200/90 overflow-hidden flex items-center justify-center shrink-0 relative shadow-2xs">
                             {cover ? (
-                              <img src={cover} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                              <img src={cover} alt="" className="w-full h-full object-cover object-top" />
                             ) : (
                               <ImageIcon className="w-5 h-5 text-slate-300" />
                             )}
@@ -3532,9 +3532,9 @@ export default function AdminDashboardPage() {
               {selectedOrderDetails.items?.map((it: QuoteItem, idx: number) => (
                 <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-0.5 shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                       {it.coverImage ? (
-                        <img src={it.coverImage} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                        <img src={it.coverImage} alt="" className="w-full h-full object-cover object-top" />
                       ) : (
                         <Package className="w-4 h-4 text-slate-400" />
                       )}

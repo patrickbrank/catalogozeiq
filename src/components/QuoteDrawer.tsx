@@ -212,12 +212,12 @@ export function QuoteDrawer() {
                   <div key={item.productId} className="pt-3.5 first:pt-0 flex flex-col gap-2">
                     <div className="flex items-start gap-3">
                       {/* Imagem do produto */}
-                      <div className="w-14 h-14 rounded-xl bg-[#f8f9fa] border border-slate-200 overflow-hidden shrink-0 p-1 flex items-center justify-center">
+                      <div className="w-14 h-14 rounded-xl bg-[#f8f9fa] border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                         {item.coverImage ? (
                           <img
                             src={item.coverImage}
                             alt={cleanProductName}
-                            className="w-full h-full object-contain mix-blend-multiply"
+                            className="w-full h-full object-cover object-top"
                           />
                         ) : (
                           <div className="text-xs text-slate-300 font-bold">ZEIQ</div>

@@ -1285,12 +1285,12 @@ export default function ResellerPortalPage() {
                                   className="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-11 h-11 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                                    <div className="w-11 h-11 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                                       {item.coverImage ? (
                                         <img
                                           src={item.coverImage}
                                           alt={item.productName}
-                                          className="w-full h-full object-contain mix-blend-multiply"
+                                          className="w-full h-full object-cover object-top"
                                         />
                                       ) : (
                                         <Package className="w-4 h-4 text-slate-400" />

@@ -1055,14 +1055,14 @@ export function ProductFormModal({
                 {images.map((img, idx) => (
                   <div
                     key={idx}
-                    className={`relative group aspect-square rounded-xl bg-white border overflow-hidden p-1 ${
+                    className={`relative group aspect-square rounded-xl bg-white border overflow-hidden ${
                       img.is_cover ? 'border-zeiq-black ring-2 ring-zeiq-black/20 shadow-xs' : 'border-slate-200'
                     }`}
                   >
                     <img
                       src={img.public_url}
                       alt=""
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover object-top"
                     />
 
                     {/* Botões de Ação na Imagem */}
