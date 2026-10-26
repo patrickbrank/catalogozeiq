@@ -90,9 +90,24 @@ export function parseProductSizes(
 }
 
 export function isSizeOutOfStock(product?: Product | null, size?: string): boolean {
-  if (!product?.stock_by_size || !size) return false;
-  const stock = product.stock_by_size[size];
-  return typeof stock === 'number' && stock <= 0;
+  if (!product || !size) return false;
+
+  // 1. Se o produto possui grade de estoque por tamanho detalhada
+  if (product.stock_by_size && Object.keys(product.stock_by_size).length > 0) {
+    const stock = product.stock_by_size[size];
+    if (typeof stock === 'number') {
+      return stock <= 0;
+    }
+    // Grade cadastrada, mas este tamanho específico não consta ou não tem estoque
+    return true;
+  }
+
+  // 2. Se não há grade por tamanho, verifica o estoque total do produto
+  if (typeof product.total_stock === 'number') {
+    return product.total_stock <= 0;
+  }
+
+  return false;
 }
 
 export function isProductOutOfStock(product?: Product | null): boolean {

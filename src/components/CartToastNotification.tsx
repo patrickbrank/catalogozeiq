@@ -26,8 +26,8 @@ export function CartToastNotification() {
           gsap.killTweensOf(toastRef.current);
           gsap.fromTo(
             toastRef.current,
-            { y: 60, opacity: 0, scale: 0.92 },
-            { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(1.4)' }
+            { y: 35, opacity: 0, scale: 0.96 },
+            { y: 0, opacity: 1, scale: 1, duration: 0.42, ease: 'power3.out' }
           );
         }
 
@@ -106,12 +106,12 @@ export function CartToastNotification() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Foto em Miniatura ou Ícone */}
-          <div className="w-11 h-11 rounded-xl bg-zeiq-charcoal border border-white/10 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+          <div className="w-11 h-11 rounded-xl bg-zeiq-charcoal border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
             {lastAdded.coverImage ? (
               <img
                 src={lastAdded.coverImage}
                 alt=""
-                className="w-full h-full object-cover object-top rounded-lg"
+                className="w-full h-full object-cover object-top"
               />
             ) : (
               <ShoppingBag className="w-5 h-5 text-zeiq-orange" />

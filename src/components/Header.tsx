@@ -31,8 +31,6 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
   const profileRef = useRef<HTMLDivElement>(null);
   const items = useQuoteCart((state) => state.items);
   const setIsOpen = useQuoteCart((state) => state.setIsOpen);
-  const lastAdded = useQuoteCart((state) => state.lastAdded);
-  const [isBouncing, setIsBouncing] = useState(false);
 
   useEffect(() => {
     const handleCartArrived = () => {
@@ -45,14 +43,6 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
     window.addEventListener('cart-item-arrived', handleCartArrived);
     return () => window.removeEventListener('cart-item-arrived', handleCartArrived);
   }, []);
-
-  useEffect(() => {
-    if (lastAdded) {
-      setIsBouncing(true);
-      const timer = setTimeout(() => setIsBouncing(false), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [lastAdded?.id]);
 
   useEffect(() => {
     setMounted(true);
@@ -179,7 +169,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                 }}
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder="Pesquisar por modelo, código SKU ou categoria..."
-                className="w-full pl-10 pr-9 py-2 text-xs sm:text-sm bg-zeiq-light border border-zeiq-muted rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black transition-all shadow-2xs"
+                className="w-full h-10 pl-10 pr-9 py-2 text-xs sm:text-sm bg-zeiq-light border border-zeiq-muted rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black focus:border-zeiq-black transition-all shadow-2xs"
               />
               {searchQuery && (
                 <button
@@ -266,15 +256,15 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
             <button
               type="button"
               onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
-              className="md:hidden p-2 rounded-lg border border-zeiq-muted text-slate-700 hover:text-zeiq-black bg-white shrink-0"
+              className="md:hidden w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl border border-zeiq-muted text-slate-700 hover:text-zeiq-black hover:border-slate-300 bg-white shadow-2xs transition-all shrink-0 active:scale-95 cursor-pointer"
               aria-label="Buscar no catálogo"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4 text-slate-700" />
             </button>
 
             <Link
               href="/portal"
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 lg:px-3.5 py-2 sm:py-2.5 rounded-lg border border-zeiq-muted hover:border-zeiq-black bg-white hover:bg-slate-50 text-zeiq-black font-semibold text-xs sm:text-sm transition-all shadow-xs shrink-0 whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-1.5 h-9 sm:h-10 w-9 sm:w-10 md:w-auto px-0 md:px-3 lg:px-3.5 rounded-xl border border-zeiq-muted hover:border-zeiq-black bg-white hover:bg-slate-50 text-zeiq-black font-semibold text-xs sm:text-sm transition-all shadow-2xs shrink-0 whitespace-nowrap active:scale-95"
               title="Acompanhar meus pedidos e cotações"
             >
               <Package className="w-4 h-4 text-slate-700 shrink-0" />
@@ -285,21 +275,15 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
             <button
               id="header-cart-button"
               onClick={() => setIsOpen(true)}
-              className={`relative inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 lg:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white font-semibold text-xs sm:text-sm rounded-lg transition-all active:scale-95 shadow-xs shrink-0 whitespace-nowrap cursor-pointer ${
-                isBouncing ? 'scale-105 ring-2 ring-zeiq-orange shadow-md' : ''
-              }`}
+              className="relative inline-flex items-center justify-center gap-1.5 sm:gap-2 h-9 sm:h-10 px-2.5 sm:px-3 lg:px-4 bg-zeiq-black hover:bg-zeiq-charcoal text-white font-semibold text-xs sm:text-sm rounded-xl transition-colors active:scale-95 shadow-xs shrink-0 whitespace-nowrap cursor-pointer"
               aria-label="Abrir lista de pedido"
             >
-              <ShoppingBag className={`w-4 h-4 shrink-0 transition-transform ${isBouncing ? 'scale-110 text-zeiq-orange' : 'text-white'}`} />
+              <ShoppingBag className="w-4 h-4 shrink-0 text-white" />
               <span className="font-semibold hidden lg:inline">Lista de Pedido</span>
               <span className="font-semibold hidden sm:inline lg:hidden">Lista</span>
               {mounted && totalItems > 0 && (
                 <span
-                  className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full transition-all ${
-                    isBouncing
-                      ? 'bg-zeiq-orange text-zeiq-black scale-125'
-                      : 'bg-white text-zeiq-black'
-                  }`}
+                  className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-white text-zeiq-black transition-transform"
                 >
                   {totalItems}
                 </span>
@@ -320,12 +304,12 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                       <button
                         type="button"
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="flex items-center gap-1.5 lg:gap-2 p-1 lg:pl-1.5 lg:pr-2.5 lg:py-1 rounded-full lg:rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 transition-all text-left shadow-2xs group cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
+                        className="flex items-center justify-center gap-1.5 lg:gap-2 h-9 sm:h-10 w-9 sm:w-10 lg:w-auto p-0 lg:pl-1.5 lg:pr-2.5 rounded-full lg:rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 transition-all text-left shadow-2xs group cursor-pointer active:scale-95 shrink-0 whitespace-nowrap"
                         title="Abrir menu da conta"
                         aria-expanded={isProfileOpen}
                       >
                         {/* Avatar Circular com Inicial ou Imagem do Perfil */}
-                        <div className="w-8 h-8 rounded-full bg-zeiq-black text-white text-xs font-black flex items-center justify-center shrink-0 border border-white/20 shadow-xs ring-2 ring-black/5 overflow-hidden">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zeiq-black text-white text-xs font-black flex items-center justify-center shrink-0 border border-white/20 shadow-xs ring-2 ring-black/5 overflow-hidden">
                           {userAvatarUrl ? (
                             <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                           ) : (

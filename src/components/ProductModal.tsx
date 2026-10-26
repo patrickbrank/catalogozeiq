@@ -82,18 +82,19 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
   // Total de peças na grade
   const totalGradePieces = Object.values(sizeQuantities).reduce((acc, q) => acc + (q || 0), 0);
 
-  const isSizeOutOfStock = (sz: string) => checkSizeOutOfStock(product, sz);
+  const isProductOutOfStock = checkProductOutOfStock(product);
+
+  const isSizeOutOfStock = (sz: string) => isProductOutOfStock || checkSizeOutOfStock(product, sz);
 
   const getAvailableStockForSize = (sz: string): number | undefined => {
+    if (isSizeOutOfStock(sz)) return 0;
     if (!product?.stock_by_size) return undefined;
     const stock = product.stock_by_size[sz];
     return typeof stock === 'number' ? stock : undefined;
   };
 
-  const isProductOutOfStock = checkProductOutOfStock(product);
-
   const handleUpdateSizeQty = (sz: string, delta: number) => {
-    if (isSizeOutOfStock(sz)) return;
+    if (isSizeOutOfStock(sz) || isProductOutOfStock) return;
     const maxStock = getAvailableStockForSize(sz);
     setSizeQuantities((prev) => {
       const current = prev[sz] || 0;
@@ -106,7 +107,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
   };
 
   const handleSetExactSizeQty = (sz: string, value: string) => {
-    if (isSizeOutOfStock(sz)) return;
+    if (isSizeOutOfStock(sz) || isProductOutOfStock) return;
     const maxStock = getAvailableStockForSize(sz);
     const parsed = parseInt(value, 10);
     let qty = isNaN(parsed) ? 0 : Math.max(0, parsed);
@@ -133,19 +134,22 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
       addItem(product, simpleQuantity, undefined, notes);
     }
 
-    // Dispara animação GSAP balística do botão até a sacola no header
+    setIsSuccess(true);
+
+    // Dispara animação GSAP fluida da peça até a sacola no header
     const startEl = e?.currentTarget || (document.getElementById('modal-add-button') as HTMLElement);
     flyToCartAnimation({
       startElement: startEl,
       imageUrl: currentImage?.public_url,
       count: hasSizes ? totalGradePieces : simpleQuantity,
+      onImpact: () => {
+        // Fecha o modal em harmonia com a chegada do item na sacola
+        setTimeout(() => {
+          setIsSuccess(false);
+          onClose();
+        }, 120);
+      },
     });
-
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      onClose();
-    }, 750);
   };
 
   return (
