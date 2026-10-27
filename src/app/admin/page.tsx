@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   Package,
   CheckCircle,
+  Eye,
   EyeOff,
   FolderTree,
   Plus,
@@ -15,7 +16,9 @@ import {
   Trash2,
   LogOut,
   ArrowLeft,
+  ArrowRight,
   Loader2,
+  Lock,
   Star,
   Image as ImageIcon,
   Users,
@@ -73,6 +76,45 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'banners' | 'settings' | 'users' | 'categories'>('products');
+
+  // Estados para Acesso Direto ao Painel Administrativo
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authShowPassword, setAuthShowPassword] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  const handleDirectAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: authEmail.trim(),
+        password: authPassword,
+      });
+
+      if (error) throw error;
+
+      // Valida imediatamente se possui privilégios de equipe/administrador
+      const verifyRes = await fetch('/api/admin/verify');
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.success || !verifyData.isAdmin) {
+        await supabase.auth.signOut();
+        throw new Error('Acesso restrito: esta conta é de lojista e possui acesso exclusivo ao catálogo e cotações.');
+      }
+
+      setUser(verifyData.user);
+      fetchDashboardData();
+    } catch (err: any) {
+      setAuthError(err.message || 'Falha ao autenticar. Verifique suas credenciais.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   // Dados
   const [products, setProducts] = useState<Product[]>([]);
@@ -1133,38 +1175,141 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Se não estiver logado, exibe tela de login direto ou botão de 1 clique
+  // Se não estiver logado, exibe tela de login direto de alta performance Zeiq
   if (!loading && !user) {
     return (
-      <div className="min-h-screen bg-zeiq-black flex flex-col justify-center items-center p-4">
-        <div className="max-w-md w-full bg-zeiq-dark border border-zeiq-charcoal rounded-3xl p-8 text-center shadow-2xl">
-          <div className="relative h-8 w-28 mx-auto mb-4 brightness-0 invert flex items-center justify-center">
-            <Image
-              src="/images/logo-zeiq.png"
-              alt="Zeiq"
-              width={112}
-              height={32}
-              className="h-full w-auto object-contain"
-            />
+      <div className="min-h-screen bg-[#090b0e] bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(255,150,0,0.12),rgba(255,255,255,0))] flex flex-col justify-center items-center p-4 sm:p-6 text-white relative overflow-hidden">
+        {/* Marca d'água de grade atlética sutil */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.025] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px]" />
+
+        <div className="max-w-md w-full relative z-10 animate-in fade-in zoom-in-95 duration-300">
+          {/* Card Principal com Acabamento Carbon Matte e Borda Sutil */}
+          <div className="bg-[#12151b]/95 border border-white/[0.08] rounded-3xl p-7 sm:p-9 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+            
+            {/* Logo Oficial Zeiq com Iluminação */}
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="relative h-9 w-32 mb-4 brightness-0 invert flex items-center justify-center">
+                <Image
+                  src="/images/logo-zeiq.png"
+                  alt="Zeiq Sports"
+                  width={128}
+                  height={36}
+                  priority
+                  className="h-full w-auto object-contain"
+                />
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-[11px] font-semibold text-slate-300 tracking-wide uppercase mb-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-zeiq-orange" />
+                <span>Gestão Administrativa B2B</span>
+              </div>
+
+              <h1 className="text-xl font-black text-white tracking-tight">
+                Acesso à Diretoria & Equipe
+              </h1>
+              <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
+                Ambiente restrito para controle de estoque, aprovação de pedidos e catálogo.
+              </p>
+            </div>
+
+            {/* Formulário de Login Direto */}
+            <form onSubmit={handleDirectAdminLogin} className="space-y-4">
+              {authError && (
+                <div className="p-3 bg-rose-950/50 border border-rose-500/30 rounded-xl flex items-start gap-2.5 text-xs text-rose-300 animate-in fade-in slide-in-from-top-1">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              {/* Campo de E-mail */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  E-mail de acesso
+                </label>
+                <div className="relative flex items-center rounded-xl bg-black/40 border border-white/[0.1] hover:border-white/[0.2] focus-within:border-zeiq-orange focus-within:ring-2 focus-within:ring-zeiq-orange/20 transition-all">
+                  <div className="pl-3.5 text-slate-500 pointer-events-none">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="ex: marketing@zeiq.com.br"
+                    className="w-full pl-3 pr-3.5 py-2.5 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Campo de Senha com Olhinho Toggle */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Senha
+                </label>
+                <div className="relative flex items-center rounded-xl bg-black/40 border border-white/[0.1] hover:border-white/[0.2] focus-within:border-zeiq-orange focus-within:ring-2 focus-within:ring-zeiq-orange/20 transition-all">
+                  <div className="pl-3.5 text-slate-500 pointer-events-none">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={authShowPassword ? 'text' : 'password'}
+                    required
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-3 pr-10 py-2.5 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAuthShowPassword(!authShowPassword)}
+                    className="absolute right-3 p-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                    aria-label={authShowPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {authShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Botão de Entrar */}
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full py-3 px-4 bg-zeiq-orange hover:bg-zeiq-orange-hover text-zeiq-black rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-500/20 active:scale-[0.99] cursor-pointer disabled:opacity-50 mt-2"
+              >
+                {authLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-zeiq-black" />
+                    <span>Autenticando...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Entrar no Painel</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Rodapé Limpo */}
+            <div className="mt-6 pt-5 border-t border-white/[0.08] flex items-center justify-between text-xs text-slate-400">
+              <Link
+                href="/"
+                className="hover:text-white transition-colors inline-flex items-center gap-1.5 font-medium group"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-zeiq-orange transition-transform group-hover:-translate-x-0.5" />
+                <span>Voltar ao catálogo</span>
+              </Link>
+
+              <span className="text-[11px] font-mono text-slate-500">
+                Zeiq Sports
+              </span>
+            </div>
+
           </div>
-          <h2 className="text-lg font-bold text-white mb-1">Painel Administrativo B2B</h2>
-          <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-            Área restrita de gestão de catálogo, pedidos e revendedores.
+
+          {/* Nota de Segurança Inferior */}
+          <p className="text-center text-[11px] text-slate-500 mt-4 leading-relaxed">
+            Área restrita à equipe Zeiq. Acesso monitorado com proteção criptográfica de dados.
           </p>
-          <div className="space-y-3">
-            <Link
-              href="/admin/login"
-              className="block w-full py-3 px-4 bg-zeiq-orange hover:bg-zeiq-orange-hover text-zeiq-black rounded-xl text-xs font-black transition-all shadow-md text-center cursor-pointer active:scale-95"
-            >
-              Entrar com E-mail e Senha
-            </Link>
-            <Link
-              href="/"
-              className="block w-full py-2.5 px-4 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-all border border-white/10 text-center"
-            >
-              ← Voltar ao Catálogo Público
-            </Link>
-          </div>
         </div>
       </div>
     );
