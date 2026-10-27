@@ -60,6 +60,12 @@ import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/Orde
 
 const ITEMS_PER_PAGE = 25;
 
+function isMasterEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  return clean === 'marketing@zeiq.com.br' || clean === 'patrickbrank@outlook.com';
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -147,7 +153,7 @@ export default function AdminDashboardPage() {
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [clientModalMode, setClientModalMode] = useState<'create' | 'edit'>('create');
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
-  const [clientRole, setClientRole] = useState<'admin' | 'reseller'>('reseller');
+  const [clientRole, setClientRole] = useState<'admin' | 'marketing' | 'stock' | 'reseller'>('reseller');
   const [newClientName, setNewClientName] = useState('');
   const [newClientStore, setNewClientStore] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -161,8 +167,8 @@ export default function AdminDashboardPage() {
   const [savingClient, setSavingClient] = useState(false);
   const [clientError, setClientError] = useState('');
 
-  // Filtro de Papel de Usuários (Todos / Lojistas / Administradores)
-  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'reseller' | 'admin'>('all');
+  // Filtro de Papel de Usuários (Todos / Lojistas / Estoque / Marketing / Administradores)
+  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'reseller' | 'stock' | 'marketing' | 'admin'>('all');
 
   // Toast feedback
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -840,12 +846,19 @@ export default function AdminDashboardPage() {
   // ==========================================
   // OPERAÇÕES DE CLIENTES E MEMBROS ADMINISTRATIVOS
   // ==========================================
-  const handleOpenCreateUserModal = (role: 'reseller' | 'admin' = 'reseller') => {
+  const handleOpenCreateUserModal = (role: 'reseller' | 'stock' | 'marketing' | 'admin' = 'reseller') => {
     setClientModalMode('create');
     setEditingClientId(null);
     setClientRole(role);
     setNewClientName('');
-    setNewClientStore(role === 'admin' ? 'Equipe Zeiq' : '');
+    const defaultStore = role === 'admin'
+      ? 'Administração Zeiq'
+      : role === 'marketing'
+      ? 'Marketing Zeiq'
+      : role === 'stock'
+      ? 'Estoque Zeiq'
+      : '';
+    setNewClientStore(defaultStore);
     setNewClientPhone('');
     setNewClientCnpj('');
     setNewClientCity('');
@@ -863,8 +876,12 @@ export default function AdminDashboardPage() {
   const handleOpenEditUserModal = (client: any) => {
     setClientModalMode('edit');
     setEditingClientId(client.id);
-    const isMaster = client.is_master || client.email?.toLowerCase() === 'patrickbrank@outlook.com';
-    setClientRole(isMaster ? 'admin' : (client.role === 'admin' ? 'admin' : 'reseller'));
+    const isMaster = client.is_master || isMasterEmail(client.email);
+    const roleCandidate = client.role;
+    const cleanRole = isMaster
+      ? 'admin'
+      : (['admin', 'marketing', 'stock', 'reseller'].includes(roleCandidate) ? roleCandidate : 'reseller');
+    setClientRole(cleanRole);
     setNewClientName(client.contact_name || '');
     setNewClientStore(client.store_name || '');
     setNewClientPhone(client.phone || '');
@@ -903,6 +920,14 @@ export default function AdminDashboardPage() {
     setClientError('');
 
     try {
+      const roleLabels: Record<string, string> = {
+        admin: 'Administrador',
+        marketing: 'Marketing Interno',
+        stock: 'Controle de Estoque',
+        reseller: 'Lojista B2B',
+      };
+      const roleLabel = roleLabels[clientRole] || 'Usuário';
+
       if (clientModalMode === 'create') {
         const res = await fetch('/api/admin/users', {
           method: 'POST',
@@ -922,7 +947,6 @@ export default function AdminDashboardPage() {
 
         const data = await res.json();
         if (data.success) {
-          const roleLabel = clientRole === 'admin' ? 'Administrador' : 'Lojista B2B';
           showToast(`${roleLabel} "${newClientStore || newClientName || newClientEmail}" cadastrado com sucesso!`);
           setIsClientModalOpen(false);
           fetchDashboardData();
@@ -950,7 +974,7 @@ export default function AdminDashboardPage() {
 
         const data = await res.json();
         if (data.success) {
-          showToast(`Informações de "${newClientStore || newClientName || newClientEmail}" atualizadas com sucesso!`);
+          showToast(`Informações e cargo de "${newClientStore || newClientName || newClientEmail}" atualizados para ${roleLabel}!`);
           setIsClientModalOpen(false);
           fetchDashboardData();
         } else {
@@ -965,15 +989,19 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteClient = async (client: any) => {
-    if (client.is_master || client.email === 'patrickbrank@outlook.com') {
+    if (client.is_master || isMasterEmail(client.email)) {
       alert('A conta master de administração não pode ser excluída.');
       return;
     }
 
-    const isAdminUser = client.role === 'admin';
-    const confirmMessage = isAdminUser
-      ? `Atenção: Deseja realmente remover o administrador "${client.contact_name || client.email}"?\n\nEsta conta perderá imediatamente todo o acesso ao painel administrativo.`
-      : `Deseja realmente remover o acesso do lojista "${client.store_name || client.email}"?\n\nO revendedor não conseguirá mais entrar no catálogo com essa conta.`;
+    const roleLabels: Record<string, string> = {
+      admin: 'administrador',
+      marketing: 'membro do marketing',
+      stock: 'membro do estoque',
+      reseller: 'lojista',
+    };
+    const roleName = roleLabels[client.role] || 'usuário';
+    const confirmMessage = `Tem certeza que deseja remover a conta de ${roleName} "${client.store_name || client.contact_name || client.email}"? Esta ação é irreversível.`;
 
     const confirm = window.confirm(confirmMessage);
     if (!confirm) return;
@@ -982,7 +1010,8 @@ export default function AdminDashboardPage() {
       const res = await fetch(`/api/admin/users?id=${client.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
-        showToast(isAdminUser ? 'Membro administrativo removido com sucesso.' : 'Conta do lojista removida com sucesso.');
+        const isStaff = client.role !== 'reseller';
+        showToast(isStaff ? 'Membro da equipe removido com sucesso.' : 'Conta do lojista removida com sucesso.');
         setClients((prev) => prev.filter((c) => c.id !== client.id));
       } else {
         alert(data.error || 'Erro ao excluir usuário.');
@@ -1052,7 +1081,11 @@ export default function AdminDashboardPage() {
 
       const matchesRole =
         userRoleFilter === 'all' ||
-        (userRoleFilter === 'admin' ? c.role === 'admin' : c.role !== 'admin');
+        (userRoleFilter === 'reseller'
+          ? (c.role === 'reseller' || (!c.role && !c.is_master))
+          : userRoleFilter === 'admin'
+          ? (c.role === 'admin' || c.is_master)
+          : c.role === userRoleFilter);
 
       return matchesSearch && matchesRole;
     });
@@ -2336,7 +2369,7 @@ export default function AdminDashboardPage() {
         {/* ======================================================== */}
         {activeTab === 'users' && (
           <div className="space-y-6">
-            {/* Métricas de Clientes e Administradores */}
+            {/* Métricas de Clientes e Equipe Zeiq */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <button
                 type="button"
@@ -2360,12 +2393,74 @@ export default function AdminDashboardPage() {
                 <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
                   userRoleFilter === 'reseller' ? 'text-white' : 'text-zeiq-black'
                 }`}>
-                  {clients.filter((c) => c.role !== 'admin').length}
+                  {clients.filter((c) => c.role === 'reseller' || (!c.role && !c.is_master)).length}
                 </h3>
                 <p className={`text-xs mt-0.5 ${
                   userRoleFilter === 'reseller' ? 'text-slate-300' : 'text-slate-500'
                 }`}>
-                  Acesso exclusivo ao catálogo no site
+                  Acesso ao catálogo e cotações
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUserRoleFilter('stock')}
+                className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                  userRoleFilter === 'stock'
+                    ? 'bg-blue-950 text-white border-blue-900 shadow-md ring-2 ring-blue-500/20'
+                    : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs font-bold uppercase tracking-wider ${
+                    userRoleFilter === 'stock' ? 'text-blue-200' : 'text-blue-700'
+                  }`}>
+                    Estoque & Expedição
+                  </p>
+                  <Boxes className={`w-4 h-4 ${
+                    userRoleFilter === 'stock' ? 'text-blue-400' : 'text-blue-600'
+                  }`} />
+                </div>
+                <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
+                  userRoleFilter === 'stock' ? 'text-white' : 'text-blue-900'
+                }`}>
+                  {clients.filter((c) => c.role === 'stock').length}
+                </h3>
+                <p className={`text-xs mt-0.5 ${
+                  userRoleFilter === 'stock' ? 'text-blue-200/80' : 'text-slate-500'
+                }`}>
+                  Gestão e ajuste de estoque
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUserRoleFilter('marketing')}
+                className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                  userRoleFilter === 'marketing'
+                    ? 'bg-purple-950 text-white border-purple-900 shadow-md ring-2 ring-purple-500/20'
+                    : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs font-bold uppercase tracking-wider ${
+                    userRoleFilter === 'marketing' ? 'text-purple-200' : 'text-purple-700'
+                  }`}>
+                    Marketing Interno
+                  </p>
+                  <ImageIcon className={`w-4 h-4 ${
+                    userRoleFilter === 'marketing' ? 'text-purple-400' : 'text-purple-600'
+                  }`} />
+                </div>
+                <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
+                  userRoleFilter === 'marketing' ? 'text-white' : 'text-purple-900'
+                }`}>
+                  {clients.filter((c) => c.role === 'marketing').length}
+                </h3>
+                <p className={`text-xs mt-0.5 ${
+                  userRoleFilter === 'marketing' ? 'text-purple-200/80' : 'text-slate-500'
+                }`}>
+                  Banners, vitrine e produtos
                 </p>
               </button>
 
@@ -2382,7 +2477,7 @@ export default function AdminDashboardPage() {
                   <p className={`text-xs font-bold uppercase tracking-wider ${
                     userRoleFilter === 'admin' ? 'text-amber-200' : 'text-amber-700'
                   }`}>
-                    Membros Administrativos
+                    Administração & Master
                   </p>
                   <ShieldCheck className={`w-4 h-4 ${
                     userRoleFilter === 'admin' ? 'text-zeiq-orange' : 'text-amber-600'
@@ -2391,36 +2486,14 @@ export default function AdminDashboardPage() {
                 <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
                   userRoleFilter === 'admin' ? 'text-white' : 'text-amber-900'
                 }`}>
-                  {clients.filter((c) => c.role === 'admin').length}
+                  {clients.filter((c) => c.role === 'admin' || c.is_master).length}
                 </h3>
                 <p className={`text-xs mt-0.5 ${
                   userRoleFilter === 'admin' ? 'text-amber-200/80' : 'text-slate-500'
                 }`}>
-                  Gestão completa do painel administrativo
+                  Acesso total ao painel e equipe
                 </p>
               </button>
-
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Contas Ativas</p>
-                  <UserCheck className="w-4 h-4 text-emerald-600" />
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
-                  {clients.filter((c) => c.is_approved).length}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Acessos liberados no portal</p>
-              </div>
-
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Arenas & Lojas</p>
-                  <Layers className="w-4 h-4 text-slate-400" />
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-zeiq-black mt-1">
-                  {clients.filter((c) => c.store_name).length}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Pontos de venda mapeados</p>
-              </div>
             </div>
 
             {/* Busca, Filtros de Papel e Ações */}
@@ -2439,11 +2512,11 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* Filtros em Abas/Pílulas */}
-                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl shrink-0 self-start sm:self-auto">
+                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl shrink-0 self-start sm:self-auto overflow-x-auto max-w-full">
                   <button
                     type="button"
                     onClick={() => setUserRoleFilter('all')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                       userRoleFilter === 'all'
                         ? 'bg-white text-zeiq-black shadow-2xs'
                         : 'text-slate-600 hover:text-zeiq-black'
@@ -2454,24 +2527,46 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setUserRoleFilter('reseller')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                       userRoleFilter === 'reseller'
-                        ? 'bg-white text-zeiq-black shadow-2xs'
+                        ? 'bg-white text-emerald-800 shadow-2xs'
                         : 'text-slate-600 hover:text-zeiq-black'
                     }`}
                   >
-                    Lojistas B2B ({clients.filter((c) => c.role !== 'admin').length})
+                    Lojistas ({clients.filter((c) => c.role === 'reseller' || (!c.role && !c.is_master)).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('stock')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      userRoleFilter === 'stock'
+                        ? 'bg-white text-blue-800 shadow-2xs'
+                        : 'text-slate-600 hover:text-zeiq-black'
+                    }`}
+                  >
+                    Estoque ({clients.filter((c) => c.role === 'stock').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('marketing')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      userRoleFilter === 'marketing'
+                        ? 'bg-white text-purple-800 shadow-2xs'
+                        : 'text-slate-600 hover:text-zeiq-black'
+                    }`}
+                  >
+                    Marketing ({clients.filter((c) => c.role === 'marketing').length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setUserRoleFilter('admin')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                       userRoleFilter === 'admin'
                         ? 'bg-white text-amber-900 shadow-2xs'
                         : 'text-slate-600 hover:text-zeiq-black'
                     }`}
                   >
-                    Admins ({clients.filter((c) => c.role === 'admin').length})
+                    Admins ({clients.filter((c) => c.role === 'admin' || c.is_master).length})
                   </button>
                 </div>
               </div>
@@ -2485,17 +2580,17 @@ export default function AdminDashboardPage() {
                   title="Cadastrar lojista parceiro para compras no atacado"
                 >
                   <Plus className="w-4 h-4 text-emerald-600" />
-                  <span>Novo Lojista B2B</span>
+                  <span>Novo Lojista</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleOpenCreateUserModal('admin')}
                   className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
-                  title="Cadastrar membro da equipe com acesso ao painel de controle"
+                  title="Cadastrar novo membro da equipe com acesso ao painel"
                 >
                   <ShieldCheck className="w-4 h-4 text-zeiq-orange" />
-                  <span>Novo Administrador</span>
+                  <span>Novo Membro / Equipe</span>
                 </button>
               </div>
             </div>
@@ -2510,7 +2605,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Responsável</th>
                       <th className="py-3 px-4">WhatsApp</th>
                       <th className="py-3 px-4">E-mail de Acesso</th>
-                      <th className="py-3 px-4 text-center">Tipo de Acesso</th>
+                      <th className="py-3 px-4 text-center">Tipo de Acesso / Cargo</th>
                       <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-center">Cadastro</th>
                       <th className="py-3 px-4 text-right">Ações</th>
@@ -2526,8 +2621,7 @@ export default function AdminDashboardPage() {
                     ) : (
                       filteredClients.map((client) => {
                         const cleanPhone = (client.phone || '').replace(/\D/g, '');
-                        const isMaster = client.is_master || client.email?.toLowerCase() === 'patrickbrank@outlook.com';
-                        const isAdminUser = client.role === 'admin';
+                        const isMaster = client.is_master || isMasterEmail(client.email);
 
                         return (
                           <tr key={client.id} className="hover:bg-slate-50/80 transition-colors">
@@ -2566,17 +2660,27 @@ export default function AdminDashboardPage() {
 
                             <td className="py-3.5 px-4 text-center">
                               {isMaster ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-zinc-900 text-amber-400 border border-amber-500/30">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-zinc-950 text-amber-300 border border-amber-500/40 shadow-xs">
                                   <span>👑</span>
                                   <span>Master</span>
                                 </span>
-                              ) : isAdminUser ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-50 text-amber-900 border border-amber-200">
+                              ) : client.role === 'admin' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
                                   <span>🛡️</span>
                                   <span>Administrador</span>
                                 </span>
+                              ) : client.role === 'marketing' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-900 border border-purple-200">
+                                  <span>🎨</span>
+                                  <span>Marketing</span>
+                                </span>
+                              ) : client.role === 'stock' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200">
+                                  <span>📦</span>
+                                  <span>Estoque</span>
+                                </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                   <span>🏪</span>
                                   <span>Lojista B2B</span>
                                 </span>
@@ -2619,7 +2723,7 @@ export default function AdminDashboardPage() {
                                     type="button"
                                     onClick={() => handleDeleteClient(client)}
                                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                    title={isAdminUser ? 'Remover membro administrativo' : 'Remover acesso do lojista'}
+                                    title={client.role !== 'reseller' ? 'Remover membro da equipe' : 'Remover acesso do lojista'}
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -3911,20 +4015,46 @@ export default function AdminDashboardPage() {
             {/* Cabeçalho do Modal */}
             <div className="flex items-center gap-3 mb-5">
               <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
-                clientRole === 'admin'
+                clientIsMaster
+                  ? 'bg-zinc-950 text-amber-300 border-amber-500/40'
+                  : clientRole === 'admin'
                   ? 'bg-amber-50 text-amber-600 border-amber-200'
+                  : clientRole === 'marketing'
+                  ? 'bg-purple-50 text-purple-600 border-purple-200'
+                  : clientRole === 'stock'
+                  ? 'bg-blue-50 text-blue-600 border-blue-200'
                   : 'bg-emerald-50 text-emerald-600 border-emerald-200'
               }`}>
-                {clientRole === 'admin' ? <ShieldCheck className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                {clientIsMaster ? (
+                  <span className="text-xl">👑</span>
+                ) : clientRole === 'admin' ? (
+                  <ShieldCheck className="w-5 h-5" />
+                ) : clientRole === 'marketing' ? (
+                  <ImageIcon className="w-5 h-5" />
+                ) : clientRole === 'stock' ? (
+                  <Boxes className="w-5 h-5" />
+                ) : (
+                  <Building2 className="w-5 h-5" />
+                )}
               </div>
               <div>
                 <h3 className="text-base font-bold text-zeiq-black leading-tight">
                   {clientModalMode === 'create'
-                    ? (clientRole === 'admin' ? 'Cadastrar Novo Administrador' : 'Cadastrar Novo Lojista B2B')
+                    ? (clientRole === 'admin'
+                        ? 'Cadastrar Novo Administrador'
+                        : clientRole === 'marketing'
+                        ? 'Cadastrar Membro de Marketing'
+                        : clientRole === 'stock'
+                        ? 'Cadastrar Membro de Estoque'
+                        : 'Cadastrar Novo Lojista B2B')
                     : (clientIsMaster
-                        ? 'Editar Administrador Master'
+                        ? 'Administrador Master Zeiq'
                         : clientRole === 'admin'
-                        ? 'Editar Membro Administrativo'
+                        ? 'Editar Administrador'
+                        : clientRole === 'marketing'
+                        ? 'Editar Membro do Marketing'
+                        : clientRole === 'stock'
+                        ? 'Editar Membro do Estoque'
                         : 'Editar Lojista B2B')}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -3949,56 +4079,102 @@ export default function AdminDashboardPage() {
                   Tipo de Conta & Permissão de Acesso *
                 </label>
                 {clientIsMaster ? (
-                  <div className="p-3 bg-zinc-900 text-white rounded-xl border border-zinc-800 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">👑</span>
+                  <div className="p-3.5 bg-zinc-950 text-white rounded-2xl border border-amber-500/40 flex items-center justify-between text-xs shadow-md">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">👑</span>
                       <div>
-                        <strong className="block text-amber-400 font-bold">Administrador Master Zeiq</strong>
-                        <span className="text-xs text-zinc-400">Conta principal protegida com privilégios permanentes.</span>
+                        <strong className="block text-amber-300 font-black text-sm">Administrador Master Zeiq</strong>
+                        <span className="text-xs text-zinc-400">Conta proprietária com privilégios irrestritos e permanente.</span>
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* 1. Lojista B2B */}
                     <button
                       type="button"
                       onClick={() => setClientRole('reseller')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                         clientRole === 'reseller'
-                          ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20'
+                          ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20'
                           : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                           <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Lojista B2B
+                          🏪 Lojista B2B
                         </span>
                         {clientRole === 'reseller' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
                       </div>
-                      <p className="text-xs text-slate-600 leading-tight">
-                        Acesso <strong>exclusivo ao site</strong> (catálogo e cotações). Bloqueado neste painel.
+                      <p className="text-[11px] text-slate-600 leading-tight">
+                        Acesso exclusivo ao catálogo e cotações. Bloqueado neste painel.
                       </p>
                     </button>
 
+                    {/* 2. Controle de Estoque */}
+                    <button
+                      type="button"
+                      onClick={() => setClientRole('stock')}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        clientRole === 'stock'
+                          ? 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20'
+                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                          <Boxes className="w-3.5 h-3.5 text-blue-600" />
+                          📦 Controle de Estoque
+                        </span>
+                        {clientRole === 'stock' && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-tight">
+                        Acesso ao painel para ajuste rápido de estoque por tamanho e pedidos.
+                      </p>
+                    </button>
+
+                    {/* 3. Marketing Interno */}
+                    <button
+                      type="button"
+                      onClick={() => setClientRole('marketing')}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        clientRole === 'marketing'
+                          ? 'border-purple-500 bg-purple-50/70 ring-2 ring-purple-500/20'
+                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
+                          🎨 Marketing Interno
+                        </span>
+                        {clientRole === 'marketing' && <Check className="w-3.5 h-3.5 text-purple-600" />}
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-tight">
+                        Acesso ao painel para banners, vitrine, destaques e produtos.
+                      </p>
+                    </button>
+
+                    {/* 4. Administrador */}
                     <button
                       type="button"
                       onClick={() => setClientRole('admin')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                         clientRole === 'admin'
-                          ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
+                          ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
                           : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
                           <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                          Administrador
+                          🛡️ Administrador
                         </span>
                         {clientRole === 'admin' && <Check className="w-3.5 h-3.5 text-amber-600" />}
                       </div>
-                      <p className="text-xs text-slate-600 leading-tight">
-                        Acesso <strong>completo a este painel</strong> (produtos, pedidos, banners e equipe).
+                      <p className="text-[11px] text-slate-600 leading-tight">
+                        Acesso completo ao painel, configurações gerais e equipe.
                       </p>
                     </button>
                   </div>

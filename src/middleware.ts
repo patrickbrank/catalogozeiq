@@ -56,19 +56,21 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    const email = user.email?.toLowerCase();
-    const isMasterEmail = email === 'patrickbrank@outlook.com';
-    const hasAdminAppMeta = user.app_metadata?.role === 'admin';
+    const email = user.email?.toLowerCase().trim();
+    const isMasterEmail = email === 'marketing@zeiq.com.br' || email === 'patrickbrank@outlook.com';
+    const appRole = user.app_metadata?.role;
+    const isStaffRole = ['admin', 'marketing', 'stock'].includes(appRole);
 
-    if (!isMasterEmail && !hasAdminAppMeta) {
+    if (!isMasterEmail && !isStaffRole) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profile?.role !== 'admin') {
-        // Bloqueio rigoroso: clientes e lojistas cadastrados nunca entram no painel administrativo
+      const profileRole = profile?.role;
+      if (!['admin', 'marketing', 'stock'].includes(profileRole)) {
+        // Bloqueio rigoroso: lojistas b2b cadastrados nunca entram no painel administrativo
         return NextResponse.redirect(new URL('/?unauthorized_admin=1', request.url));
       }
     }
@@ -82,13 +84,14 @@ export async function middleware(request: NextRequest) {
     }
 
     // Se acessar /admin/login:
-    // Se for admin, vai para /admin. Se for lojista comum, vai para o catálogo /
+    // Se for admin/equipe, vai para /admin. Se for lojista comum, vai para o catálogo /
     if (pathname === '/admin/login') {
-      const email = user.email?.toLowerCase();
-      const isMasterEmail = email === 'patrickbrank@outlook.com';
-      const hasAdminAppMeta = user.app_metadata?.role === 'admin';
+      const email = user.email?.toLowerCase().trim();
+      const isMasterEmail = email === 'marketing@zeiq.com.br' || email === 'patrickbrank@outlook.com';
+      const appRole = user.app_metadata?.role;
+      const isStaffRole = ['admin', 'marketing', 'stock'].includes(appRole);
 
-      if (isMasterEmail || hasAdminAppMeta) {
+      if (isMasterEmail || isStaffRole) {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
 
@@ -98,7 +101,7 @@ export async function middleware(request: NextRequest) {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profile?.role === 'admin') {
+      if (['admin', 'marketing', 'stock'].includes(profile?.role)) {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
 

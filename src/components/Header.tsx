@@ -297,7 +297,10 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                   const userDisplayName = currentUser.user_metadata?.store_name || currentUser.user_metadata?.contact_name || currentUser.email?.split('@')[0] || 'Parceiro';
                   const userInitial = (userDisplayName[0] || 'Z').toUpperCase();
                   const userAvatarUrl = currentUser.user_metadata?.avatar_url;
-                  const isMasterOrAdmin = currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com' || currentUser.user_metadata?.role === 'admin' || currentUser.app_metadata?.role === 'admin';
+                  const userEmail = currentUser.email?.toLowerCase().trim();
+                  const isMaster = userEmail === 'marketing@zeiq.com.br' || userEmail === 'patrickbrank@outlook.com';
+                  const userRole = currentUser.app_metadata?.role || currentUser.user_metadata?.role;
+                  const isMasterOrAdmin = isMaster || ['admin', 'marketing', 'stock'].includes(userRole);
 
                   return (
                     <>
@@ -382,7 +385,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                                   <span>Painel Administrativo B2B</span>
                                 </div>
                                 <span className="text-xs font-mono font-bold bg-zeiq-orange text-black px-1.5 py-0.5 rounded">
-                                  MASTER
+                                  {isMaster ? 'MASTER' : userRole === 'marketing' ? 'MARKETING' : userRole === 'stock' ? 'ESTOQUE' : 'ADMIN'}
                                 </span>
                               </Link>
                             )}

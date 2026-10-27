@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
+import { getAdminClient, verifyAdmin, isMasterEmail } from '@/lib/supabase/admin-auth';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+
+const VALID_ROLES = ['admin', 'marketing', 'stock', 'reseller'] as const;
+type UserRole = typeof VALID_ROLES[number];
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,19 +39,29 @@ export async function GET(request: NextRequest) {
       // Ignora se tabela profiles ainda não foi migrada
     }
 
-    // 3. Monta lista unificada e limpa de clientes e revendedores
+    // 3. Monta lista unificada e limpa de clientes e membros da equipe
     const formattedUsers = authData.users.map((u) => {
       const p = profilesMap[u.id] || {};
       const meta = u.user_metadata || {};
       const appMeta = u.app_metadata || {};
-      const isMaster = u.email?.toLowerCase() === 'patrickbrank@outlook.com';
+      const isMaster = isMasterEmail(u.email);
       const userRole = isMaster ? 'admin' : (p.role || appMeta.role || meta.role || 'reseller');
+
+      const defaultStore = isMaster
+        ? 'Diretoria Zeiq (Master)'
+        : userRole === 'admin'
+        ? 'Administração Zeiq'
+        : userRole === 'marketing'
+        ? 'Marketing Zeiq'
+        : userRole === 'stock'
+        ? 'Estoque Zeiq'
+        : 'Lojista B2B';
 
       return {
         id: u.id,
         email: u.email,
         contact_name: p.contact_name || meta.contact_name || u.email?.split('@')[0],
-        store_name: p.store_name || meta.store_name || (userRole === 'admin' ? 'Equipe Zeiq' : 'Lojista B2B'),
+        store_name: p.store_name || meta.store_name || defaultStore,
         phone: p.phone || meta.phone || '',
         cnpj_cpf: p.cnpj_cpf || meta.cnpj_cpf || '',
         city: p.city || meta.city || '',
@@ -105,8 +119,14 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanRole = role === 'admin' ? 'admin' : 'reseller';
-    const defaultStore = cleanRole === 'admin' ? 'Equipe Zeiq' : 'Lojista B2B';
+    const cleanRole = role && (VALID_ROLES as readonly string[]).includes(role) ? role : 'reseller';
+    const defaultStore = cleanRole === 'admin'
+      ? 'Administração Zeiq'
+      : cleanRole === 'marketing'
+      ? 'Marketing Zeiq'
+      : cleanRole === 'stock'
+      ? 'Estoque Zeiq'
+      : 'Lojista B2B';
 
     // 1. Cria usuário autenticado no Supabase com confirmação imediata
     const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
@@ -135,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Insere ou atualiza dados complementares na tabela profiles
     try {
-      await adminSupabase.from('profiles').upsert({
+      const profilePayload = {
         id: newUserId,
         email: cleanEmail,
         role: cleanRole,
@@ -146,9 +166,15 @@ export async function POST(request: NextRequest) {
         city: city?.trim() || '',
         state: state?.trim() || '',
         is_approved: true,
-      });
+      };
+
+      const serverSupabase = await createServerClient();
+      const { error: srvErr } = await serverSupabase.from('profiles').upsert(profilePayload);
+      if (srvErr) {
+        await adminSupabase.from('profiles').upsert(profilePayload);
+      }
     } catch (e) {
-      console.warn('Aviso ao sincronizar profile do lojista:', e);
+      console.warn('Aviso ao sincronizar profile do usuário:', e);
     }
 
     return NextResponse.json({
@@ -193,8 +219,8 @@ export async function DELETE(request: NextRequest) {
 
     // Impede exclusão da conta master principal
     const { data: targetUser } = await adminSupabase.auth.admin.getUserById(userId);
-    if (targetUser?.user?.email?.toLowerCase() === 'patrickbrank@outlook.com') {
-      return NextResponse.json({ success: false, error: 'A conta administradora principal não pode ser excluída.' }, { status: 400 });
+    if (isMasterEmail(targetUser?.user?.email)) {
+      return NextResponse.json({ success: false, error: 'A conta administradora master não pode ser excluída.' }, { status: 400 });
     }
 
     // Exclui no auth e no profiles
@@ -213,7 +239,7 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Atualização de dados cadastrais, cargo (admin/lojista), senha ou status pelo administrador
+// Atualização de dados cadastrais, cargo, senha ou status pelo administrador
 async function handleUpdateUser(request: NextRequest) {
   try {
     const { isAdmin } = await verifyAdmin();
@@ -251,10 +277,10 @@ async function handleUpdateUser(request: NextRequest) {
     }
 
     const targetUser = targetUserRes.user;
-    const isMaster = targetUser.email?.toLowerCase() === 'patrickbrank@outlook.com';
+    const isMaster = isMasterEmail(targetUser.email);
 
     // A conta master nunca pode perder o papel de admin nem ser inativada
-    let targetRole = isMaster ? 'admin' : (role ? (role === 'admin' ? 'admin' : 'reseller') : undefined);
+    let targetRole = isMaster ? 'admin' : (role && (VALID_ROLES as readonly string[]).includes(role) ? role : undefined);
     let targetApproved = isMaster ? true : is_approved;
 
     // 1. Atualiza dados de autenticação no Supabase Auth
@@ -308,7 +334,11 @@ async function handleUpdateUser(request: NextRequest) {
       if (state !== undefined) profileData.state = state.trim();
       if (targetApproved !== undefined) profileData.is_approved = targetApproved;
 
-      await adminSupabase.from('profiles').upsert(profileData);
+      const serverSupabase = await createServerClient();
+      const { error: srvErr } = await serverSupabase.from('profiles').upsert(profileData);
+      if (srvErr) {
+        await adminSupabase.from('profiles').upsert(profileData);
+      }
     } catch (profileErr) {
       console.warn('Aviso ao atualizar profiles:', profileErr);
     }

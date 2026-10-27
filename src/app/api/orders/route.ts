@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       const serverSupabase = await createServerClient();
       const { data: { user: currentUser } } = await serverSupabase.auth.getUser();
       const isOwner = currentUser && (currentUser.id === order.user_id || currentUser.email === order.buyer_email);
-      const isMasterAdmin = currentUser && currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com';
+      const isMasterAdmin = currentUser && (currentUser.email?.toLowerCase() === 'marketing@zeiq.com.br' || currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com');
 
       // Validação de telefone para visualização completa
       let phoneMatched = false;
