@@ -53,6 +53,17 @@
     appearance: textfield;
   }
 
+  /* Correção de autofill do Chrome/Safari/Edge para temas escuros */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus, 
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #14171d inset !important;
+    -webkit-text-fill-color: #ffffff !important;
+    caret-color: #ffffff !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
   /* Custom scrollbar para navegação rápida de categorias */
   .no-scrollbar::-webkit-scrollbar {
     display: none;

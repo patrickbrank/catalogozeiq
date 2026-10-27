@@ -106,8 +106,8 @@ export default function AdminLoginPage() {
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                 E-mail de acesso
               </label>
-              <div className="relative flex items-center rounded-xl bg-black/40 border border-white/[0.1] hover:border-white/[0.2] focus-within:border-zeiq-orange focus-within:ring-2 focus-within:ring-zeiq-orange/20 transition-all">
-                <div className="pl-3.5 text-slate-500 pointer-events-none">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none z-10">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
@@ -116,7 +116,7 @@ export default function AdminLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="ex: marketing@zeiq.com.br"
-                  className="w-full pl-3 pr-3.5 py-2.5 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none"
+                  className="w-full h-11 pl-10 pr-4 rounded-xl bg-[#14171d] border border-white/[0.1] hover:border-white/[0.2] focus:border-zeiq-orange focus:ring-2 focus:ring-zeiq-orange/20 text-sm text-white placeholder:text-slate-500 transition-all outline-none"
                 />
               </div>
             </div>
@@ -126,8 +126,8 @@ export default function AdminLoginPage() {
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                 Senha
               </label>
-              <div className="relative flex items-center rounded-xl bg-black/40 border border-white/[0.1] hover:border-white/[0.2] focus-within:border-zeiq-orange focus-within:ring-2 focus-within:ring-zeiq-orange/20 transition-all">
-                <div className="pl-3.5 text-slate-500 pointer-events-none">
+              <div className="relative">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none z-10">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -136,12 +136,12 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-3 pr-10 py-2.5 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none font-mono"
+                  className="w-full h-11 pl-10 pr-11 rounded-xl bg-[#14171d] border border-white/[0.1] hover:border-white/[0.2] focus:border-zeiq-orange focus:ring-2 focus:ring-zeiq-orange/20 text-sm text-white placeholder:text-slate-500 transition-all outline-none font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 p-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer z-10 p-1"
                   aria-label={showPassword ? 'Ocultar senha' : 'Exibir senha'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
