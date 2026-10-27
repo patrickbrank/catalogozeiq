@@ -1702,7 +1702,8 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
                       <th className="py-3 px-4">Preço Atacado</th>
-                      <th className="py-3 px-4 text-center">Disponibilidade / Estoque</th>
+                      <th className="py-3 px-4 text-center">Estoque</th>
+                      <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-center">Destaque</th>
                       <th className="py-3 px-4 text-right">Ações</th>
                     </tr>
@@ -1710,7 +1711,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {paginatedProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-slate-400">
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
                           Nenhum produto localizado com os filtros selecionados.
                         </td>
                       </tr>
@@ -1762,46 +1763,56 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3 px-4">
-                              <div className="flex flex-col items-center gap-1.5">
-                                {/* Botão de Ajuste Rápido de Estoque */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenQuickStock(prod)}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 ${
-                                    prod.total_stock != null && prod.total_stock > 5
-                                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
-                                      : prod.total_stock != null && prod.total_stock > 0
-                                      ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
-                                      : prod.total_stock === 0
-                                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
-                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                                  }`}
-                                  title="Clique para ajustar o estoque interno deste produto"
-                                >
-                                  <Boxes className="w-3.5 h-3.5" />
-                                  <span>
-                                    {typeof prod.total_stock === 'number'
-                                      ? prod.total_stock === 0
-                                        ? '0 un. (Esgotado)'
-                                        : `${prod.total_stock} un.`
-                                      : 'Ajustar estoque'}
-                                  </span>
-                                </button>
+                            {/* Coluna de Estoque com Ajuste Rápido */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuickStock(prod)}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 group ${
+                                  prod.total_stock != null && prod.total_stock > 5
+                                    ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300'
+                                    : prod.total_stock != null && prod.total_stock > 0
+                                    ? 'bg-amber-50/80 hover:bg-amber-100 text-amber-800 border-amber-200 hover:border-amber-300'
+                                    : prod.total_stock === 0
+                                    ? 'bg-rose-50/70 hover:bg-rose-100/80 text-rose-700 border-rose-200 hover:border-rose-300'
+                                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                                }`}
+                                title="Clique para abrir o ajuste rápido de estoque"
+                              >
+                                <Boxes className={`w-3.5 h-3.5 ${
+                                  prod.total_stock != null && prod.total_stock > 5
+                                    ? 'text-slate-500 group-hover:text-slate-700'
+                                    : prod.total_stock != null && prod.total_stock > 0
+                                    ? 'text-amber-600'
+                                    : prod.total_stock === 0
+                                    ? 'text-rose-500'
+                                    : 'text-slate-400'
+                                }`} />
+                                <span className="font-mono">
+                                  {typeof prod.total_stock === 'number'
+                                    ? prod.total_stock === 0
+                                      ? '0 un. (Esgotado)'
+                                      : `${prod.total_stock} un.`
+                                    : 'Ajustar estoque'}
+                                </span>
+                              </button>
+                            </td>
 
-                                {/* Toggle de Publicado / Pausado */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleTogglePublished(prod)}
-                                  className={`text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
-                                    prod.is_published ? 'text-emerald-700 hover:text-emerald-900' : 'text-amber-700 hover:text-amber-900'
-                                  }`}
-                                  title={prod.is_published ? 'Produto visível no catálogo. Clique para ocultar.' : 'Produto oculto. Clique para exibir.'}
-                                >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${prod.is_published ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                  <span>{prod.is_published ? 'Visível' : 'Oculto'}</span>
-                                </button>
-                              </div>
+                            {/* Coluna de Status (Visibilidade no Catálogo) */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePublished(prod)}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                  prod.is_published
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200/90'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                                }`}
+                                title={prod.is_published ? 'Produto visível no catálogo. Clique para ocultar.' : 'Produto oculto. Clique para exibir.'}
+                              >
+                                <span className={`w-2 h-2 rounded-full ${prod.is_published ? 'bg-emerald-500 ring-2 ring-emerald-200/60' : 'bg-slate-400'}`} />
+                                <span>{prod.is_published ? 'Visível' : 'Oculto'}</span>
+                              </button>
                             </td>
 
                             <td className="py-3 px-4 text-center">
@@ -1915,32 +1926,46 @@ export default function AdminDashboardPage() {
                             <button
                               type="button"
                               onClick={() => handleOpenQuickStock(prod)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
                                 prod.total_stock != null && prod.total_stock > 5
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  ? 'bg-slate-50 text-slate-700 border-slate-200'
                                   : prod.total_stock != null && prod.total_stock > 0
-                                  ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                  ? 'bg-amber-50/80 text-amber-800 border-amber-200'
                                   : prod.total_stock === 0
-                                  ? 'bg-rose-50 text-rose-800 border-rose-300'
-                                  : 'bg-slate-50 text-slate-700 border-slate-200'
+                                  ? 'bg-rose-50/70 text-rose-700 border-rose-200'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200'
                               }`}
                               title="Ajustar estoque deste produto"
                             >
-                              <Boxes className="w-3.5 h-3.5" />
-                              <span>{typeof prod.total_stock === 'number' ? `${prod.total_stock} un.` : 'Estoque'}</span>
+                              <Boxes className={`w-3 h-3 ${
+                                prod.total_stock != null && prod.total_stock > 5
+                                  ? 'text-slate-500'
+                                  : prod.total_stock != null && prod.total_stock > 0
+                                  ? 'text-amber-600'
+                                  : prod.total_stock === 0
+                                  ? 'text-rose-500'
+                                  : 'text-slate-400'
+                              }`} />
+                              <span className="font-mono">
+                                {typeof prod.total_stock === 'number'
+                                  ? prod.total_stock === 0
+                                    ? '0 un. (Esgotado)'
+                                    : `${prod.total_stock} un.`
+                                  : 'Estoque'}
+                              </span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => handleTogglePublished(prod)}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-all active:scale-95 cursor-pointer ${
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
                                 prod.is_published
-                                  ? 'text-emerald-800 bg-emerald-50/80 border-emerald-200'
-                                  : 'text-amber-800 bg-amber-50/80 border-amber-200'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200/90'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200'
                               }`}
                               title={prod.is_published ? 'Produto visível no catálogo. Clique para ocultar.' : 'Produto oculto. Clique para exibir.'}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${prod.is_published ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${prod.is_published ? 'bg-emerald-500 ring-2 ring-emerald-200/60' : 'bg-slate-400'}`} />
                               <span>{prod.is_published ? 'Visível' : 'Oculto'}</span>
                             </button>
                           </div>
