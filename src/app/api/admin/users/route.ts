@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
       const meta = u.user_metadata || {};
       const appMeta = u.app_metadata || {};
       const isMaster = isMasterEmail(u.email);
-      const userRole = isMaster ? 'admin' : (p.role || appMeta.role || meta.role || 'reseller');
+      const authRole = appMeta.role || meta.role;
+      const userRole = isMaster ? 'admin' : (authRole || p.role || 'reseller');
 
       const defaultStore = isMaster
         ? 'Diretoria Zeiq (Master)'
