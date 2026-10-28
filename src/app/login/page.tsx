@@ -75,18 +75,17 @@ export default function B2BLoginPage() {
       const isStaff = ['admin', 'marketing', 'stock'].includes(user.app_metadata?.role);
 
       if (!isMaster && !isStaff) {
-        let isApproved = user.app_metadata?.is_approved ?? user.user_metadata?.is_approved;
-
-        // Consulta profile para checagem atualizada
+        // Consulta profile no banco de dados com prioridade máxima
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_approved, role')
           .eq('id', user.id)
           .maybeSingle();
 
-        if (profile?.is_approved !== undefined) {
-          isApproved = profile.is_approved;
-        }
+        const isApproved =
+          profile?.is_approved !== undefined
+            ? profile.is_approved
+            : (user.app_metadata?.is_approved ?? user.user_metadata?.is_approved ?? true);
 
         // Se o lojista ainda não foi aprovado pelo administrador
         if (isApproved === false) {
@@ -99,8 +98,8 @@ export default function B2BLoginPage() {
         }
       }
 
-      router.push('/');
-      router.refresh();
+      // Redireciona com atualização completa de sessão
+      window.location.href = '/';
     } catch (err: any) {
       setErrorMsg(
         err.message?.includes('Invalid login credentials')

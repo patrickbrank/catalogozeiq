@@ -265,23 +265,52 @@ export default function AdminDashboardPage() {
       }
 
       // 2. Busca Produtos
-      const { data: prods } = await supabase
-        .from('products')
-        .select(`
-          *,
-          images:product_images(*),
-          categories:product_categories(
-            category:categories(*)
-          )
-        `)
-        .order('created_at', { ascending: false });
+      try {
+        const prodRes = await fetch('/api/admin/products');
+        const prodData = await prodRes.json();
+        if (prodData.success && Array.isArray(prodData.products) && prodData.products.length > 0) {
+          setProducts(prodData.products);
+        } else {
+          // Fallback para query direta no Supabase
+          const { data: prods } = await supabase
+            .from('products')
+            .select(`
+              *,
+              images:product_images(*),
+              categories:product_categories(
+                category:categories(*)
+              )
+            `)
+            .order('created_at', { ascending: false });
 
-      if (prods) {
-        const formatted = prods.map((p: any) => ({
-          ...p,
-          categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
-        }));
-        setProducts(formatted);
+          if (prods) {
+            const formatted = prods.map((p: any) => ({
+              ...p,
+              categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
+            }));
+            setProducts(formatted);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar produtos via API, tentando Supabase direto:', err);
+        const { data: prods } = await supabase
+          .from('products')
+          .select(`
+            *,
+            images:product_images(*),
+            categories:product_categories(
+              category:categories(*)
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (prods) {
+          const formatted = prods.map((p: any) => ({
+            ...p,
+            categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
+          }));
+          setProducts(formatted);
+        }
       }
 
       // 3. Busca Pedidos via API Admin

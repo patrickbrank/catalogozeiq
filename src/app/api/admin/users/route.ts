@@ -294,10 +294,11 @@ async function handleUpdateUser(request: NextRequest) {
       authUpdates.password = password;
     }
 
-    if (targetRole) {
+    if (targetRole || targetApproved !== undefined) {
       authUpdates.app_metadata = {
         ...(targetUser.app_metadata || {}),
-        role: targetRole,
+        ...(targetRole ? { role: targetRole } : {}),
+        ...(targetApproved !== undefined ? { is_approved: targetApproved } : {}),
       };
     }
 
@@ -310,6 +311,7 @@ async function handleUpdateUser(request: NextRequest) {
       ...(cnpj_cpf !== undefined ? { cnpj_cpf: cnpj_cpf.trim() } : {}),
       ...(city !== undefined ? { city: city.trim() } : {}),
       ...(state !== undefined ? { state: state.trim() } : {}),
+      ...(targetApproved !== undefined ? { is_approved: targetApproved } : {}),
     };
     authUpdates.user_metadata = updatedUserMeta;
 
@@ -335,10 +337,11 @@ async function handleUpdateUser(request: NextRequest) {
       if (state !== undefined) profileData.state = state.trim();
       if (targetApproved !== undefined) profileData.is_approved = targetApproved;
 
-      const serverSupabase = await createServerClient();
-      const { error: srvErr } = await serverSupabase.from('profiles').upsert(profileData);
-      if (srvErr) {
-        await adminSupabase.from('profiles').upsert(profileData);
+      // Gravação direta com privilégios de service_role
+      const { error: adminUpsertErr } = await adminSupabase.from('profiles').upsert(profileData);
+      if (adminUpsertErr) {
+        const serverSupabase = await createServerClient();
+        await serverSupabase.from('profiles').upsert(profileData);
       }
     } catch (profileErr) {
       console.warn('Aviso ao atualizar profiles:', profileErr);

@@ -59,7 +59,16 @@ export async function middleware(request: NextRequest) {
   if (user && !isStaff && !isPublicAuthRoute) {
     const isApprovedMeta = user.app_metadata?.is_approved ?? user.user_metadata?.is_approved;
     if (isApprovedMeta === false) {
-      return NextResponse.redirect(new URL('/login?pending_approval=1', request.url));
+      // Checa diretamente no profiles para garantir que aprovação recente no painel não seja barrada por token antigo
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_approved')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.is_approved === false) {
+        return NextResponse.redirect(new URL('/login?pending_approval=1', request.url));
+      }
     }
   }
 
@@ -91,6 +100,16 @@ export async function middleware(request: NextRequest) {
       const isApprovedMeta = user.app_metadata?.is_approved ?? user.user_metadata?.is_approved;
       if (isApprovedMeta !== false || isStaff) {
         return NextResponse.redirect(new URL('/', request.url));
+      } else {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_approved')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.is_approved === true) {
+          return NextResponse.redirect(new URL('/', request.url));
+        }
       }
     }
 

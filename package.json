@@ -9,7 +9,8 @@
     "lint": "next lint",
     "migrate:images": "node scripts/migrate-images.js",
     "migrate:database": "node scripts/migrate-database.js",
-    "migrate:all": "node scripts/migrate-images.js && node scripts/migrate-database.js"
+    "migrate:all": "node scripts/migrate-images.js && node scripts/migrate-database.js",
+    "update:prices": "node scripts/update-prices.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -23,6 +23,7 @@ import {
   ArrowRight,
   RefreshCw,
   Plus,
+  Loader2,
 } from 'lucide-react';
 
 interface BannerDestinationPickerProps {
@@ -54,6 +55,27 @@ export function BannerDestinationPicker({
 
   const [activeType, setActiveType] = useState<DestinationType>(() => detectInitialType(link));
   
+  // Cache / Auto-recuperação local de produtos caso a prop venha vazia
+  const [localProducts, setLocalProducts] = useState<Product[]>(products || []);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  useEffect(() => {
+    if (products && products.length > 0) {
+      setLocalProducts(products);
+    } else {
+      setLoadingProducts(true);
+      fetch('/api/admin/products')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+            setLocalProducts(data.products);
+          }
+        })
+        .catch((err) => console.warn('Falha na auto-recuperação de produtos:', err))
+        .finally(() => setLoadingProducts(false));
+    }
+  }, [products]);
+
   // Estados para Produto Específico
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -72,6 +94,17 @@ export function BannerDestinationPicker({
 
   // Toggle do parâmetro técnico
   const [showTechnicalUrl, setShowTechnicalUrl] = useState(false);
+
+  // Normalização de texto sem acentos e minúsculo
+  const normalizeForSearch = (str?: string | null): string => {
+    if (!str) return '';
+    return str
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  };
 
   // Sincroniza dados internos caso a prop `link` seja alterada externamente
   useEffect(() => {
@@ -99,20 +132,39 @@ export function BannerDestinationPicker({
     }
   }, [link]);
 
+  const activeProductsList = localProducts.length > 0 ? localProducts : products;
+
   // Objeto do produto selecionado atualmente
   const selectedProduct = useMemo(() => {
     if (!selectedProductId) return null;
-    return products.find((p) => p.id === selectedProductId || p.slug === selectedProductId) || null;
-  }, [selectedProductId, products]);
+    return activeProductsList.find((p) => p.id === selectedProductId || p.slug === selectedProductId) || null;
+  }, [selectedProductId, activeProductsList]);
 
-  // Lista de produtos filtrada para seleção na combobox
+  // Lista de produtos filtrada para seleção na combobox com busca inteligente tolerante a acentos e plural
   const searchResults = useMemo(() => {
-    if (!productSearch.trim()) return products.slice(0, 30);
-    const q = productSearch.toLowerCase().trim();
-    return products
-      .filter((p) => p.name.toLowerCase().includes(q) || (p.code_sku && p.code_sku.toLowerCase().includes(q)))
+    if (!productSearch.trim()) return activeProductsList.slice(0, 30);
+
+    const rawQuery = normalizeForSearch(productSearch);
+    const words = rawQuery.split(/\s+/).filter(Boolean);
+
+    return activeProductsList
+      .filter((p) => {
+        const normName = normalizeForSearch(p.name);
+        const normSku = normalizeForSearch(p.code_sku);
+        const catNames = (p.categories || []).map((c) => normalizeForSearch(c.name)).join(' ');
+
+        return words.every((w) => {
+          if (normName.includes(w) || normSku.includes(w) || catNames.includes(w)) return true;
+          // Tratamento para singular / plural (ex: raquetes -> raquete, camisetas -> camiseta)
+          if (w.length > 3 && w.endsWith('s')) {
+            const singular = w.slice(0, -1);
+            if (normName.includes(singular) || catNames.includes(singular)) return true;
+          }
+          return false;
+        });
+      })
       .slice(0, 50);
-  }, [products, productSearch]);
+  }, [activeProductsList, productSearch]);
 
   // Subcategorias disponíveis para a linha selecionada
   const availableCategories = useMemo(() => {
@@ -654,9 +706,15 @@ export function BannerDestinationPicker({
 
               {/* Lista Suspenso Visual com Miniatura, SKU e Título */}
               <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white shadow-inner">
-                {searchResults.length === 0 ? (
+                {loadingProducts && searchResults.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-zeiq-orange" />
+                    <span>Carregando produtos do catálogo...</span>
+                  </div>
+                ) : searchResults.length === 0 ? (
                   <div className="p-4 text-center text-xs text-slate-400">
-                    Nenhum produto localizado para "{productSearch}".
+                    <p>Nenhum produto localizado para "{productSearch}".</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Tente pesquisar pelo nome ou código SKU (ex: "raquete", "0214", "camisa").</p>
                   </div>
                 ) : (
                   searchResults.map((p) => {
