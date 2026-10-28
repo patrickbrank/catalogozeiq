@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { Search, ShoppingBag, X, Package, ArrowRight, Sparkles, LogOut, User, ShieldCheck, ChevronDown, Briefcase } from 'lucide-react';
+import { AvatarIcon } from '@/lib/constants/avatars';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { Product } from '@/types';
 import { normalizeSearchText } from '@/components/CatalogClient';
@@ -26,6 +27,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userAvatarStyle, setUserAvatarStyle] = useState('avatar-fire');
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -50,6 +52,10 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
     supabase.auth.getUser().then(({ data: { user } }) => {
       setCurrentUser(user);
     });
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('zeiq_admin_avatar');
+      if (saved) setUserAvatarStyle(saved);
+    }
   }, []);
 
   const totalItems = mounted ? items.reduce((acc, item) => acc + item.quantity, 0) : 0;
@@ -316,6 +322,8 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zeiq-black text-white text-xs font-black flex items-center justify-center shrink-0 border border-white/20 shadow-xs ring-2 ring-black/5 overflow-hidden">
                           {userAvatarUrl ? (
                             <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (isMasterOrAdmin || isResellerUser) ? (
+                            <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" />
                           ) : (
                             userInitial
                           )}
@@ -337,6 +345,8 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                             <div className="w-10 h-10 rounded-full bg-zeiq-black text-white text-sm font-black flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
                               {userAvatarUrl ? (
                                 <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (isMasterOrAdmin || isResellerUser) ? (
+                                <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" />
                               ) : (
                                 userInitial
                               )}

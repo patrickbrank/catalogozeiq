@@ -64,6 +64,47 @@
     transition: background-color 5000s ease-in-out 0s;
   }
 
+  /* Barra de Rolagem Minimalista e Escura para todo o site (Adeus barras cinzas/brancas nativas) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0c0d0e;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #22252c;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ff5500;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #22252c #0c0d0e;
+  }
+
+  /* Scrollbars específicas para modais, gavetas e painéis escuros */
+  .custom-scrollbar-dark::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar-dark::-webkit-scrollbar-track {
+    background: #141619;
+    border-radius: 9999px;
+  }
+  .custom-scrollbar-dark::-webkit-scrollbar-thumb {
+    background: #2a2e37;
+    border-radius: 9999px;
+  }
+  .custom-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+    background: #ff5500;
+  }
+  .custom-scrollbar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2e37 #141619;
+  }
+
   /* Custom scrollbar para navegação rápida de categorias */
   .no-scrollbar::-webkit-scrollbar {
     display: none;

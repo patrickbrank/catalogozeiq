@@ -38,6 +38,7 @@ import {
   UserCheck,
   UserX,
 } from 'lucide-react';
+import { AvatarIcon, ADMIN_AVATARS } from '@/lib/constants/avatars';
 
 const ORDER_STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; text: string; border: string }> = {
   pending: { label: 'Pendente', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
@@ -81,6 +82,10 @@ export default function ResellerDashboardPage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerStatusFilter, setCustomerStatusFilter] = useState<'all' | 'approved' | 'pending'>('all');
   const [updatingCustomer, setUpdatingCustomer] = useState<string | null>(null);
+
+  // Avatar Personalizado (3 Cores / Estilos SVG)
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string>('avatar-fire');
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
   // Toast / Mensagens de Notificação
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -132,7 +137,20 @@ export default function ResellerDashboardPage() {
 
   useEffect(() => {
     loadResellerData();
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('zeiq_admin_avatar');
+      if (saved) setSelectedAvatarId(saved);
+    }
   }, []);
+
+  const handleSelectAvatar = (avatarId: string) => {
+    setSelectedAvatarId(avatarId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('zeiq_admin_avatar', avatarId);
+    }
+    setIsAvatarPickerOpen(false);
+    showToast('Avatar personalizado com sucesso!');
+  };
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -328,6 +346,75 @@ export default function ResellerDashboardPage() {
 
           {/* Ações da Direita */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Seletor de Avatar SVG com 3 Opções de Cores */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
+                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-2xl bg-zeiq-charcoal hover:bg-white/10 border border-white/10 hover:border-zeiq-orange/40 transition-all cursor-pointer group active:scale-95"
+                title="Clique para escolher seu Avatar com cores personalizadas"
+              >
+                <div className="relative">
+                  <AvatarIcon avatarId={selectedAvatarId} className="w-8 h-8 rounded-full" />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-zeiq-dark animate-pulse" />
+                </div>
+                <div className="text-left hidden sm:block">
+                  <div className="text-xs font-black text-white leading-tight">
+                    {reseller?.name?.split(' ')[0] || user?.email?.split('@')[0]}
+                  </div>
+                  <div className="text-[10px] text-slate-400 leading-none">
+                    Revendedor
+                  </div>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${isAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
+              </button>
+
+              {/* Popover dos 3 Avatares */}
+              {isAvatarPickerOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-zeiq-dark border border-zeiq-charcoal rounded-3xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
+                    <div>
+                      <h4 className="text-xs font-black text-white">Escolha seu Avatar</h4>
+                      <p className="text-[10px] text-slate-400">Personalize seu perfil com as cores Zeiq</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAvatarPickerOpen(false)}
+                      className="text-slate-400 hover:text-white p-1 rounded-lg"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 mt-3">
+                    {ADMIN_AVATARS.map((av) => (
+                      <button
+                        key={av.id}
+                        type="button"
+                        onClick={() => handleSelectAvatar(av.id)}
+                        className={`w-full p-2.5 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                          selectedAvatarId === av.id
+                            ? `${av.badgeBg} ${av.badgeBorder} ring-1 ring-zeiq-orange/50 shadow-md`
+                            : 'bg-zeiq-charcoal/50 border-white/5 hover:border-white/20 hover:bg-zeiq-charcoal'
+                        }`}
+                      >
+                        <AvatarIcon avatarId={av.id} className="w-10 h-10" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-white flex items-center justify-between">
+                            <span>{av.name}</span>
+                            {selectedAvatarId === av.id && (
+                              <Check className="w-3.5 h-3.5 text-zeiq-orange" />
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400">{av.theme}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={handleRefresh}
@@ -410,6 +497,61 @@ export default function ResellerDashboardPage() {
 
       {/* 3. Conteúdo Principal */}
       <main className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+        {/* Banner Motivacional e Métricas de Atendimento com Avatar Escolhido */}
+        <div className="bg-gradient-to-r from-zeiq-dark via-zeiq-charcoal to-zeiq-dark border border-white/5 hover:border-zeiq-orange/30 rounded-3xl p-5 sm:p-6 shadow-xl transition-all">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="relative shrink-0">
+                <AvatarIcon avatarId={selectedAvatarId} className="w-12 h-12 sm:w-14 sm:h-14" />
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zeiq-dark animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-lg font-black text-white">
+                    Fala, {reseller?.name?.split(' ')[0] || 'Parceiro'}! 🚀
+                  </h2>
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Online
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAvatarPickerOpen(true)}
+                    className="text-[11px] font-bold text-zeiq-orange hover:underline cursor-pointer ml-1"
+                  >
+                    Trocar Avatar
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 max-w-xl leading-relaxed">
+                  {orders.filter((o) => o.status === 'pending').length > 0
+                    ? `Você tem ${orders.filter((o) => o.status === 'pending').length} ${orders.filter((o) => o.status === 'pending').length === 1 ? 'pedido pendente aguardando' : 'pedidos pendentes aguardando'} seu atendimento. Agilidade no WhatsApp converte mais!`
+                    : 'Parabéns! Todos os pedidos da sua carteira estão em andamento ou concluídos.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('orders'); setOrderStatusFilter('pending'); }}
+                className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-zeiq-black font-extrabold text-xs rounded-xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Pendentes ({orders.filter((o) => o.status === 'pending').length})</span>
+              </button>
+              {customers.filter((c) => !c.is_approved).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('customers'); setCustomerStatusFilter('pending'); }}
+                  className="px-3.5 py-2.5 bg-zeiq-orange hover:bg-orange-600 text-zeiq-black font-extrabold text-xs rounded-xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Aprovar Lojistas ({customers.filter((c) => !c.is_approved).length})</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* ======================================================== */}
         {/* ABA 1: PEDIDOS                                           */}
@@ -923,7 +1065,7 @@ export default function ResellerDashboardPage() {
       {/* ======================================================== */}
       {selectedOrder && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-zeiq-dark border border-zeiq-charcoal rounded-3xl max-w-2xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
+          <div className="bg-zeiq-dark border border-zeiq-charcoal rounded-3xl max-w-2xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto custom-scrollbar-dark shadow-2xl animate-in zoom-in-95">
             {/* Cabeçalho do Modal */}
             <div className="flex items-start justify-between gap-4 border-b border-white/5 pb-4">
               <div>

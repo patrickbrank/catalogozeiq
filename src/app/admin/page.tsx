@@ -63,6 +63,7 @@ import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
 import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/OrderStatusPopover';
 import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPicker';
+import { AvatarIcon, ADMIN_AVATARS } from '@/lib/constants/avatars';
 
 const ITEMS_PER_PAGE = 25;
 
@@ -93,6 +94,10 @@ export default function AdminDashboardPage() {
   const [resellerFormPassword, setResellerFormPassword] = useState('');
   const [savingReseller, setSavingReseller] = useState(false);
   const [resellerSearch, setResellerSearch] = useState('');
+
+  // Estados para Avatar do Administrador (3 Estilos SVG)
+  const [adminAvatarId, setAdminAvatarId] = useState<string>('avatar-fire');
+  const [adminAvatarPickerOpen, setAdminAvatarPickerOpen] = useState(false);
 
   // Estados para Acesso Direto ao Painel Administrativo
   const [authEmail, setAuthEmail] = useState('');
@@ -173,6 +178,7 @@ export default function AdminDashboardPage() {
   // Filtros - Pedidos
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderResellerFilter, setOrderResellerFilter] = useState<string>('all');
 
   // Filtros - Clientes
   const [clientSearch, setClientSearch] = useState('');
@@ -409,6 +415,11 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchDashboardData();
 
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('zeiq_admin_avatar');
+      if (saved) setAdminAvatarId(saved);
+    }
+
     const handleOutsideClick = (e: MouseEvent) => {
       if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
         setIsCatDropdownOpen(false);
@@ -417,6 +428,15 @@ export default function AdminDashboardPage() {
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
+
+  const handleSelectAdminAvatar = (avatarId: string) => {
+    setAdminAvatarId(avatarId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('zeiq_admin_avatar', avatarId);
+    }
+    setAdminAvatarPickerOpen(false);
+    showToast('Avatar personalizado com sucesso!');
+  };
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -594,9 +614,13 @@ export default function AdminDashboardPage() {
     if (!confirmDelete) return;
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from('products').delete().eq('id', product.id);
-      if (error) throw error;
+      const res = await fetch(`/api/admin/products?id=${product.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao excluir produto.');
+      }
       setProducts((prev) => prev.filter((p) => p.id !== product.id));
       showToast('Produto excluído com sucesso.');
     } catch (err: any) {
@@ -1332,9 +1356,17 @@ export default function AdminDashboardPage() {
       const matchesStatus =
         orderStatusFilter === 'all' || o.status === orderStatusFilter;
 
-      return matchesSearch && matchesStatus;
+      const matchesReseller =
+        orderResellerFilter === 'all' ||
+        (orderResellerFilter === 'direct'
+          ? !o.reseller_id && !o.representative_id
+          : o.reseller_id === orderResellerFilter ||
+            o.representative_id === orderResellerFilter ||
+            o.reseller_name === orderResellerFilter);
+
+      return matchesSearch && matchesStatus && matchesReseller;
     });
-  }, [orders, orderSearch, orderStatusFilter]);
+  }, [orders, orderSearch, orderStatusFilter, orderResellerFilter]);
 
   // Filtro de Clientes e Membros Administrativos
   const filteredClients = useMemo(() => {
@@ -1610,24 +1642,84 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-bold text-white">
-                {user?.contact_name || user?.email || 'Administrador'}
-              </span>
-              <span className="text-xs text-slate-400">
-                {isCurrentUserMaster
-                  ? '👑 Diretoria (Master)'
-                  : isCurrentUserRepresentative
-                  ? '💼 Representante Comercial'
-                  : isCurrentUserStock
-                  ? '📦 Controle de Estoque'
-                  : '🛡️ Administrador Zeiq'}
-              </span>
+            {/* Seletor de Avatar SVG com 3 Opções de Cores */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAdminAvatarPickerOpen(!adminAvatarPickerOpen)}
+                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 hover:border-zeiq-orange/40 transition-all cursor-pointer group active:scale-95"
+                title="Clique para escolher seu Avatar com cores esportivas"
+              >
+                <div className="relative">
+                  <AvatarIcon avatarId={adminAvatarId} className="w-8 h-8 rounded-full" />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-zeiq-black animate-pulse" />
+                </div>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-xs font-bold text-white leading-tight">
+                    {user?.contact_name || user?.email?.split('@')[0] || 'Administrador'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 leading-none">
+                    {isCurrentUserMaster
+                      ? '👑 Diretoria (Master)'
+                      : isCurrentUserRepresentative
+                      ? '💼 Representante'
+                      : isCurrentUserStock
+                      ? '📦 Estoque'
+                      : '🛡️ Administrador'}
+                  </span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${adminAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
+              </button>
+
+              {/* Popover dos 3 Avatares */}
+              {adminAvatarPickerOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-zeiq-dark border border-zeiq-charcoal rounded-3xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-white">
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
+                    <div>
+                      <h4 className="text-xs font-black text-white">Escolha seu Avatar</h4>
+                      <p className="text-[10px] text-slate-400">Personalize com as cores esportivas Zeiq</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdminAvatarPickerOpen(false)}
+                      className="text-slate-400 hover:text-white p-1 rounded-lg"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 mt-3">
+                    {ADMIN_AVATARS.map((av) => (
+                      <button
+                        key={av.id}
+                        type="button"
+                        onClick={() => handleSelectAdminAvatar(av.id)}
+                        className={`w-full p-2.5 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                          adminAvatarId === av.id
+                            ? `${av.badgeBg} ${av.badgeBorder} ring-1 ring-zeiq-orange/50 shadow-md`
+                            : 'bg-zeiq-charcoal/50 border-white/5 hover:border-white/20 hover:bg-zeiq-charcoal'
+                        }`}
+                      >
+                        <AvatarIcon avatarId={av.id} className="w-10 h-10" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold text-white flex items-center justify-between">
+                            <span>{av.name}</span>
+                            {adminAvatarId === av.id && (
+                              <Check className="w-3.5 h-3.5 text-zeiq-orange" />
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400">{av.theme}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-rose-500/20 hover:text-rose-300 text-slate-300 rounded-lg text-xs font-semibold transition-colors border border-white/10"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-rose-500/20 hover:text-rose-300 text-slate-300 rounded-xl text-xs font-semibold transition-colors border border-white/10 cursor-pointer active:scale-95"
               title="Sair do painel"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -2617,6 +2709,75 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             </div>
+
+            {/* Filtro de Pedidos por Revendedor (Regra de Carteira Comercial) */}
+            {isCurrentUserAdminOrMaster && (
+              <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-2">
+                <div className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5 mr-1 shrink-0">
+                  <Briefcase className="w-3.5 h-3.5 text-zeiq-orange" />
+                  <span>Filtrar por Revendedor:</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setOrderResellerFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    orderResellerFilter === 'all'
+                      ? 'bg-zeiq-black text-white shadow-xs'
+                      : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  Todos ({orders.length})
+                </button>
+
+                {adminResellers.map((r) => {
+                  const count = orders.filter(
+                    (o) =>
+                      o.reseller_id === r.id ||
+                      o.reseller_name === r.name ||
+                      o.representative_id === r.id ||
+                      o.representative_id === r.user_id
+                  ).length;
+
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setOrderResellerFilter(r.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        orderResellerFilter === r.id
+                          ? 'bg-zeiq-orange text-zeiq-black shadow-xs font-extrabold'
+                          : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      <span>{r.name.split(' ')[0]} {r.name.split(' ')[1] || ''}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                        orderResellerFilter === r.id ? 'bg-black/20 text-black' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => setOrderResellerFilter('direct')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    orderResellerFilter === 'direct'
+                      ? 'bg-indigo-600 text-white shadow-xs font-extrabold'
+                      : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  <span>Venda Direta / Matriz</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                    orderResellerFilter === 'direct' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {orders.filter((o) => !o.reseller_id && !o.representative_id).length}
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* Tabela de Pedidos (Desktop) + Cards (Mobile) */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -5145,6 +5306,206 @@ export default function AdminDashboardPage() {
                     : (clientModalMode === 'create'
                         ? (clientRole === 'admin' ? 'Cadastrar Administrador' : 'Cadastrar Lojista B2B')
                         : 'Salvar Alterações')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: CADASTRO / EDIÇÃO DE REVENDEDOR (ADMIN MASTER)    */}
+      {/* ======================================================== */}
+      {resellerModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <button
+              type="button"
+              onClick={() => setResellerModalOpen(false)}
+              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-xl transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-zeiq-black text-white flex items-center justify-center shrink-0">
+                <Briefcase className="w-4 h-4 text-zeiq-orange" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-zeiq-black">
+                {editingReseller ? 'Editar Revendedor Comercial' : 'Cadastrar Novo Revendedor'}
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-5">
+              O revendedor receberá os pedidos dos lojistas vinculados a ele diretamente no WhatsApp e/ou E-mail.
+            </p>
+
+            <form onSubmit={handleSaveReseller} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nome Completo do Revendedor *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={resellerFormName}
+                  onChange={(e) => setResellerFormName(e.target.value)}
+                  placeholder="Ex: Carlos Eduardo de Lima"
+                  className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    WhatsApp para Pedidos *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={resellerFormWhatsapp}
+                    onChange={(e) => setResellerFormWhatsapp(e.target.value)}
+                    placeholder="Ex: 62999999999"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Apenas números com DDD (ex: 62999999999)</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    E-mail do Revendedor *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={resellerFormEmail}
+                    onChange={(e) => setResellerFormEmail(e.target.value)}
+                    placeholder="revendedor@zeiq.com.br"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Login no painel e fallback de pedidos</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Telefone Secundário (Opcional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={resellerFormPhone}
+                    onChange={(e) => setResellerFormPhone(e.target.value)}
+                    placeholder="Ex: 16 3333-4444"
+                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Status do Revendedor
+                  </label>
+                  <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setResellerFormStatus('ativo')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        resellerFormStatus === 'ativo'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-zeiq-black'
+                      }`}
+                    >
+                      Ativo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResellerFormStatus('inativo')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        resellerFormStatus === 'inativo'
+                          ? 'bg-slate-700 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-zeiq-black'
+                      }`}
+                    >
+                      Inativo
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Preferência de Notificação de Pedidos
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'both', label: 'Ambos (WhatsApp + E-mail)' },
+                    { key: 'whatsapp_only', label: 'Apenas WhatsApp' },
+                    { key: 'email_only', label: 'Apenas E-mail' },
+                  ].map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setResellerFormPref(p.key as any)}
+                      className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
+                        resellerFormPref === p.key
+                          ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
+                          : 'bg-[#f8f9fa] text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>{editingReseller ? 'Redefinir Senha do Painel (Opcional)' : 'Senha de Acesso ao Painel *'}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const randomPwd = 'Zeiq@' + Math.floor(1000 + Math.random() * 9000);
+                      setResellerFormPassword(randomPwd);
+                    }}
+                    className="text-xs text-zeiq-orange hover:underline font-bold cursor-pointer"
+                  >
+                    Gerar Senha
+                  </button>
+                </label>
+                <input
+                  type="text"
+                  required={!editingReseller}
+                  minLength={6}
+                  value={resellerFormPassword}
+                  onChange={(e) => setResellerFormPassword(e.target.value)}
+                  placeholder={editingReseller ? 'Deixe em branco para manter a senha atual' : 'Senha para login em /revendedor/login (mínimo 6 dígitos)'}
+                  className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setResellerModalOpen(false)}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-zeiq-black rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingReseller}
+                  className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  {savingReseller ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-zeiq-orange" />
+                      <span>{editingReseller ? 'Salvar Alterações' : 'Cadastrar Revendedor'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

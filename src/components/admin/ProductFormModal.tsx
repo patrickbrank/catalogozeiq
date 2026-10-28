@@ -343,84 +343,30 @@ export function ProductFormModal({
         basePayload.original_price = null;
       }
 
-      if (product) {
-        // Atualizar produto existente
-        let { error: updateError } = await supabase
-          .from('products')
-          .update(basePayload)
-          .eq('id', product.id);
+      // Envia para a API administrativa segura (com chave de serviço e validação de sessão)
+      const isEditing = !!product;
+      const apiPayload = {
+        ...basePayload,
+        slug,
+        id: product?.id,
+        category_ids: selectedCategoryIds,
+        images: images.map((img, idx) => ({
+          public_url: img.public_url,
+          storage_path: img.storage_path || `produtos/p-${product?.id || Date.now()}-${idx}.jpg`,
+          is_cover: images.some((i) => i.is_cover) ? img.is_cover : idx === 0,
+          sort_order: idx,
+        })),
+      };
 
-        if (updateError && (updateError.message?.includes('price') || updateError.message?.includes('stock'))) {
-          if (updateError.message?.includes('stock')) {
-            delete basePayload.stock_by_size;
-            delete basePayload.total_stock;
-          }
-          if (updateError.message?.includes('price')) {
-            delete basePayload.price;
-            delete basePayload.original_price;
-          }
-          const retry = await supabase.from('products').update(basePayload).eq('id', product.id);
-          updateError = retry.error;
-        }
+      const res = await fetch('/api/admin/products', {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload),
+      });
 
-        if (updateError) throw updateError;
-      } else {
-        // Inserir novo produto
-        let insertPayload = { ...basePayload, slug };
-        let { data: newProd, error: insertError } = await supabase
-          .from('products')
-          .insert(insertPayload)
-          .select('id')
-          .single();
-
-        if (insertError && (insertError.message?.includes('price') || insertError.message?.includes('stock'))) {
-          if (insertError.message?.includes('stock')) {
-            delete insertPayload.stock_by_size;
-            delete insertPayload.total_stock;
-          }
-          if (insertError.message?.includes('price')) {
-            delete insertPayload.price;
-            delete insertPayload.original_price;
-          }
-          const retry = await supabase.from('products').insert(insertPayload).select('id').single();
-          newProd = retry.data;
-          insertError = retry.error;
-        }
-
-        if (insertError) throw insertError;
-        productId = newProd?.id;
-      }
-
-      if (productId) {
-        // Atualizar categorias associadas
-        const { error: delCatErr } = await supabase.from('product_categories').delete().eq('product_id', productId);
-        if (delCatErr) throw delCatErr;
-
-        if (selectedCategoryIds.length > 0) {
-          const catInserts = selectedCategoryIds.map((cId) => ({
-            product_id: productId!,
-            category_id: cId,
-          }));
-          const { error: insCatErr } = await supabase.from('product_categories').insert(catInserts);
-          if (insCatErr) throw insCatErr;
-        }
-
-        // Atualizar imagens garantindo cover e storage_path válido
-        const { error: delImgErr } = await supabase.from('product_images').delete().eq('product_id', productId);
-        if (delImgErr) throw delImgErr;
-
-        if (images.length > 0) {
-          const hasCover = images.some((img) => img.is_cover);
-          const imgInserts = images.map((img, idx) => ({
-            product_id: productId!,
-            storage_path: img.storage_path || `produtos/p-${productId}-${idx}.jpg`,
-            public_url: img.public_url,
-            is_cover: hasCover ? img.is_cover : idx === 0,
-            sort_order: idx,
-          }));
-          const { error: insImgErr } = await supabase.from('product_images').insert(imgInserts);
-          if (insImgErr) throw insImgErr;
-        }
+      const resData = await res.json();
+      if (!res.ok || !resData.success) {
+        throw new Error(resData.error || 'Erro ao salvar produto via administração.');
       }
 
       onSaved();
