@@ -30,7 +30,7 @@ export async function verifyAdmin(): Promise<{ isAdmin: boolean; isMaster: boole
     const isMaster = isMasterEmail(email);
 
     if (isMaster) {
-      return { isAdmin: true, isMaster: true, user, role: 'admin' };
+      return { isAdmin: true, isMaster: true, user, role: 'master' };
     }
 
     let role = user.app_metadata?.role || user.user_metadata?.role;
@@ -40,7 +40,7 @@ export async function verifyAdmin(): Promise<{ isAdmin: boolean; isMaster: boole
     if (adminClient) {
       const { data: profile } = await adminClient
         .from('profiles')
-        .select('role')
+        .select('role, representative_id')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -49,8 +49,8 @@ export async function verifyAdmin(): Promise<{ isAdmin: boolean; isMaster: boole
       }
     }
 
-    // Cargos com acesso ao painel administrativo: admin, marketing e stock (estoque)
-    const isStaff = ['admin', 'marketing', 'stock'].includes(role);
+    // Cargos com acesso ao painel administrativo: master, admin, representative e stock (marketing excluído)
+    const isStaff = ['master', 'admin', 'representative', 'stock'].includes(role);
     return { isAdmin: isStaff, isMaster: false, user, role: role || 'reseller' };
   } catch {
     return { isAdmin: false, isMaster: false, user: null, role: 'guest' };

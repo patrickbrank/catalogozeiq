@@ -52,6 +52,8 @@ import {
   Boxes,
   Minus,
   AlertTriangle,
+  Briefcase,
+  Send,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Product, Category, Order, OrderStatus, QuoteItem, BannerItem, StoreSettings } from '@/types';
@@ -76,7 +78,21 @@ export default function AdminDashboardPage() {
   // Estados Globais do Painel
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'banners' | 'settings' | 'users' | 'categories'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'banners' | 'settings' | 'users' | 'categories' | 'resellers'>('products');
+
+  // Estados para Gestão de Revendedores (Admin Master)
+  const [adminResellers, setAdminResellers] = useState<any[]>([]);
+  const [resellerModalOpen, setResellerModalOpen] = useState(false);
+  const [editingReseller, setEditingReseller] = useState<any | null>(null);
+  const [resellerFormName, setResellerFormName] = useState('');
+  const [resellerFormEmail, setResellerFormEmail] = useState('');
+  const [resellerFormWhatsapp, setResellerFormWhatsapp] = useState('');
+  const [resellerFormPhone, setResellerFormPhone] = useState('');
+  const [resellerFormStatus, setResellerFormStatus] = useState<'ativo' | 'inativo'>('ativo');
+  const [resellerFormPref, setResellerFormPref] = useState<'whatsapp_only' | 'email_only' | 'both'>('both');
+  const [resellerFormPassword, setResellerFormPassword] = useState('');
+  const [savingReseller, setSavingReseller] = useState(false);
+  const [resellerSearch, setResellerSearch] = useState('');
 
   // Estados para Acesso Direto ao Painel Administrativo
   const [authEmail, setAuthEmail] = useState('');
@@ -196,7 +212,8 @@ export default function AdminDashboardPage() {
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [clientModalMode, setClientModalMode] = useState<'create' | 'edit'>('create');
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
-  const [clientRole, setClientRole] = useState<'admin' | 'marketing' | 'stock' | 'reseller'>('reseller');
+  const [clientRole, setClientRole] = useState<'admin' | 'representative' | 'stock' | 'reseller'>('reseller');
+  const [clientRepresentativeId, setClientRepresentativeId] = useState<string>('');
   const [newClientName, setNewClientName] = useState('');
   const [newClientStore, setNewClientStore] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -210,8 +227,8 @@ export default function AdminDashboardPage() {
   const [savingClient, setSavingClient] = useState(false);
   const [clientError, setClientError] = useState('');
 
-  // Filtro de Papel de Usuários (Todos / Lojistas / Estoque / Marketing / Administradores)
-  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'reseller' | 'stock' | 'marketing' | 'admin'>('all');
+  // Filtro de Papel de Usuários (Todos / Lojistas / Representantes / Estoque / Administradores)
+  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'reseller' | 'representative' | 'stock' | 'admin'>('all');
   const [userApprovalFilter, setUserApprovalFilter] = useState<'all' | 'pending' | 'active'>('all');
 
   // Toast feedback
@@ -221,6 +238,13 @@ export default function AdminDashboardPage() {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3500);
   };
+
+  // Identificação de cargo e permissões do usuário logado
+  const currentUserRole = user?.role || 'admin';
+  const isCurrentUserMaster = user?.is_master || isMasterEmail(user?.email);
+  const isCurrentUserRepresentative = currentUserRole === 'representative';
+  const isCurrentUserStock = currentUserRole === 'stock';
+  const isCurrentUserAdminOrMaster = isCurrentUserMaster || currentUserRole === 'admin';
 
   // Carrega todos os dados do painel
   const fetchDashboardData = async () => {
@@ -236,7 +260,15 @@ export default function AdminDashboardPage() {
         router.push('/admin/login?error=unauthorized');
         return;
       }
-      setUser(verifyData.user);
+      const loggedUser = verifyData.user;
+      setUser(loggedUser);
+
+      // Define aba inicial padrão de acordo com o cargo
+      if (loggedUser?.role === 'representative') {
+        setActiveTab((prev) => (prev === 'orders' || prev === 'users' ? prev : 'orders'));
+      } else if (loggedUser?.role === 'stock') {
+        setActiveTab((prev) => (prev === 'products' || prev === 'banners' || prev === 'categories' ? prev : 'products'));
+      }
 
       // 0. Busca Departamentos / Linhas Esportivas
       try {
@@ -355,6 +387,17 @@ export default function AdminDashboardPage() {
         }
       } catch (err) {
         console.warn('Erro ao carregar configurações admin:', err);
+      }
+
+      // 7. Busca Revendedores Comerciais via API Admin
+      try {
+        const resRes = await fetch('/api/admin/resellers');
+        const resData = await resRes.json();
+        if (resData.success && Array.isArray(resData.resellers)) {
+          setAdminResellers(resData.resellers);
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar revendedores admin:', err);
       }
     } catch (err) {
       console.error('Erro ao carregar dados do admin:', err);
@@ -919,15 +962,15 @@ export default function AdminDashboardPage() {
   // ==========================================
   // OPERAÇÕES DE CLIENTES E MEMBROS ADMINISTRATIVOS
   // ==========================================
-  const handleOpenCreateUserModal = (role: 'reseller' | 'stock' | 'marketing' | 'admin' = 'reseller') => {
+  const handleOpenCreateUserModal = (role: 'reseller' | 'representative' | 'stock' | 'admin' = 'reseller') => {
     setClientModalMode('create');
     setEditingClientId(null);
     setClientRole(role);
     setNewClientName('');
     const defaultStore = role === 'admin'
       ? 'Administração Zeiq'
-      : role === 'marketing'
-      ? 'Marketing Zeiq'
+      : role === 'representative'
+      ? 'Representação Comercial'
       : role === 'stock'
       ? 'Estoque Zeiq'
       : '';
@@ -938,6 +981,7 @@ export default function AdminDashboardPage() {
     setNewClientState('');
     setNewClientEmail('');
     setNewClientPassword('');
+    setClientRepresentativeId(isCurrentUserRepresentative ? user?.id || '' : '');
     setClientApproved(true);
     setClientIsMaster(false);
     setClientError('');
@@ -953,7 +997,7 @@ export default function AdminDashboardPage() {
     const roleCandidate = client.role;
     const cleanRole = isMaster
       ? 'admin'
-      : (['admin', 'marketing', 'stock', 'reseller'].includes(roleCandidate) ? roleCandidate : 'reseller');
+      : (['admin', 'representative', 'stock', 'reseller'].includes(roleCandidate) ? roleCandidate : 'reseller');
     setClientRole(cleanRole);
     setNewClientName(client.contact_name || '');
     setNewClientStore(client.store_name || '');
@@ -963,6 +1007,7 @@ export default function AdminDashboardPage() {
     setNewClientState(client.state || '');
     setNewClientEmail(client.email || '');
     setNewClientPassword(''); // em branco = mantém a senha atual
+    setClientRepresentativeId(client.representative_id || '');
     setClientApproved(client.is_approved ?? true);
     setClientIsMaster(isMaster);
     setClientError('');
@@ -995,7 +1040,7 @@ export default function AdminDashboardPage() {
     try {
       const roleLabels: Record<string, string> = {
         admin: 'Administrador',
-        marketing: 'Marketing Interno',
+        representative: 'Representante Comercial',
         stock: 'Controle de Estoque',
         reseller: 'Lojista B2B',
       };
@@ -1015,6 +1060,7 @@ export default function AdminDashboardPage() {
             city: newClientCity,
             state: newClientState,
             role: clientRole,
+            representative_id: clientRole === 'reseller' ? (clientRepresentativeId || null) : null,
           }),
         });
 
@@ -1042,6 +1088,7 @@ export default function AdminDashboardPage() {
             role: clientRole,
             password: newClientPassword.trim() ? newClientPassword : undefined,
             is_approved: clientApproved,
+            representative_id: clientRole === 'reseller' ? (clientRepresentativeId || null) : null,
           }),
         });
 
@@ -1063,13 +1110,13 @@ export default function AdminDashboardPage() {
 
   const handleDeleteClient = async (client: any) => {
     if (client.is_master || isMasterEmail(client.email)) {
-      alert('A conta master de administração não pode ser excluída.');
+      alert('A conta master de administração é protegida e não pode ser excluída.');
       return;
     }
 
     const roleLabels: Record<string, string> = {
       admin: 'administrador',
-      marketing: 'membro do marketing',
+      representative: 'representante comercial',
       stock: 'membro do estoque',
       reseller: 'lojista',
     };
@@ -1115,6 +1162,126 @@ export default function AdminDashboardPage() {
       }
     } catch {
       showToast('Erro de conexão ao aprovar lojista.');
+    }
+  };
+
+  // Handlers para Gestão de Revendedores (Admin Master)
+  const handleOpenCreateResellerModal = () => {
+    setEditingReseller(null);
+    setResellerFormName('');
+    setResellerFormEmail('');
+    setResellerFormWhatsapp('');
+    setResellerFormPhone('');
+    setResellerFormStatus('ativo');
+    setResellerFormPref('both');
+    setResellerFormPassword('');
+    setResellerModalOpen(true);
+  };
+
+  const handleOpenEditResellerModal = (r: any) => {
+    setEditingReseller(r);
+    setResellerFormName(r.name || '');
+    setResellerFormEmail(r.email || '');
+    setResellerFormWhatsapp(r.whatsapp || '');
+    setResellerFormPhone(r.phone || '');
+    setResellerFormStatus(r.status || 'ativo');
+    setResellerFormPref(r.notification_preference || 'both');
+    setResellerFormPassword('');
+    setResellerModalOpen(true);
+  };
+
+  const handleSaveReseller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resellerFormName.trim() || !resellerFormEmail.trim() || !resellerFormWhatsapp.trim()) {
+      alert('Preencha os campos obrigatórios: Nome, E-mail e WhatsApp.');
+      return;
+    }
+
+    setSavingReseller(true);
+    try {
+      const isEditing = !!editingReseller?.id;
+      const url = '/api/admin/resellers';
+      const method = isEditing ? 'PUT' : 'POST';
+      const body: any = {
+        name: resellerFormName.trim(),
+        email: resellerFormEmail.trim(),
+        whatsapp: resellerFormWhatsapp.trim(),
+        phone: resellerFormPhone.trim() || null,
+        status: resellerFormStatus,
+        notification_preference: resellerFormPref,
+      };
+
+      if (isEditing) {
+        body.id = editingReseller.id;
+        if (resellerFormPassword.trim()) {
+          body.password = resellerFormPassword.trim();
+        }
+      } else {
+        if (resellerFormPassword.trim()) {
+          body.password = resellerFormPassword.trim();
+        }
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao salvar revendedor.');
+      }
+
+      setResellerModalOpen(false);
+      showToast(isEditing ? 'Revendedor atualizado com sucesso!' : 'Revendedor cadastrado com sucesso!');
+      fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Falha ao salvar revendedor.');
+    } finally {
+      setSavingReseller(false);
+    }
+  };
+
+  const handleToggleResellerStatus = async (r: any) => {
+    const nextStatus = r.status === 'ativo' ? 'inativo' : 'ativo';
+    try {
+      const res = await fetch('/api/admin/resellers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: r.id,
+          status: nextStatus,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao alterar status.');
+      }
+      showToast(`Revendedor ${nextStatus === 'ativo' ? 'ativado' : 'desativado'} com sucesso!`);
+      fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Falha ao alterar status do revendedor.');
+    }
+  };
+
+  const handleDeleteReseller = async (r: any) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o revendedor "${r.name}"? Os lojistas vinculados a ele serão desvinculados.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/resellers?id=${r.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Erro ao excluir revendedor.');
+      }
+      showToast('Revendedor excluído com sucesso.');
+      fetchDashboardData();
+    } catch (err: any) {
+      alert(err.message || 'Falha ao excluir revendedor.');
     }
   };
 
@@ -1184,8 +1351,12 @@ export default function AdminDashboardPage() {
         userRoleFilter === 'all' ||
         (userRoleFilter === 'reseller'
           ? (c.role === 'reseller' || (!c.role && !c.is_master))
+          : userRoleFilter === 'representative'
+          ? c.role === 'representative'
+          : userRoleFilter === 'stock'
+          ? c.role === 'stock'
           : userRoleFilter === 'admin'
-          ? (c.role === 'admin' || c.is_master)
+          ? (c.role === 'admin' || c.role === 'master' || c.is_master)
           : c.role === userRoleFilter);
 
       const matchesApproval =
@@ -1206,6 +1377,20 @@ export default function AdminDashboardPage() {
       return d?.id === selectedDeptFilter;
     });
   }, [categories, departments, selectedDeptFilter]);
+
+  // Filtro de Revendedores Cadastrados (Admin Master)
+  const filteredResellers = useMemo(() => {
+    return adminResellers.filter((r) => {
+      const term = resellerSearch.toLowerCase().trim();
+      return (
+        !term ||
+        r.name?.toLowerCase().includes(term) ||
+        r.email?.toLowerCase().includes(term) ||
+        r.whatsapp?.includes(term) ||
+        r.phone?.includes(term)
+      );
+    });
+  }, [adminResellers, resellerSearch]);
 
   // Busca rápida dentro do dropdown customizado de categorias
   const searchedFilterCategories = useMemo(() => {
@@ -1427,10 +1612,16 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex flex-col text-right">
               <span className="text-xs font-bold text-white">
-                {user?.email || 'Administrador'}
+                {user?.contact_name || user?.email || 'Administrador'}
               </span>
               <span className="text-xs text-slate-400">
-                Acesso Total • Gestão Master
+                {isCurrentUserMaster
+                  ? '👑 Diretoria (Master)'
+                  : isCurrentUserRepresentative
+                  ? '💼 Representante Comercial'
+                  : isCurrentUserStock
+                  ? '📦 Controle de Estoque'
+                  : '🛡️ Administrador Zeiq'}
               </span>
             </div>
 
@@ -1449,119 +1640,165 @@ export default function AdminDashboardPage() {
       {/* 2. Barra de Navegação de Módulos (Tabs Responsivas no Mobile) */}
       <nav className="bg-white border-b border-zeiq-muted sticky top-16 sm:top-18 z-30 shadow-2xs">
         <div className="max-w-[1720px] mx-auto px-3 sm:px-6 lg:px-10 flex items-center overflow-x-auto no-scrollbar gap-1.5 py-1.5">
-          <button
-            type="button"
-            onClick={() => setActiveTab('products')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-              activeTab === 'products'
-                ? 'bg-zeiq-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            <span className="sm:hidden">Produtos</span>
-            <span className="hidden sm:inline">Catálogo de Produtos</span>
-            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
-              activeTab === 'products' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-            }`}>
-              {products.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('orders')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-              activeTab === 'orders'
-                ? 'bg-zeiq-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-            }`}
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span className="sm:hidden">Pedidos</span>
-            <span className="hidden sm:inline">Pedidos & Cotações</span>
-            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
-              activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-            }`}>
-              {orders.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('banners')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-              activeTab === 'banners'
-                ? 'bg-zeiq-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-            }`}
-          >
-            <ImageIcon className="w-4 h-4" />
-            <span className="sm:hidden">Banners</span>
-            <span className="hidden sm:inline">Banners da Home</span>
-            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
-              activeTab === 'banners' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-            }`}>
-              {banners.length}/5
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-              activeTab === 'settings'
-                ? 'bg-zeiq-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            <span className="sm:hidden">Contato</span>
-            <span className="hidden sm:inline">WhatsApp & Contato</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('users')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-              activeTab === 'users'
-                ? 'bg-zeiq-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span className="sm:hidden">Clientes</span>
-            <span className="hidden sm:inline">Clientes & Lojistas</span>
-            {pendingClients.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
-                {pendingClients.length}
+          {/* Aba Produtos: Apenas Estoque e Admin/Master */}
+          {(isCurrentUserStock || isCurrentUserAdminOrMaster) && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('products')}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
+                activeTab === 'products'
+                  ? 'bg-zeiq-black text-white shadow-xs'
+                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
+              }`}
+            >
+              <Package className="w-4 h-4" />
+              <span className="sm:hidden">Produtos</span>
+              <span className="hidden sm:inline">Catálogo de Produtos</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                activeTab === 'products' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {products.length}
               </span>
-            )}
-            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
-              activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-            }`}>
-              {clients.length}
-            </span>
-          </button>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('categories')}
-            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-              activeTab === 'categories'
-                ? 'bg-zeiq-black text-white shadow-xs'
-                : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-            }`}
-          >
-            <FolderTree className="w-4 h-4" />
-            <span className="sm:hidden">Categorias</span>
-            <span className="hidden sm:inline">Categorias do Catálogo</span>
-            <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
-              activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-            }`}>
-              {categories.length}
-            </span>
-          </button>
+          {/* Aba Pedidos: Representante e Admin/Master (Estoque NÃO visualiza) */}
+          {(isCurrentUserRepresentative || isCurrentUserAdminOrMaster) && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('orders')}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
+                activeTab === 'orders'
+                  ? 'bg-zeiq-black text-white shadow-xs'
+                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span className="sm:hidden">Pedidos</span>
+              <span className="hidden sm:inline">
+                {isCurrentUserRepresentative ? 'Pedidos da Carteira' : 'Pedidos & Cotações'}
+              </span>
+              <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {orders.length}
+              </span>
+            </button>
+          )}
+
+          {/* Aba Banners: Apenas Estoque e Admin/Master */}
+          {(isCurrentUserStock || isCurrentUserAdminOrMaster) && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('banners')}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
+                activeTab === 'banners'
+                  ? 'bg-zeiq-black text-white shadow-xs'
+                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
+              }`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span className="sm:hidden">Banners</span>
+              <span className="hidden sm:inline">Banners da Home</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                activeTab === 'banners' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {banners.length}/5
+              </span>
+            </button>
+          )}
+
+          {/* Aba Contato: Apenas Admin/Master */}
+          {isCurrentUserAdminOrMaster && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('settings')}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-zeiq-black text-white shadow-xs'
+                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span className="sm:hidden">Contato</span>
+              <span className="hidden sm:inline">WhatsApp & Contato</span>
+            </button>
+          )}
+
+          {/* Aba Clientes/Lojistas: Representante e Admin/Master (Estoque NÃO visualiza) */}
+          {(isCurrentUserRepresentative || isCurrentUserAdminOrMaster) && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('users')}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
+                activeTab === 'users'
+                  ? 'bg-zeiq-black text-white shadow-xs'
+                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span className="sm:hidden">
+                {isCurrentUserRepresentative ? 'Lojistas' : 'Clientes'}
+              </span>
+              <span className="hidden sm:inline">
+                {isCurrentUserRepresentative ? 'Meus Lojistas B2B' : 'Clientes & Lojistas'}
+              </span>
+              {pendingClients.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
+                  {pendingClients.length}
+                </span>
+              )}
+              <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                activeTab === 'users' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {clients.length}
+              </span>
+            </button>
+          )}
+
+          {/* Aba Categorias: Apenas Estoque e Admin/Master */}
+          {(isCurrentUserStock || isCurrentUserAdminOrMaster) && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('categories')}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
+                activeTab === 'categories'
+                  ? 'bg-zeiq-black text-white shadow-xs'
+                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
+              }`}
+            >
+              <FolderTree className="w-4 h-4" />
+              <span className="sm:hidden">Categorias</span>
+              <span className="hidden sm:inline">Categorias do Catálogo</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {categories.length}
+              </span>
+            </button>
+          )}
+
+          {/* Aba Revendedores: Apenas Admin/Master */}
+          {isCurrentUserAdminOrMaster && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('resellers')}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
+                activeTab === 'resellers'
+                  ? 'bg-zeiq-black text-white shadow-xs'
+                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span className="sm:hidden">Revendedores</span>
+              <span className="hidden sm:inline">Revendedores</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
+                activeTab === 'resellers' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {adminResellers.length}
+              </span>
+            </button>
+          )}
         </div>
       </nav>
 
@@ -2423,6 +2660,12 @@ export default function AdminDashboardPage() {
                                   Resp: {order.buyer_name}
                                 </span>
                               )}
+                              {(order.reseller_name || order.representative_name) && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-800 bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md mt-1">
+                                  <Briefcase className="w-3 h-3 text-sky-500 shrink-0" />
+                                  <span>Revendedor: {order.reseller_name || order.representative_name}</span>
+                                </span>
+                              )}
                             </td>
 
                             <td className="py-3.5 px-4">
@@ -2463,6 +2706,18 @@ export default function AdminDashboardPage() {
 
                             <td className="py-3.5 px-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
+                                {order.whatsapp_share_url && (
+                                  <a
+                                    href={order.whatsapp_share_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold border border-emerald-200 transition-colors"
+                                    title="Notificação WhatsApp do Revendedor"
+                                  >
+                                    <Send className="w-4 h-4 text-emerald-600" />
+                                  </a>
+                                )}
+
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2585,7 +2840,7 @@ export default function AdminDashboardPage() {
         {activeTab === 'users' && (
           <div className="space-y-6">
             {/* Métricas de Clientes e Equipe Zeiq */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className={`grid gap-3 sm:gap-4 ${isCurrentUserRepresentative ? 'grid-cols-2 sm:grid-cols-2' : 'grid-cols-2 lg:grid-cols-4'}`}>
               <button
                 type="button"
                 onClick={() => setUserRoleFilter('reseller')}
@@ -2599,7 +2854,7 @@ export default function AdminDashboardPage() {
                   <p className={`text-xs font-bold uppercase tracking-wider ${
                     userRoleFilter === 'reseller' ? 'text-slate-300' : 'text-slate-400'
                   }`}>
-                    Lojistas B2B
+                    {isCurrentUserRepresentative ? 'Meus Lojistas' : 'Lojistas B2B'}
                   </p>
                   <Building2 className={`w-4 h-4 ${
                     userRoleFilter === 'reseller' ? 'text-zeiq-orange' : 'text-slate-400'
@@ -2613,102 +2868,132 @@ export default function AdminDashboardPage() {
                 <p className={`text-xs mt-0.5 ${
                   userRoleFilter === 'reseller' ? 'text-slate-300' : 'text-slate-500'
                 }`}>
-                  Acesso ao catálogo e cotações
+                  {isCurrentUserRepresentative ? 'Lojistas vinculados a você' : 'Acesso ao catálogo e cotações'}
                 </p>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setUserRoleFilter('stock')}
-                className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
-                  userRoleFilter === 'stock'
-                    ? 'bg-blue-950 text-white border-blue-900 shadow-md ring-2 ring-blue-500/20'
-                    : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <p className={`text-xs font-bold uppercase tracking-wider ${
-                    userRoleFilter === 'stock' ? 'text-blue-200' : 'text-blue-700'
-                  }`}>
-                    Estoque & Expedição
-                  </p>
-                  <Boxes className={`w-4 h-4 ${
-                    userRoleFilter === 'stock' ? 'text-blue-400' : 'text-blue-600'
-                  }`} />
-                </div>
-                <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
-                  userRoleFilter === 'stock' ? 'text-white' : 'text-blue-900'
-                }`}>
-                  {clients.filter((c) => c.role === 'stock').length}
-                </h3>
-                <p className={`text-xs mt-0.5 ${
-                  userRoleFilter === 'stock' ? 'text-blue-200/80' : 'text-slate-500'
-                }`}>
-                  Gestão e ajuste de estoque
-                </p>
-              </button>
+              {!isCurrentUserRepresentative ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('representative')}
+                    className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                      userRoleFilter === 'representative'
+                        ? 'bg-sky-950 text-white border-sky-900 shadow-md ring-2 ring-sky-500/20'
+                        : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className={`text-xs font-bold uppercase tracking-wider ${
+                        userRoleFilter === 'representative' ? 'text-sky-200' : 'text-sky-700'
+                      }`}>
+                        Representantes
+                      </p>
+                      <Briefcase className={`w-4 h-4 ${
+                        userRoleFilter === 'representative' ? 'text-sky-400' : 'text-sky-600'
+                      }`} />
+                    </div>
+                    <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
+                      userRoleFilter === 'representative' ? 'text-white' : 'text-sky-900'
+                    }`}>
+                      {clients.filter((c) => c.role === 'representative').length}
+                    </h3>
+                    <p className={`text-xs mt-0.5 ${
+                      userRoleFilter === 'representative' ? 'text-sky-200/80' : 'text-slate-500'
+                    }`}>
+                      Gestão de carteiras e pedidos
+                    </p>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setUserRoleFilter('marketing')}
-                className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
-                  userRoleFilter === 'marketing'
-                    ? 'bg-purple-950 text-white border-purple-900 shadow-md ring-2 ring-purple-500/20'
-                    : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <p className={`text-xs font-bold uppercase tracking-wider ${
-                    userRoleFilter === 'marketing' ? 'text-purple-200' : 'text-purple-700'
-                  }`}>
-                    Marketing Interno
-                  </p>
-                  <ImageIcon className={`w-4 h-4 ${
-                    userRoleFilter === 'marketing' ? 'text-purple-400' : 'text-purple-600'
-                  }`} />
-                </div>
-                <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
-                  userRoleFilter === 'marketing' ? 'text-white' : 'text-purple-900'
-                }`}>
-                  {clients.filter((c) => c.role === 'marketing').length}
-                </h3>
-                <p className={`text-xs mt-0.5 ${
-                  userRoleFilter === 'marketing' ? 'text-purple-200/80' : 'text-slate-500'
-                }`}>
-                  Banners, vitrine e produtos
-                </p>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('stock')}
+                    className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                      userRoleFilter === 'stock'
+                        ? 'bg-blue-950 text-white border-blue-900 shadow-md ring-2 ring-blue-500/20'
+                        : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className={`text-xs font-bold uppercase tracking-wider ${
+                        userRoleFilter === 'stock' ? 'text-blue-200' : 'text-blue-700'
+                      }`}>
+                        Estoque & Expedição
+                      </p>
+                      <Boxes className={`w-4 h-4 ${
+                        userRoleFilter === 'stock' ? 'text-blue-400' : 'text-blue-600'
+                      }`} />
+                    </div>
+                    <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
+                      userRoleFilter === 'stock' ? 'text-white' : 'text-blue-900'
+                    }`}>
+                      {clients.filter((c) => c.role === 'stock').length}
+                    </h3>
+                    <p className={`text-xs mt-0.5 ${
+                      userRoleFilter === 'stock' ? 'text-blue-200/80' : 'text-slate-500'
+                    }`}>
+                      Gestão e ajuste de estoque
+                    </p>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setUserRoleFilter('admin')}
-                className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
-                  userRoleFilter === 'admin'
-                    ? 'bg-amber-950 text-white border-amber-900 shadow-md ring-2 ring-amber-500/20'
-                    : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <p className={`text-xs font-bold uppercase tracking-wider ${
-                    userRoleFilter === 'admin' ? 'text-amber-200' : 'text-amber-700'
-                  }`}>
-                    Administração & Master
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('admin')}
+                    className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                      userRoleFilter === 'admin'
+                        ? 'bg-amber-950 text-white border-amber-900 shadow-md ring-2 ring-amber-500/20'
+                        : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className={`text-xs font-bold uppercase tracking-wider ${
+                        userRoleFilter === 'admin' ? 'text-amber-200' : 'text-amber-700'
+                      }`}>
+                        Administração & Master
+                      </p>
+                      <ShieldCheck className={`w-4 h-4 ${
+                        userRoleFilter === 'admin' ? 'text-zeiq-orange' : 'text-amber-600'
+                      }`} />
+                    </div>
+                    <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
+                      userRoleFilter === 'admin' ? 'text-white' : 'text-amber-900'
+                    }`}>
+                      {clients.filter((c) => c.role === 'admin' || c.is_master).length}
+                    </h3>
+                    <p className={`text-xs mt-0.5 ${
+                      userRoleFilter === 'admin' ? 'text-amber-200/80' : 'text-slate-500'
+                    }`}>
+                      Acesso total ao painel e equipe
+                    </p>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserApprovalFilter('pending');
+                    setUserRoleFilter('all');
+                  }}
+                  className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
+                    userApprovalFilter === 'pending'
+                      ? 'bg-amber-950 text-white border-amber-900 shadow-md ring-2 ring-amber-500/20'
+                      : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
+                      Aguardando Aprovação
+                    </p>
+                    <Clock className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black mt-1 text-amber-900">
+                    {pendingClients.length}
+                  </h3>
+                  <p className="text-xs mt-0.5 text-slate-500">
+                    Lojistas aguardando sua liberação
                   </p>
-                  <ShieldCheck className={`w-4 h-4 ${
-                    userRoleFilter === 'admin' ? 'text-zeiq-orange' : 'text-amber-600'
-                  }`} />
-                </div>
-                <h3 className={`text-xl sm:text-2xl font-black mt-1 ${
-                  userRoleFilter === 'admin' ? 'text-white' : 'text-amber-900'
-                }`}>
-                  {clients.filter((c) => c.role === 'admin' || c.is_master).length}
-                </h3>
-                <p className={`text-xs mt-0.5 ${
-                  userRoleFilter === 'admin' ? 'text-amber-200/80' : 'text-slate-500'
-                }`}>
-                  Acesso total ao painel e equipe
-                </p>
-              </button>
+                </button>
+              )}
             </div>
 
             {/* Aviso de Lojistas Aguardando Aprovação */}
@@ -2807,39 +3092,44 @@ export default function AdminDashboardPage() {
                   >
                     Lojistas ({clients.filter((c) => c.role === 'reseller' || (!c.role && !c.is_master)).length})
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setUserRoleFilter('stock')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      userRoleFilter === 'stock'
-                        ? 'bg-white text-blue-800 shadow-2xs'
-                        : 'text-slate-600 hover:text-zeiq-black'
-                    }`}
-                  >
-                    Estoque ({clients.filter((c) => c.role === 'stock').length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUserRoleFilter('marketing')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      userRoleFilter === 'marketing'
-                        ? 'bg-white text-purple-800 shadow-2xs'
-                        : 'text-slate-600 hover:text-zeiq-black'
-                    }`}
-                  >
-                    Marketing ({clients.filter((c) => c.role === 'marketing').length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUserRoleFilter('admin')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      userRoleFilter === 'admin'
-                        ? 'bg-white text-amber-900 shadow-2xs'
-                        : 'text-slate-600 hover:text-zeiq-black'
-                    }`}
-                  >
-                    Admins ({clients.filter((c) => c.role === 'admin' || c.is_master).length})
-                  </button>
+
+                  {!isCurrentUserRepresentative && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setUserRoleFilter('representative')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                          userRoleFilter === 'representative'
+                            ? 'bg-white text-sky-800 shadow-2xs'
+                            : 'text-slate-600 hover:text-zeiq-black'
+                        }`}
+                      >
+                        Representantes ({clients.filter((c) => c.role === 'representative').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserRoleFilter('stock')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                          userRoleFilter === 'stock'
+                            ? 'bg-white text-blue-800 shadow-2xs'
+                            : 'text-slate-600 hover:text-zeiq-black'
+                        }`}
+                      >
+                        Estoque ({clients.filter((c) => c.role === 'stock').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserRoleFilter('admin')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                          userRoleFilter === 'admin'
+                            ? 'bg-white text-amber-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-zeiq-black'
+                        }`}
+                      >
+                        Admins ({clients.filter((c) => c.role === 'admin' || c.is_master).length})
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -2855,15 +3145,17 @@ export default function AdminDashboardPage() {
                   <span>Novo Lojista</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenCreateUserModal('admin')}
-                  className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
-                  title="Cadastrar novo membro da equipe com acesso ao painel"
-                >
-                  <ShieldCheck className="w-4 h-4 text-zeiq-orange" />
-                  <span>Novo Membro / Equipe</span>
-                </button>
+                {isCurrentUserAdminOrMaster && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCreateUserModal('representative')}
+                    className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
+                    title="Cadastrar novo representante comercial ou membro da equipe"
+                  >
+                    <Briefcase className="w-4 h-4 text-zeiq-orange" />
+                    <span>Novo Membro / Equipe</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2899,9 +3191,15 @@ export default function AdminDashboardPage() {
                           <tr key={client.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4">
                               <strong className="text-zeiq-black block font-semibold">{client.store_name}</strong>
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-slate-400 block">
                                 {client.city ? `${client.city}${client.state ? ` - ${client.state}` : ''}` : 'Local não informado'}
                               </span>
+                              {client.representative_name && (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded font-medium mt-0.5">
+                                  <span>💼 Rep:</span>
+                                  <strong>{client.representative_name}</strong>
+                                </span>
+                              )}
                             </td>
 
                             <td className="py-3.5 px-4 text-slate-700 font-medium">
@@ -2941,10 +3239,10 @@ export default function AdminDashboardPage() {
                                   <span>🛡️</span>
                                   <span>Administrador</span>
                                 </span>
-                              ) : client.role === 'marketing' ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-900 border border-purple-200">
-                                  <span>🎨</span>
-                                  <span>Marketing</span>
+                              ) : client.role === 'representative' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-900 border border-sky-200">
+                                  <span>💼</span>
+                                  <span>Representante</span>
                                 </span>
                               ) : client.role === 'stock' ? (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-200">
@@ -3003,8 +3301,8 @@ export default function AdminDashboardPage() {
                                   <Edit3 className="w-4 h-4" />
                                 </button>
 
-                                {/* Botão de Exclusão (protege apenas a conta master) */}
-                                {!isMaster && (
+                                {/* Botão de Exclusão (protege a conta master e membros da equipe contra representantes) */}
+                                {!isMaster && !(isCurrentUserRepresentative && client.role !== 'reseller') && (
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteClient(client)}
@@ -3013,6 +3311,12 @@ export default function AdminDashboardPage() {
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
+                                )}
+
+                                {isMaster && (
+                                  <span className="p-1 text-amber-500" title="Conta Master protegida contra exclusão">
+                                    <Lock className="w-3.5 h-3.5 inline opacity-70" />
+                                  </span>
                                 )}
                               </div>
                             </td>
@@ -3687,6 +3991,191 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
+        {/* ======================================================== */}
+        {/* ABA: GESTÃO DE REVENDEDORES (ADMIN MASTER)              */}
+        {/* ======================================================== */}
+        {activeTab === 'resellers' && isCurrentUserAdminOrMaster && (
+          <div className="space-y-6">
+            {/* Métricas dos Revendedores */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Revendedores</p>
+                <h3 className="text-xl sm:text-2xl font-black text-zeiq-black mt-1">{adminResellers.length}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Equipe comercial cadastrada</p>
+              </div>
+
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Revendedores Ativos</p>
+                <h3 className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
+                  {adminResellers.filter((r) => r.status === 'ativo').length}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Disponíveis no formulário</p>
+              </div>
+
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Inativos</p>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-600 mt-1">
+                  {adminResellers.filter((r) => r.status === 'inativo').length}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Pausados temporariamente</p>
+              </div>
+
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <p className="text-xs font-bold text-sky-600 uppercase tracking-wider">Lojistas Vinculados</p>
+                <h3 className="text-xl sm:text-2xl font-black text-sky-600 mt-1">
+                  {adminResellers.reduce((sum, r) => sum + (r.customers_count || 0), 0)}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Em carteiras comerciais</p>
+              </div>
+            </div>
+
+            {/* Barra de Ações e Filtro de Revendedores */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={resellerSearch}
+                  onChange={(e) => setResellerSearch(e.target.value)}
+                  placeholder="Pesquisar por nome, email ou WhatsApp..."
+                  className="w-full pl-10 pr-4 py-2.5 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenCreateResellerModal}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-zeiq-orange" />
+                <span>Cadastrar Revendedor</span>
+              </button>
+            </div>
+
+            {/* Tabela de Revendedores */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px] text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4">Nome do Revendedor</th>
+                      <th className="py-3 px-4">WhatsApp (Envio de Pedidos)</th>
+                      <th className="py-3 px-4">E-mail (Login/Fallback)</th>
+                      <th className="py-3 px-4 text-center">Notificação</th>
+                      <th className="py-3 px-4 text-center">Status</th>
+                      <th className="py-3 px-4 text-center">Carteira</th>
+                      <th className="py-3 px-4 text-center">Pedidos</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {filteredResellers.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                          <Briefcase className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                          <p className="font-semibold text-slate-600">Nenhum revendedor cadastrado.</p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Clique em &quot;Cadastrar Revendedor&quot; para registrar os 10 revendedores comerciais da Zeiq.
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredResellers.map((r) => {
+                        const cleanWa = (r.whatsapp || '').replace(/\D/g, '');
+                        return (
+                          <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3.5 px-4">
+                              <strong className="text-zeiq-black font-extrabold block text-sm">{r.name}</strong>
+                              <span className="text-[10px] text-slate-400 font-mono">ID: {r.id.slice(0, 8)}...</span>
+                            </td>
+
+                            <td className="py-3.5 px-4 font-mono">
+                              {cleanWa ? (
+                                <a
+                                  href={`https://wa.me/55${cleanWa.startsWith('55') ? cleanWa.slice(2) : cleanWa}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold border border-emerald-200 transition-colors"
+                                  title="Testar Link de WhatsApp"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>{r.whatsapp}</span>
+                                </a>
+                              ) : (
+                                <span className="text-slate-400 italic">Não informado</span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="text-slate-700 font-medium block">{r.email}</span>
+                              {r.phone && <span className="text-[11px] text-slate-400 block">Tel: {r.phone}</span>}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                {r.notification_preference === 'whatsapp_only'
+                                  ? 'WhatsApp'
+                                  : r.notification_preference === 'email_only'
+                                  ? 'E-mail'
+                                  : 'Ambos'}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleResellerStatus(r)}
+                                className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                                  r.status === 'ativo'
+                                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
+                                }`}
+                                title="Clique para alternar status"
+                              >
+                                {r.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                              </button>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center font-bold text-zeiq-black">
+                              {r.customers_count || 0}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center font-bold text-zeiq-black">
+                              {r.orders_count || 0}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditResellerModal(r)}
+                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                                  title="Editar Revendedor"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteReseller(r)}
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                                  title="Excluir Revendedor"
+                                >
+                                  <Trash2 className="w-4 h-4 text-rose-600" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* ======================================================== */}
@@ -4254,8 +4743,8 @@ export default function AdminDashboardPage() {
                   ? 'bg-zinc-950 text-amber-300 border-amber-500/40'
                   : clientRole === 'admin'
                   ? 'bg-amber-50 text-amber-600 border-amber-200'
-                  : clientRole === 'marketing'
-                  ? 'bg-purple-50 text-purple-600 border-purple-200'
+                  : clientRole === 'representative'
+                  ? 'bg-sky-50 text-sky-600 border-sky-200'
                   : clientRole === 'stock'
                   ? 'bg-blue-50 text-blue-600 border-blue-200'
                   : 'bg-emerald-50 text-emerald-600 border-emerald-200'
@@ -4264,8 +4753,8 @@ export default function AdminDashboardPage() {
                   <span className="text-xl">👑</span>
                 ) : clientRole === 'admin' ? (
                   <ShieldCheck className="w-5 h-5" />
-                ) : clientRole === 'marketing' ? (
-                  <ImageIcon className="w-5 h-5" />
+                ) : clientRole === 'representative' ? (
+                  <Briefcase className="w-5 h-5" />
                 ) : clientRole === 'stock' ? (
                   <Boxes className="w-5 h-5" />
                 ) : (
@@ -4277,8 +4766,8 @@ export default function AdminDashboardPage() {
                   {clientModalMode === 'create'
                     ? (clientRole === 'admin'
                         ? 'Cadastrar Novo Administrador'
-                        : clientRole === 'marketing'
-                        ? 'Cadastrar Membro de Marketing'
+                        : clientRole === 'representative'
+                        ? 'Cadastrar Representante Comercial'
                         : clientRole === 'stock'
                         ? 'Cadastrar Membro de Estoque'
                         : 'Cadastrar Novo Lojista B2B')
@@ -4286,8 +4775,8 @@ export default function AdminDashboardPage() {
                         ? 'Administrador Master Zeiq'
                         : clientRole === 'admin'
                         ? 'Editar Administrador'
-                        : clientRole === 'marketing'
-                        ? 'Editar Membro do Marketing'
+                        : clientRole === 'representative'
+                        ? 'Editar Representante Comercial'
                         : clientRole === 'stock'
                         ? 'Editar Membro do Estoque'
                         : 'Editar Lojista B2B')}
@@ -4323,6 +4812,11 @@ export default function AdminDashboardPage() {
                       </div>
                     </div>
                   </div>
+                ) : isCurrentUserRepresentative ? (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    <strong className="block font-bold text-zeiq-black">Lojista B2B</strong>
+                    <span className="text-slate-500">Este lojista pertencerá à sua carteira de representação comercial.</span>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {/* 1. Lojista B2B */}
@@ -4347,7 +4841,29 @@ export default function AdminDashboardPage() {
                       </p>
                     </button>
 
-                    {/* 2. Controle de Estoque */}
+                    {/* 2. Representante Comercial */}
+                    <button
+                      type="button"
+                      onClick={() => setClientRole('representative')}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        clientRole === 'representative'
+                          ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
+                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-sky-950 flex items-center gap-1.5">
+                          <Briefcase className="w-3.5 h-3.5 text-sky-600" />
+                          💼 Representante Comercial
+                        </span>
+                        {clientRole === 'representative' && <Check className="w-3.5 h-3.5 text-sky-600" />}
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-tight">
+                        Administra seus lojistas, aprova cadastros e recebe pedidos no WhatsApp.
+                      </p>
+                    </button>
+
+                    {/* 3. Controle de Estoque */}
                     <button
                       type="button"
                       onClick={() => setClientRole('stock')}
@@ -4365,40 +4881,21 @@ export default function AdminDashboardPage() {
                         {clientRole === 'stock' && <Check className="w-3.5 h-3.5 text-blue-600" />}
                       </div>
                       <p className="text-[11px] text-slate-600 leading-tight">
-                        Acesso ao painel para ajuste rápido de estoque por tamanho e pedidos.
-                      </p>
-                    </button>
-
-                    {/* 3. Marketing Interno */}
-                    <button
-                      type="button"
-                      onClick={() => setClientRole('marketing')}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        clientRole === 'marketing'
-                          ? 'border-purple-500 bg-purple-50/70 ring-2 ring-purple-500/20'
-                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
-                          <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
-                          🎨 Marketing Interno
-                        </span>
-                        {clientRole === 'marketing' && <Check className="w-3.5 h-3.5 text-purple-600" />}
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-tight">
-                        Acesso ao painel para banners, vitrine, destaques e produtos.
+                        Altera estoque, preços, produtos e banners. Sem acesso a pedidos ou clientes.
                       </p>
                     </button>
 
                     {/* 4. Administrador */}
                     <button
                       type="button"
+                      disabled={!isCurrentUserMaster && clientRole !== 'admin'}
                       onClick={() => setClientRole('admin')}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
                         clientRole === 'admin'
-                          ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20'
-                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                          ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20 cursor-pointer'
+                          : !isCurrentUserMaster
+                          ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100 cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
@@ -4407,14 +4904,48 @@ export default function AdminDashboardPage() {
                           🛡️ Administrador
                         </span>
                         {clientRole === 'admin' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                        {!isCurrentUserMaster && clientRole !== 'admin' && (
+                          <span className="text-[10px] text-slate-400 font-mono">Apenas Master</span>
+                        )}
                       </div>
                       <p className="text-[11px] text-slate-600 leading-tight">
-                        Acesso completo ao painel, configurações gerais e equipe.
+                        Acesso completo ao painel, clientes, pedidos e equipe.
                       </p>
                     </button>
                   </div>
                 )}
               </div>
+
+              {/* Se for Lojista B2B, exibe campo de vinculação ao Representante Comercial */}
+              {clientRole === 'reseller' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Representante Comercial Vinculado</span>
+                    {isCurrentUserRepresentative && (
+                      <span className="text-[10px] text-sky-700 font-medium">Vinculado a você</span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={clientRepresentativeId}
+                      onChange={(e) => setClientRepresentativeId(e.target.value)}
+                      disabled={isCurrentUserRepresentative}
+                      className="w-full pl-9 pr-8 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black appearance-none disabled:opacity-75 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Nenhum representante (Atendimento Direto Zeiq)</option>
+                      {clients
+                        .filter((c) => c.role === 'representative')
+                        .map((rep) => (
+                          <option key={rep.id} value={rep.id}>
+                            {rep.contact_name || rep.store_name} ({rep.phone || rep.email})
+                          </option>
+                        ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+              )}
 
               {/* Status da Conta (Aprovado / Aguardando Aprovação) */}
               {clientModalMode === 'edit' && !clientIsMaster && (

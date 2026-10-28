@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   Building2,
   User,
+  UserCheck,
+  ChevronDown,
   Phone,
   MapPin,
   Clock,
@@ -42,6 +44,9 @@ export default function B2BLoginPage() {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regResellerId, setRegResellerId] = useState('');
+  const [resellers, setResellers] = useState<any[]>([]);
+  const [loadingResellers, setLoadingResellers] = useState(false);
   const [regLoading, setRegLoading] = useState(false);
   const [regSuccess, setRegSuccess] = useState(false);
 
@@ -49,9 +54,24 @@ export default function B2BLoginPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('pending_approval') === '1') {
-        setErrorMsg('Seu cadastro está aguardando aprovação pelo administrador. Nossa equipe comercial analisará os dados antes de liberar seu acesso.');
+        setErrorMsg('Seu cadastro está aguardando aprovação pelo seu revendedor comercial. Nossa equipe analisará os dados antes de liberar seu acesso.');
       }
     }
+
+    // Carrega revendedores ativos para a vinculação obrigatória
+    setLoadingResellers(true);
+    fetch('/api/resellers')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.resellers)) {
+          setResellers(data.resellers);
+          if (data.resellers.length === 1) {
+            setRegResellerId(data.resellers[0].id);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingResellers(false));
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -72,7 +92,7 @@ export default function B2BLoginPage() {
 
       const user = data.user;
       const isMaster = user.email === 'marketing@zeiq.com.br' || user.email === 'patrickbrank@outlook.com';
-      const isStaff = ['admin', 'marketing', 'stock'].includes(user.app_metadata?.role);
+      const isStaff = isMaster || ['master', 'admin', 'representative', 'stock'].includes(user.app_metadata?.role);
 
       if (!isMaster && !isStaff) {
         // Consulta profile no banco de dados com prioridade máxima
@@ -125,6 +145,11 @@ export default function B2BLoginPage() {
       return;
     }
 
+    if (resellers.length > 0 && !regResellerId) {
+      setErrorMsg('Por favor, selecione seu revendedor comercial.');
+      return;
+    }
+
     setRegLoading(true);
 
     try {
@@ -140,6 +165,8 @@ export default function B2BLoginPage() {
           state: regState,
           email: regEmail,
           password: regPassword,
+          reseller_id: regResellerId || null,
+          representative_id: regResellerId || null,
         }),
       });
 
@@ -372,6 +399,36 @@ export default function B2BLoginPage() {
           ) : (
             /* FORMULÁRIO DE CADASTRO COM APROVAÇÃO */
             <form onSubmit={handleRegister} className="space-y-3.5">
+              {/* Seleção Obrigatória do Revendedor */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Escolha seu revendedor *</span>
+                  {loadingResellers && <span className="text-[10px] text-slate-400">Carregando revendedores...</span>}
+                </label>
+                <div className="relative">
+                  <UserCheck className="w-3.5 h-3.5 text-zeiq-orange absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <select
+                    required={resellers.length > 0}
+                    value={regResellerId}
+                    onChange={(e) => setRegResellerId(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-zeiq-charcoal border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:ring-1 focus:ring-zeiq-orange appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled className="bg-zeiq-black text-slate-400">
+                      {resellers.length === 0 ? 'Nenhum revendedor ativo cadastrado' : 'Escolha seu revendedor...'}
+                    </option>
+                    {resellers.map((rep) => (
+                      <option key={rep.id} value={rep.id} className="bg-zeiq-black text-white">
+                        {rep.name} {rep.phone || rep.whatsapp ? `(${rep.phone || rep.whatsapp})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Seus pedidos e aprovação de acesso serão atendidos exclusivamente por este revendedor.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">

@@ -13,6 +13,8 @@ export async function POST(request: NextRequest) {
       state,
       email,
       password,
+      reseller_id,
+      representative_id,
     } = body;
 
     // 1. Validações básicas de campos obrigatórios
@@ -42,6 +44,7 @@ export async function POST(request: NextRequest) {
     const cleanPhone = phone.trim();
     const cleanCity = city?.trim() || '';
     const cleanState = state?.trim()?.toUpperCase() || '';
+    const cleanResellerId = (reseller_id || representative_id)?.trim() || null;
 
     const adminSupabase = getAdminClient();
     if (!adminSupabase) {
@@ -49,6 +52,25 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Serviço de administração Supabase temporariamente indisponível.' },
         { status: 500 }
       );
+    }
+
+    // Validação estrita: Seleção do revendedor é OBRIGATÓRIA se houver revendedores ativos cadastrados
+    if (!cleanResellerId) {
+      let activeCount = 0;
+      try {
+        const { count } = await adminSupabase
+          .from('resellers')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'ativo');
+        activeCount = count || 0;
+      } catch {}
+
+      if (activeCount > 0) {
+        return NextResponse.json(
+          { success: false, error: 'Por favor, selecione seu revendedor comercial no formulário.' },
+          { status: 400 }
+        );
+      }
     }
 
     // 2. Cria usuário no Supabase Auth com email confirmado e is_approved: false
@@ -59,6 +81,8 @@ export async function POST(request: NextRequest) {
       app_metadata: {
         role: 'reseller',
         is_approved: false,
+        reseller_id: cleanResellerId,
+        representative_id: cleanResellerId,
       },
       user_metadata: {
         role: 'reseller',
@@ -68,6 +92,8 @@ export async function POST(request: NextRequest) {
         cnpj_cpf: cleanCnpjCpf,
         city: cleanCity,
         state: cleanState,
+        reseller_id: cleanResellerId,
+        representative_id: cleanResellerId,
         is_approved: false,
       },
     });
@@ -78,7 +104,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Este e-mail já possui cadastro. Se você já solicitou o acesso, aguarde a aprovação da administração.',
+            error: 'Este e-mail já possui cadastro. Se você já solicitou o acesso, aguarde a aprovação do seu revendedor comercial.',
           },
           { status: 400 }
         );
@@ -88,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     const userId = authData.user.id;
 
-    // 3. Salva os dados cadastrais na tabela profiles com is_approved: false
+    // 3. Salva os dados cadastrais na tabela profiles com is_approved: false e vínculo permanente com reseller_id
     try {
       await adminSupabase.from('profiles').upsert({
         id: userId,
@@ -100,6 +126,8 @@ export async function POST(request: NextRequest) {
         cnpj_cpf: cleanCnpjCpf,
         city: cleanCity,
         state: cleanState,
+        reseller_id: cleanResellerId,
+        representative_id: cleanResellerId,
         is_approved: false,
       });
     } catch (profileErr) {
@@ -108,12 +136,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Cadastro solicitado com sucesso! Seus dados foram enviados para aprovação da administração.',
+      message: 'Cadastro solicitado com sucesso! Seus dados foram encaminhados para aprovação do seu revendedor comercial.',
       user: {
         id: userId,
         email: cleanEmail,
         store_name: cleanStoreName,
         contact_name: cleanContactName,
+        reseller_id: cleanResellerId,
         is_approved: false,
       },
     });

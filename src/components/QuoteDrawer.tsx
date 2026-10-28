@@ -29,6 +29,7 @@ export function QuoteDrawer() {
 
   const [whatsappPhone, setWhatsappPhone] = useState(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020');
   const [contactEmail, setContactEmail] = useState(process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br');
+  const [assignedRep, setAssignedRep] = useState<{ name?: string; phone?: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -40,6 +41,25 @@ export function QuoteDrawer() {
         else if (user.email) setBuyerName(user.email.split('@')[0]);
         if (meta.store_name) setBuyerCompany(meta.store_name);
         if (meta.phone) setBuyerPhone(meta.phone);
+
+        // Busca dados de perfil e revendedor comercial vinculado
+        fetch('/api/portal/profile')
+          .then((res) => res.json())
+          .then((profData) => {
+            if (profData.success) {
+              const rep = profData.profile?.reseller || profData.profile?.representative;
+              if (rep) {
+                const phone = rep.whatsapp || rep.phone;
+                if (phone) setWhatsappPhone(phone);
+                if (rep.email) setContactEmail(rep.email);
+                setAssignedRep({
+                  name: rep.name || rep.contact_name || rep.store_name || 'Seu Revendedor Comercial',
+                  phone: phone,
+                });
+              }
+            }
+          })
+          .catch(() => {});
       }
     });
 
@@ -47,7 +67,7 @@ export function QuoteDrawer() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.settings) {
-          if (data.settings.whatsappNumber) setWhatsappPhone(data.settings.whatsappNumber);
+          if (!assignedRep && data.settings.whatsappNumber) setWhatsappPhone(data.settings.whatsappNumber);
           if (data.settings.contactEmail) setContactEmail(data.settings.contactEmail);
         }
       })
@@ -72,7 +92,7 @@ export function QuoteDrawer() {
 
   const totalItemsCount = getTotalItems();
 
-  const saveOrder = async (): Promise<string> => {
+  const saveOrder = async (): Promise<{ orderNumber: string; whatsappUrl?: string }> => {
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const generatedNumber = `ZEIQ-${randomSuffix}`;
 
@@ -98,9 +118,11 @@ export function QuoteDrawer() {
       console.warn('Falha ao salvar pedido no navegador:', e);
     }
 
-    // Tenta persistir no banco de dados
+    let serverWhatsappUrl: string | undefined;
+
+    // Tenta persistir no banco de dados e obter URL pré-formatada do revendedor
     try {
-      fetch('/api/orders', {
+      const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -111,15 +133,19 @@ export function QuoteDrawer() {
           items: items,
           total_pieces: totalItemsCount,
         }),
-      }).catch(() => {});
+      });
+      const data = await res.json();
+      if (data?.whatsappUrl) {
+        serverWhatsappUrl = data.whatsappUrl;
+      }
     } catch (e) {}
 
-    return generatedNumber;
+    return { orderNumber: generatedNumber, whatsappUrl: serverWhatsappUrl };
   };
 
   const handleSendWhatsApp = async () => {
-    const orderNumber = await saveOrder();
-    const link = generateWhatsAppLink(whatsappPhone, buyerName, buyerCompany, orderNumber, buyerPhone);
+    const { orderNumber, whatsappUrl } = await saveOrder();
+    const link = whatsappUrl || generateWhatsAppLink(whatsappPhone, buyerName, buyerCompany, orderNumber, buyerPhone);
     if (link) {
       // Usa window.location.href para evitar bloqueador de popups em navegadores móveis (Safari iOS / Android)
       window.location.href = link;
@@ -127,7 +153,7 @@ export function QuoteDrawer() {
   };
 
   const handleSendEmail = async () => {
-    const orderNumber = await saveOrder();
+    const { orderNumber } = await saveOrder();
     const link = generateEmailLink(contactEmail, buyerName, buyerCompany, orderNumber, buyerPhone);
     if (link) {
       window.location.href = link;
@@ -426,6 +452,16 @@ export function QuoteDrawer() {
                     </div>
                   )}
                 </div>
+
+                {/* Indicação do Revendedor Comercial Responsável */}
+                {assignedRep && (
+                  <div className="bg-emerald-50 border border-emerald-200/90 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-emerald-950 animate-in fade-in">
+                    <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="leading-tight">
+                      Atendimento direto com seu Revendedor: <strong className="font-bold text-emerald-900">{assignedRep.name}</strong>
+                    </span>
+                  </div>
+                )}
 
                 {/* Botão de Envio WhatsApp (Ação Principal com Altura 48px e Raio Padronizado) */}
                 <button

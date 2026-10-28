@@ -14,6 +14,8 @@ export async function middleware(request: NextRequest) {
     pathname === '/login' ||
     pathname === '/portal/login' ||
     pathname === '/admin/login' ||
+    pathname === '/revendedor/login' ||
+    pathname === '/reseller/login' ||
     pathname.startsWith('/api/');
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -44,38 +46,54 @@ export async function middleware(request: NextRequest) {
 
   const userEmail = user?.email?.toLowerCase().trim();
   const isMaster = userEmail === 'marketing@zeiq.com.br' || userEmail === 'patrickbrank@outlook.com';
-  const userAppRole = user?.app_metadata?.role;
-  const isStaff = isMaster || ['admin', 'marketing', 'stock'].includes(userAppRole);
+  const userAppRole = user?.app_metadata?.role || user?.user_metadata?.role;
+  const isResellerRole = userAppRole === 'ROLE_RESELLER';
+  const isStaff = isMaster || ['master', 'admin', 'stock'].includes(userAppRole);
 
-  // 1. BLOQUEIO GERAL: Catálogo exclusivo B2B restrito a clientes cadastrados
+  // Redirecionamento amigável /reseller -> /revendedor
+  if (pathname.startsWith('/reseller')) {
+    const target = pathname.replace('/reseller', '/revendedor');
+    return NextResponse.redirect(new URL(target, request.url));
+  }
+
+  // 1. BLOQUEIO GERAL: Rotas protegidas exigem autenticação
   if (!user && !isPublicAuthRoute) {
     if (pathname.startsWith('/admin')) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
+    if (pathname.startsWith('/revendedor')) {
+      return NextResponse.redirect(new URL('/revendedor/login', request.url));
+    }
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // 1.1 BLOQUEIO DE USUÁRIOS PENDENTES DE APROVAÇÃO
-  if (user && !isStaff && !isPublicAuthRoute) {
+  // 1.1 BLOQUEIO DE USUÁRIOS PENDENTES DE APROVAÇÃO (apenas lojistas clientes)
+  if (user && !isStaff && !isResellerRole && !isPublicAuthRoute) {
     const isApprovedMeta = user.app_metadata?.is_approved ?? user.user_metadata?.is_approved;
     if (isApprovedMeta === false) {
-      // Checa diretamente no profiles para garantir que aprovação recente no painel não seja barrada por token antigo
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_approved')
+        .select('is_approved, role')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (profile?.is_approved === false) {
+      if (profile?.role === 'ROLE_RESELLER') {
+        // Revendedor não cai no bloqueio de cliente
+      } else if (profile?.is_approved === false) {
         return NextResponse.redirect(new URL('/login?pending_approval=1', request.url));
       }
     }
   }
 
-  // 2. Proteção do Painel Administrativo
+  // 2. Proteção do Painel Administrativo Master (/admin)
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     if (!user) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+
+    // Revendedor comercial nunca acessa o Admin Master
+    if (isResellerRole) {
+      return NextResponse.redirect(new URL('/revendedor', request.url));
     }
 
     if (!isStaff) {
@@ -86,26 +104,79 @@ export async function middleware(request: NextRequest) {
         .maybeSingle();
 
       const profileRole = profile?.role;
-      if (!['admin', 'marketing', 'stock'].includes(profileRole)) {
-        // Bloqueio rigoroso: lojistas b2b cadastrados nunca entram no painel administrativo
+      if (profileRole === 'ROLE_RESELLER') {
+        return NextResponse.redirect(new URL('/revendedor', request.url));
+      }
+
+      if (!['master', 'admin', 'stock', 'representative'].includes(profileRole)) {
         return NextResponse.redirect(new URL('/?unauthorized_admin=1', request.url));
       }
     }
   }
 
-  // 3. Redirecionamento se já estiver logado
+  // 2.1 Proteção do Painel do Revendedor (/revendedor)
+  if (pathname.startsWith('/revendedor') && pathname !== '/revendedor/login') {
+    if (!user) {
+      return NextResponse.redirect(new URL('/revendedor/login', request.url));
+    }
+
+    // Master e Administradores têm acesso
+    if (!isMaster && !['master', 'admin'].includes(userAppRole)) {
+      let isAllowedReseller = isResellerRole;
+
+      if (!isAllowedReseller) {
+        // Valida no profiles ou tabela resellers
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.role === 'ROLE_RESELLER' || profile?.role === 'representative') {
+          isAllowedReseller = true;
+        } else {
+          // Checa se existe na tabela resellers
+          const { data: resellerData } = await supabase
+            .from('resellers')
+            .select('id, status')
+            .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+            .eq('status', 'ativo')
+            .maybeSingle();
+
+          if (resellerData) {
+            isAllowedReseller = true;
+          }
+        }
+      }
+
+      if (!isAllowedReseller) {
+        // Lojistas comuns são barrados do painel do revendedor
+        return NextResponse.redirect(new URL('/?unauthorized_reseller=1', request.url));
+      }
+    }
+  }
+
+  // 3. Redirecionamento inteligente se o usuário já estiver logado
   if (user) {
-    // Se acessar /login ou /portal/login e já estiver autenticado e aprovado, vai para o catálogo
+    // Se acessar /login ou /portal/login e já estiver autenticado:
     if (pathname === '/login' || pathname === '/portal/login') {
+      if (isResellerRole) {
+        return NextResponse.redirect(new URL('/revendedor', request.url));
+      }
+
       const isApprovedMeta = user.app_metadata?.is_approved ?? user.user_metadata?.is_approved;
       if (isApprovedMeta !== false || isStaff) {
         return NextResponse.redirect(new URL('/', request.url));
       } else {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_approved')
+          .select('is_approved, role')
           .eq('id', user.id)
           .maybeSingle();
+
+        if (profile?.role === 'ROLE_RESELLER') {
+          return NextResponse.redirect(new URL('/revendedor', request.url));
+        }
 
         if (profile?.is_approved === true) {
           return NextResponse.redirect(new URL('/', request.url));
@@ -113,9 +184,18 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    // Se acessar /revendedor/login e já estiver logado como revendedor ou staff:
+    if (pathname === '/revendedor/login') {
+      if (isResellerRole || isStaff) {
+        return NextResponse.redirect(new URL('/revendedor', request.url));
+      }
+    }
+
     // Se acessar /admin/login:
-    // Se for admin/equipe, vai para /admin. Se for lojista comum, vai para o catálogo /
     if (pathname === '/admin/login') {
+      if (isResellerRole) {
+        return NextResponse.redirect(new URL('/revendedor', request.url));
+      }
       if (isStaff) {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
@@ -126,7 +206,10 @@ export async function middleware(request: NextRequest) {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (['admin', 'marketing', 'stock'].includes(profile?.role)) {
+      if (profile?.role === 'ROLE_RESELLER') {
+        return NextResponse.redirect(new URL('/revendedor', request.url));
+      }
+      if (['master', 'admin', 'stock'].includes(profile?.role)) {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
 

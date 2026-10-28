@@ -29,6 +29,54 @@ export async function GET() {
       .maybeSingle();
 
     const meta = user.user_metadata || {};
+    const resellerId = profile?.reseller_id || meta.reseller_id || profile?.representative_id || meta.representative_id || null;
+
+    let resellerData = null;
+    if (resellerId) {
+      try {
+        // Tenta buscar na tabela resellers
+        const { data: resTable } = await admin
+          .from('resellers')
+          .select('id, name, email, phone, whatsapp, status, notification_preference')
+          .eq('id', resellerId)
+          .maybeSingle();
+
+        if (resTable) {
+          resellerData = {
+            id: resTable.id,
+            name: resTable.name,
+            contact_name: resTable.name,
+            store_name: resTable.name,
+            email: resTable.email,
+            phone: resTable.phone || resTable.whatsapp,
+            whatsapp: resTable.whatsapp,
+            notification_preference: resTable.notification_preference,
+            status: resTable.status,
+          };
+        } else {
+          // Fallback para tabela profiles
+          const { data: rep } = await admin
+            .from('profiles')
+            .select('id, contact_name, store_name, phone, email')
+            .eq('id', resellerId)
+            .maybeSingle();
+
+          if (rep) {
+            resellerData = {
+              id: rep.id,
+              name: rep.contact_name || rep.store_name || rep.email,
+              contact_name: rep.contact_name,
+              store_name: rep.store_name,
+              phone: rep.phone,
+              whatsapp: (rep.phone || '').replace(/\D/g, ''),
+              email: rep.email,
+              notification_preference: 'both' as const,
+              status: 'ativo' as const,
+            };
+          }
+        }
+      } catch {}
+    }
 
     const merged = {
       id: user.id,
@@ -43,6 +91,10 @@ export async function GET() {
       cep: profile?.cep || meta.cep || '',
       avatar_url: profile?.avatar_url || meta.avatar_url || null,
       role: profile?.role || meta.role || 'reseller',
+      reseller_id: resellerId,
+      reseller: resellerData,
+      representative_id: resellerId,
+      representative: resellerData,
     };
 
     return NextResponse.json({ success: true, profile: merged });

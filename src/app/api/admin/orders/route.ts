@@ -1,12 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
 
-// GET: Lista todos os pedidos para o painel administrativo
+// GET: Lista pedidos para o painel administrativo conforme o cargo do usuário
 export async function GET(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores.' }, { status: 403 });
+    const { isAdmin, role: callerRole, user: callerUser } = await verifyAdmin();
+    if (!isAdmin || !callerUser) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito à administração.' }, { status: 403 });
+    }
+
+    // Regra: CONTROLE DE ESTOQUE não visualiza pedidos
+    if (callerRole === 'stock') {
+      return NextResponse.json(
+        { success: false, error: 'Acesso restrito: controle de estoque não visualiza pedidos de clientes.' },
+        { status: 403 }
+      );
     }
 
     const adminSupabase = getAdminClient();
@@ -14,10 +22,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, orders: [], tableMissing: false });
     }
 
-    const { data, error } = await adminSupabase
+    let query = adminSupabase
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false });
+
+    // Regra: REPRESENTANTE vê apenas pedidos da sua carteira de lojistas
+    if (callerRole === 'representative') {
+      // Busca os IDs dos lojistas da carteira deste representante
+      const { data: lojistas } = await adminSupabase
+        .from('profiles')
+        .select('id')
+        .eq('representative_id', callerUser.id);
+
+      const lojistaIds = (lojistas || []).map((l: any) => l.id);
+
+      if (lojistaIds.length > 0) {
+        query = query.or(`representative_id.eq.${callerUser.id},user_id.in.(${lojistaIds.join(',')})`);
+      } else {
+        query = query.eq('representative_id', callerUser.id);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       const isMissing = error.message?.includes('schema cache') || error.code === '42P01';
@@ -96,9 +123,17 @@ async function processStockMovement(adminSupabase: any, items: any[], isDeductio
 // PATCH: Atualiza status, rastreio ou notas comerciais de um pedido
 export async function PATCH(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores.' }, { status: 403 });
+    const { isAdmin, role: callerRole, user: callerUser } = await verifyAdmin();
+    if (!isAdmin || !callerUser) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito à administração.' }, { status: 403 });
+    }
+
+    // Regra: CONTROLE DE ESTOQUE não altera pedidos
+    if (callerRole === 'stock') {
+      return NextResponse.json(
+        { success: false, error: 'Acesso restrito: controle de estoque não gerencia pedidos de clientes.' },
+        { status: 403 }
+      );
     }
 
     const adminSupabase = getAdminClient();
@@ -113,6 +148,40 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ID do pedido é obrigatório.' }, { status: 400 });
     }
 
+    // Busca pedido atual
+    const { data: existingOrder } = await adminSupabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existingOrder) {
+      return NextResponse.json({ success: false, error: 'Pedido não localizado.' }, { status: 404 });
+    }
+
+    // Regra: REPRESENTANTE só pode alterar pedidos da sua carteira
+    if (callerRole === 'representative') {
+      let isAllowed = existingOrder.representative_id === callerUser.id;
+      if (!isAllowed && existingOrder.user_id) {
+        const { data: buyerProfile } = await adminSupabase
+          .from('profiles')
+          .select('representative_id')
+          .eq('id', existingOrder.user_id)
+          .maybeSingle();
+
+        if (buyerProfile?.representative_id === callerUser.id) {
+          isAllowed = true;
+        }
+      }
+
+      if (!isAllowed) {
+        return NextResponse.json(
+          { success: false, error: 'Você só tem permissão para alterar pedidos dos seus lojistas.' },
+          { status: 403 }
+        );
+      }
+    }
+
     const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
@@ -122,14 +191,8 @@ export async function PATCH(request: NextRequest) {
     if (tracking_url !== undefined) updates.tracking_url = tracking_url?.trim() || null;
     if (commercial_notes !== undefined) updates.commercial_notes = commercial_notes?.trim() || null;
 
-    // Busca pedido atual para verificar e processar baixa/estorno de estoque
-    const { data: existingOrder } = await adminSupabase
-      .from('orders')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (existingOrder && status) {
+    // Se mudou status, atualiza estoque se necessário
+    if (status) {
       const isCurrentlyDeducted = !!existingOrder.stock_deducted;
       const isMovingToApproved = status === 'approved' || status === 'processing';
       const isMovingToCancelled = status === 'cancelled';

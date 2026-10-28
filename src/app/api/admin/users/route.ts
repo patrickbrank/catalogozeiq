@@ -2,14 +2,22 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient, verifyAdmin, isMasterEmail } from '@/lib/supabase/admin-auth';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
-const VALID_ROLES = ['admin', 'marketing', 'stock', 'reseller'] as const;
+const VALID_ROLES = ['admin', 'representative', 'stock', 'reseller'] as const;
 type UserRole = typeof VALID_ROLES[number];
 
 export async function GET(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores.' }, { status: 403 });
+    const { isAdmin, isMaster: callerIsMaster, role: callerRole, user: callerUser } = await verifyAdmin();
+    if (!isAdmin || !callerUser) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito à administração.' }, { status: 403 });
+    }
+
+    // Regra: CONTROLE DE ESTOQUE não tem acesso a usuários
+    if (callerRole === 'stock') {
+      return NextResponse.json(
+        { success: false, error: 'Acesso restrito: controle de estoque não visualiza cadastros de usuários.' },
+        { status: 403 }
+      );
     }
 
     const adminSupabase = getAdminClient();
@@ -19,14 +27,14 @@ export async function GET(request: NextRequest) {
 
     // 1. Busca todos os usuários do Supabase Auth
     const { data: authData, error: authErr } = await adminSupabase.auth.admin.listUsers({
-      perPage: 100,
+      perPage: 250,
     });
 
     if (authErr) {
       return NextResponse.json({ success: false, error: authErr.message }, { status: 500 });
     }
 
-    // 2. Tenta buscar dados da tabela profiles se existir
+    // 2. Busca dados da tabela profiles
     let profilesMap: Record<string, any> = {};
     try {
       const { data: profilesData } = await adminSupabase.from('profiles').select('*');
@@ -39,21 +47,27 @@ export async function GET(request: NextRequest) {
       // Ignora se tabela profiles ainda não foi migrada
     }
 
-    // 3. Monta lista unificada e limpa de clientes e membros da equipe
-    const formattedUsers = authData.users.map((u) => {
+    // 3. Monta lista unificada de usuários com seus dados e cargos
+    let formattedUsers = authData.users.map((u) => {
       const p = profilesMap[u.id] || {};
       const meta = u.user_metadata || {};
       const appMeta = u.app_metadata || {};
       const isMaster = isMasterEmail(u.email);
       const authRole = appMeta.role || meta.role;
-      const userRole = isMaster ? 'admin' : (authRole || p.role || 'reseller');
+      let userRole = isMaster ? 'master' : (authRole || p.role || 'reseller');
+
+      // Se havia role antiga de marketing, mapeia para admin
+      if (userRole === 'marketing') userRole = 'admin';
+
+      const repId = p.representative_id || meta.representative_id || null;
+      const repProfile = repId ? profilesMap[repId] : null;
 
       const defaultStore = isMaster
         ? 'Diretoria Zeiq (Master)'
         : userRole === 'admin'
         ? 'Administração Zeiq'
-        : userRole === 'marketing'
-        ? 'Marketing Zeiq'
+        : userRole === 'representative'
+        ? 'Representação Comercial'
         : userRole === 'stock'
         ? 'Estoque Zeiq'
         : 'Lojista B2B';
@@ -69,12 +83,21 @@ export async function GET(request: NextRequest) {
         state: p.state || meta.state || '',
         role: userRole,
         is_master: isMaster,
-        is_approved: p.is_approved ?? true,
+        is_approved: p.is_approved ?? (appMeta.is_approved ?? meta.is_approved ?? true),
+        representative_id: repId,
+        representative_name: repProfile?.contact_name || repProfile?.store_name || null,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
         email_confirmed: !!u.email_confirmed_at,
       };
     });
+
+    // Regra: REPRESENTANTE vê APENAS os lojistas da sua própria carteira
+    if (callerRole === 'representative') {
+      formattedUsers = formattedUsers.filter(
+        (u) => u.role === 'reseller' && u.representative_id === callerUser.id
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -85,12 +108,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Administrador cria conta de acesso direta para novo lojista / revendedor
+// POST: Criação de novo usuário / lojista
 export async function POST(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores.' }, { status: 403 });
+    const { isAdmin, isMaster: callerIsMaster, role: callerRole, user: callerUser } = await verifyAdmin();
+    if (!isAdmin || !callerUser) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito à administração.' }, { status: 403 });
+    }
+
+    // Regra: CONTROLE DE ESTOQUE não cria usuários
+    if (callerRole === 'stock') {
+      return NextResponse.json(
+        { success: false, error: 'Acesso restrito: controle de estoque não cadastra usuários.' },
+        { status: 403 }
+      );
     }
 
     const adminSupabase = getAdminClient();
@@ -109,6 +140,7 @@ export async function POST(request: NextRequest) {
       city,
       state,
       role = 'reseller',
+      representative_id,
     } = body;
 
     if (!email || !email.trim()) {
@@ -120,22 +152,39 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanRole = role && (VALID_ROLES as readonly string[]).includes(role) ? role : 'reseller';
+    let cleanRole: UserRole = role && (VALID_ROLES as readonly string[]).includes(role) ? role : 'reseller';
+
+    // Regra: Representante só pode criar Lojistas na sua própria carteira
+    let targetRepId = representative_id || null;
+    if (callerRole === 'representative') {
+      cleanRole = 'reseller';
+      targetRepId = callerUser.id;
+    }
+
+    // Regra: Apenas Master pode criar admins
+    if (cleanRole === 'admin' && !callerIsMaster) {
+      return NextResponse.json(
+        { success: false, error: 'Apenas usuários Master podem conceder permissão de Administrador.' },
+        { status: 403 }
+      );
+    }
+
     const defaultStore = cleanRole === 'admin'
       ? 'Administração Zeiq'
-      : cleanRole === 'marketing'
-      ? 'Marketing Zeiq'
+      : cleanRole === 'representative'
+      ? 'Representação Comercial'
       : cleanRole === 'stock'
       ? 'Estoque Zeiq'
       : 'Lojista B2B';
 
-    // 1. Cria usuário autenticado no Supabase com confirmação imediata
+    // 1. Cria usuário autenticado no Supabase
     const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
       email: cleanEmail,
       password: password,
       email_confirm: true,
       app_metadata: {
         role: cleanRole,
+        representative_id: targetRepId,
       },
       user_metadata: {
         role: cleanRole,
@@ -145,6 +194,8 @@ export async function POST(request: NextRequest) {
         cnpj_cpf: cnpj_cpf?.trim() || '',
         city: city?.trim() || '',
         state: state?.trim() || '',
+        representative_id: targetRepId,
+        is_approved: true,
       },
     });
 
@@ -154,9 +205,9 @@ export async function POST(request: NextRequest) {
 
     const newUserId = authUser.user.id;
 
-    // 2. Insere ou atualiza dados complementares na tabela profiles
+    // 2. Insere na tabela profiles
     try {
-      const profilePayload = {
+      const profilePayload: any = {
         id: newUserId,
         email: cleanEmail,
         role: cleanRole,
@@ -166,6 +217,7 @@ export async function POST(request: NextRequest) {
         cnpj_cpf: cnpj_cpf?.trim() || '',
         city: city?.trim() || '',
         state: state?.trim() || '',
+        representative_id: targetRepId,
         is_approved: true,
       };
 
@@ -190,6 +242,7 @@ export async function POST(request: NextRequest) {
         city: city?.trim() || '',
         state: state?.trim() || '',
         role: cleanRole,
+        representative_id: targetRepId,
         is_approved: true,
       },
     });
@@ -198,12 +251,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Administrador exclui conta de lojista ou membro administrativo
+// DELETE: Exclusão de usuário
 export async function DELETE(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores.' }, { status: 403 });
+    const { isAdmin, isMaster: callerIsMaster, role: callerRole, user: callerUser } = await verifyAdmin();
+    if (!isAdmin || !callerUser) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito à administração.' }, { status: 403 });
+    }
+
+    // Regra: CONTROLE DE ESTOQUE não exclui usuários
+    if (callerRole === 'stock') {
+      return NextResponse.json(
+        { success: false, error: 'Acesso restrito: controle de estoque não gerencia usuários.' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -218,10 +279,48 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Chave administrativa indisponível.' }, { status: 500 });
     }
 
-    // Impede exclusão da conta master principal
-    const { data: targetUser } = await adminSupabase.auth.admin.getUserById(userId);
-    if (isMasterEmail(targetUser?.user?.email)) {
-      return NextResponse.json({ success: false, error: 'A conta administradora master não pode ser excluída.' }, { status: 400 });
+    // Busca usuário alvo
+    const { data: targetUserRes } = await adminSupabase.auth.admin.getUserById(userId);
+    const targetUser = targetUserRes?.user;
+    if (!targetUser) {
+      return NextResponse.json({ success: false, error: 'Usuário não localizado.' }, { status: 404 });
+    }
+
+    // Regra: Ninguém pode excluir conta Master
+    if (isMasterEmail(targetUser.email)) {
+      return NextResponse.json({ success: false, error: 'A conta administradora Master é protegida e não pode ser excluída.' }, { status: 400 });
+    }
+
+    // Busca profile do alvo para checar cargo
+    let targetProfileRole = targetUser.app_metadata?.role || targetUser.user_metadata?.role || 'reseller';
+    let targetRepId = targetUser.app_metadata?.representative_id || targetUser.user_metadata?.representative_id;
+    try {
+      const { data: prof } = await adminSupabase.from('profiles').select('role, representative_id').eq('id', userId).maybeSingle();
+      if (prof) {
+        if (prof.role) targetProfileRole = prof.role;
+        if (prof.representative_id) targetRepId = prof.representative_id;
+      }
+    } catch {}
+
+    // Regra: REPRESENTANTE não pode excluir ADMINISTRADOR, ESTOQUE, REPRESENTANTE ou MASTER
+    if (callerRole === 'representative') {
+      if (targetProfileRole !== 'reseller') {
+        return NextResponse.json(
+          { success: false, error: 'Representantes não podem excluir membros da equipe ou administração.' },
+          { status: 403 }
+        );
+      }
+      if (targetRepId !== callerUser.id) {
+        return NextResponse.json(
+          { success: false, error: 'Você só pode excluir lojistas pertencentes à sua própria carteira.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Regra: ADMINISTRADOR comum não pode excluir MASTER
+    if (!callerIsMaster && isMasterEmail(targetUser.email)) {
+      return NextResponse.json({ success: false, error: 'Apenas a conta Master pode gerenciar contas Master.' }, { status: 403 });
     }
 
     // Exclui no auth e no profiles
@@ -240,12 +339,20 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Atualização de dados cadastrais, cargo, senha ou status pelo administrador
+// Atualização de usuário (dados, ativação/desativação, aprovação, cargo)
 async function handleUpdateUser(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores.' }, { status: 403 });
+    const { isAdmin, isMaster: callerIsMaster, role: callerRole, user: callerUser } = await verifyAdmin();
+    if (!isAdmin || !callerUser) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito à administração.' }, { status: 403 });
+    }
+
+    // Regra: CONTROLE DE ESTOQUE não altera usuários
+    if (callerRole === 'stock') {
+      return NextResponse.json(
+        { success: false, error: 'Acesso restrito: controle de estoque não gerencia usuários.' },
+        { status: 403 }
+      );
     }
 
     const adminSupabase = getAdminClient();
@@ -265,28 +372,81 @@ async function handleUpdateUser(request: NextRequest) {
       role,
       password,
       is_approved,
+      representative_id,
     } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID do usuário é obrigatório.' }, { status: 400 });
     }
 
-    // Busca usuário atual para validar restrições da conta master
+    // Busca usuário alvo
     const { data: targetUserRes, error: fetchErr } = await adminSupabase.auth.admin.getUserById(id);
     if (fetchErr || !targetUserRes?.user) {
       return NextResponse.json({ success: false, error: 'Usuário não localizado.' }, { status: 404 });
     }
 
     const targetUser = targetUserRes.user;
-    const isMaster = isMasterEmail(targetUser.email);
+    const targetIsMaster = isMasterEmail(targetUser.email);
 
-    // A conta master nunca pode perder o papel de admin nem ser inativada
-    let targetRole = isMaster ? 'admin' : (role && (VALID_ROLES as readonly string[]).includes(role) ? role : undefined);
-    let targetApproved = isMaster ? true : is_approved;
+    // Regra: Conta Master não pode ser alterada por administrador comum
+    if (targetIsMaster && !callerIsMaster) {
+      return NextResponse.json(
+        { success: false, error: 'A conta Master é protegida e só pode ser alterada pela própria Master.' },
+        { status: 403 }
+      );
+    }
 
-    // 1. Atualiza dados de autenticação no Supabase Auth
+    // Busca profile do alvo
+    let targetProfileRole = targetUser.app_metadata?.role || targetUser.user_metadata?.role || 'reseller';
+    let targetRepId = targetUser.app_metadata?.representative_id || targetUser.user_metadata?.representative_id;
+    try {
+      const { data: prof } = await adminSupabase.from('profiles').select('role, representative_id').eq('id', id).maybeSingle();
+      if (prof) {
+        if (prof.role) targetProfileRole = prof.role;
+        if (prof.representative_id) targetRepId = prof.representative_id;
+      }
+    } catch {}
+
+    // Regra: REPRESENTANTE só pode gerenciar lojistas da sua carteira (aprovar, ativar/desativar)
+    if (callerRole === 'representative') {
+      if (targetProfileRole !== 'reseller') {
+        return NextResponse.json(
+          { success: false, error: 'Representantes não podem alterar membros da equipe ou administração.' },
+          { status: 403 }
+        );
+      }
+      if (targetRepId !== callerUser.id) {
+        return NextResponse.json(
+          { success: false, error: 'Você só tem permissão para gerenciar lojistas da sua própria carteira.' },
+          { status: 403 }
+        );
+      }
+      // Representante NÃO pode alterar o cargo do lojista
+      if (role && role !== 'reseller') {
+        return NextResponse.json(
+          { success: false, error: 'Representantes não têm permissão para alterar cargos.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Determina cargo final
+    let targetRole = targetIsMaster
+      ? 'master'
+      : (role && (VALID_ROLES as readonly string[]).includes(role) ? role : undefined);
+
+    // Bloqueia atribuição de admin por não-master
+    if (targetRole === 'admin' && !callerIsMaster && targetProfileRole !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Apenas a conta Master pode promover usuários para Administrador.' },
+        { status: 403 }
+      );
+    }
+
+    let targetApproved = targetIsMaster ? true : is_approved;
+
+    // Atualiza auth
     const authUpdates: any = {};
-
     if (password && password.trim()) {
       if (password.length < 6) {
         return NextResponse.json({ success: false, error: 'A nova senha deve ter no mínimo 6 caracteres.' }, { status: 400 });
@@ -294,13 +454,12 @@ async function handleUpdateUser(request: NextRequest) {
       authUpdates.password = password;
     }
 
-    if (targetRole || targetApproved !== undefined) {
-      authUpdates.app_metadata = {
-        ...(targetUser.app_metadata || {}),
-        ...(targetRole ? { role: targetRole } : {}),
-        ...(targetApproved !== undefined ? { is_approved: targetApproved } : {}),
-      };
-    }
+    authUpdates.app_metadata = {
+      ...(targetUser.app_metadata || {}),
+      ...(targetRole ? { role: targetRole } : {}),
+      ...(targetApproved !== undefined ? { is_approved: targetApproved } : {}),
+      ...(representative_id !== undefined ? { representative_id } : {}),
+    };
 
     const updatedUserMeta = {
       ...(targetUser.user_metadata || {}),
@@ -312,6 +471,7 @@ async function handleUpdateUser(request: NextRequest) {
       ...(city !== undefined ? { city: city.trim() } : {}),
       ...(state !== undefined ? { state: state.trim() } : {}),
       ...(targetApproved !== undefined ? { is_approved: targetApproved } : {}),
+      ...(representative_id !== undefined ? { representative_id } : {}),
     };
     authUpdates.user_metadata = updatedUserMeta;
 
@@ -320,7 +480,7 @@ async function handleUpdateUser(request: NextRequest) {
       return NextResponse.json({ success: false, error: updateAuthErr.message }, { status: 400 });
     }
 
-    // 2. Atualiza ou insere na tabela profiles
+    // Atualiza profiles
     try {
       const profileData: any = {
         id,
@@ -336,8 +496,8 @@ async function handleUpdateUser(request: NextRequest) {
       if (city !== undefined) profileData.city = city.trim();
       if (state !== undefined) profileData.state = state.trim();
       if (targetApproved !== undefined) profileData.is_approved = targetApproved;
+      if (representative_id !== undefined) profileData.representative_id = representative_id;
 
-      // Gravação direta com privilégios de service_role
       const { error: adminUpsertErr } = await adminSupabase.from('profiles').upsert(profileData);
       if (adminUpsertErr) {
         const serverSupabase = await createServerClient();
@@ -359,8 +519,9 @@ async function handleUpdateUser(request: NextRequest) {
         city: updatedUserMeta.city,
         state: updatedUserMeta.state,
         role: targetRole || targetUser.user_metadata?.role || 'reseller',
+        representative_id: representative_id !== undefined ? representative_id : targetRepId,
         is_approved: targetApproved ?? true,
-        is_master: isMaster,
+        is_master: targetIsMaster,
       },
     });
   } catch (err: any) {

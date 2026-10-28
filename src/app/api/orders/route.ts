@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { notifyResellerForOrder } from '@/lib/services/order-notification';
+import { Reseller } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -180,6 +182,7 @@ export async function POST(request: NextRequest) {
       items,
       total_pieces,
       customer_notes,
+      reseller_id: clientSentResellerId,
     } = body;
 
     if (!items || items.length === 0) {
@@ -195,41 +198,188 @@ export async function POST(request: NextRequest) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
     const client = serviceRoleKey ? createAdminClient(supabaseUrl, serviceRoleKey) : serverSupabase;
 
+    // 1. Busca perfil do lojista para obter o vínculo PERMANENTE com o revendedor
+    let userProf: any = null;
+    let targetResellerId: string | null = clientSentResellerId || null;
+
+    if (user?.id) {
+      try {
+        const { data: prof } = await client
+          .from('profiles')
+          .select('id, reseller_id, representative_id, contact_name, store_name, phone, cnpj_cpf, city, state, address, cep')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (prof) {
+          userProf = prof;
+          // O vínculo no perfil do cliente é soberano e permanente
+          if (prof.reseller_id) {
+            targetResellerId = prof.reseller_id;
+          } else if (prof.representative_id) {
+            targetResellerId = prof.representative_id;
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Busca dados completos do revendedor vinculado
+    let resellerRecord: Reseller | null = null;
+    if (targetResellerId) {
+      try {
+        // Tenta buscar na tabela 'resellers' por ID
+        const { data: resData } = await client
+          .from('resellers')
+          .select('*')
+          .eq('id', targetResellerId)
+          .maybeSingle();
+
+        if (resData) {
+          resellerRecord = resData as Reseller;
+        } else {
+          // Tenta buscar na tabela 'resellers' por user_id
+          const { data: resByUserId } = await client
+            .from('resellers')
+            .select('*')
+            .eq('user_id', targetResellerId)
+            .maybeSingle();
+
+          if (resByUserId) {
+            resellerRecord = resByUserId as Reseller;
+          } else {
+            // Fallback para perfis legados com role 'representative'
+            const { data: legacyRep } = await client
+              .from('profiles')
+              .select('*')
+              .eq('id', targetResellerId)
+              .maybeSingle();
+
+            if (legacyRep) {
+              resellerRecord = {
+                id: legacyRep.id,
+                name: legacyRep.contact_name || legacyRep.store_name || legacyRep.email,
+                email: legacyRep.email,
+                phone: legacyRep.phone,
+                whatsapp: (legacyRep.phone || '').replace(/\D/g, ''),
+                status: 'ativo',
+                notification_preference: 'both',
+                user_id: legacyRep.id,
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const generatedNumber = `ZEIQ-${randomSuffix}`;
 
-    const { data, error } = await client
+    const insertPayload: any = {
+      order_number: generatedNumber,
+      customer_id: user?.id || null,
+      user_id: user?.id || null,
+      reseller_id: resellerRecord?.id || targetResellerId || null,
+      reseller_name: resellerRecord?.name || null,
+      reseller_whatsapp: resellerRecord?.whatsapp || null,
+      reseller_email: resellerRecord?.email || null,
+      representative_id: resellerRecord?.user_id || resellerRecord?.id || targetResellerId || null,
+      representative_name: resellerRecord?.name || null,
+      buyer_name: buyer_name?.trim() || userProf?.contact_name || 'Revendedor Zeiq',
+      buyer_company: buyer_company?.trim() || userProf?.store_name || null,
+      buyer_phone: buyer_phone?.trim() || userProf?.phone || '',
+      buyer_email: buyer_email?.trim() || user?.email || null,
+      items: items,
+      total_pieces: total_pieces || items.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0),
+      status: 'pending',
+      customer_notes: customer_notes?.trim() || null,
+    };
+
+    let { data, error } = await client
       .from('orders')
-      .insert({
-        order_number: generatedNumber,
-        user_id: user?.id || null,
-        buyer_name: buyer_name?.trim() || 'Revendedor Zeiq',
-        buyer_company: buyer_company?.trim() || null,
-        buyer_phone: buyer_phone?.trim() || '',
-        buyer_email: buyer_email?.trim() || user?.email || null,
-        items: items,
-        total_pieces: total_pieces || items.reduce((sum: number, it: any) => sum + (it.quantity || 0), 0),
-        status: 'pending',
-        customer_notes: customer_notes?.trim() || null,
-      })
+      .insert(insertPayload)
       .select('*')
       .single();
 
-    if (error) {
-      // Se a tabela ainda não tiver sido criada no Supabase pelo usuário
-      return NextResponse.json({
-        success: true,
-        savedToDb: false,
-        orderNumber: generatedNumber,
-        message: 'Pedido processado e direcionado para WhatsApp.',
-      });
+    // Se as novas colunas ainda não tiverem sido migradas no banco, realiza retentativa compatível
+    if (error && (error.message?.includes('customer_id') || error.message?.includes('reseller_id') || error.message?.includes('reseller_name'))) {
+      delete insertPayload.customer_id;
+      delete insertPayload.reseller_id;
+      delete insertPayload.reseller_name;
+      delete insertPayload.reseller_whatsapp;
+      delete insertPayload.reseller_email;
+
+      const retry = await client
+        .from('orders')
+        .insert(insertPayload)
+        .select('*')
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+
+    const finalOrder = data || insertPayload;
+
+    // 3. REGRA DE OURO: Notificação do pedido vai APENAS para o Revendedor dono daquele cliente
+    // O envio do pedido NÃO vai para o Admin Master (Admin apenas visualiza se quiser).
+    let notificationResult: any = null;
+    let notifStatus: string = 'pending';
+    let notifErrorMsg: string | null = null;
+
+    if (resellerRecord) {
+      try {
+        notificationResult = await notifyResellerForOrder(finalOrder, resellerRecord, userProf);
+
+        if (notificationResult?.whatsappApiSent || notificationResult?.emailSent) {
+          notifStatus = 'sent';
+        } else if (notificationResult?.whatsappLink) {
+          notifStatus = 'fallback_ready';
+        }
+
+        // Se o pedido foi salvo no banco, atualiza os campos de auditoria de notificação
+        if (data?.id) {
+          await client
+            .from('orders')
+            .update({
+              whatsapp_share_url: notificationResult?.whatsappLink || null,
+              whatsapp_notified_at: notificationResult?.whatsappApiSent ? new Date().toISOString() : null,
+              email_notified_at: notificationResult?.emailSent ? new Date().toISOString() : null,
+              notification_status: notifStatus,
+              notification_error: null,
+            })
+            .eq('id', data.id);
+        }
+      } catch (notifErr: any) {
+        notifStatus = 'failed';
+        notifErrorMsg = notifErr?.message || 'Falha na comunicação de notificação';
+        console.warn('Aviso no disparo de notificação para o revendedor (pedido mantido salvo):', notifErr);
+
+        if (data?.id) {
+          try {
+            await client
+              .from('orders')
+              .update({
+                notification_status: 'failed',
+                notification_error: notifErrorMsg,
+              })
+              .eq('id', data.id);
+          } catch {}
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
-      savedToDb: true,
-      order: data,
-      orderNumber: data.order_number,
+      savedToDb: !error,
+      order: finalOrder,
+      orderNumber: finalOrder.order_number,
+      whatsappUrl: notificationResult?.whatsappLink || null,
+      reseller: resellerRecord ? {
+        id: resellerRecord.id,
+        name: resellerRecord.name,
+        whatsapp: resellerRecord.whatsapp,
+        email: resellerRecord.email,
+        notification_preference: resellerRecord.notification_preference,
+      } : null,
+      message: 'Pedido registrado com sucesso para atendimento do seu revendedor.',
     });
   } catch (err: any) {
     return NextResponse.json({

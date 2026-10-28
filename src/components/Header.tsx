@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, ShoppingBag, X, Package, ArrowRight, Sparkles, LogOut, User, ShieldCheck, ChevronDown } from 'lucide-react';
+import { Search, ShoppingBag, X, Package, ArrowRight, Sparkles, LogOut, User, ShieldCheck, ChevronDown, Briefcase } from 'lucide-react';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { Product } from '@/types';
 import { normalizeSearchText } from '@/components/CatalogClient';
@@ -300,7 +300,8 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                   const userEmail = currentUser.email?.toLowerCase().trim();
                   const isMaster = userEmail === 'marketing@zeiq.com.br' || userEmail === 'patrickbrank@outlook.com';
                   const userRole = currentUser.app_metadata?.role || currentUser.user_metadata?.role;
-                  const isMasterOrAdmin = isMaster || ['admin', 'marketing', 'stock'].includes(userRole);
+                  const isResellerUser = userRole === 'ROLE_RESELLER';
+                  const isMasterOrAdmin = isMaster || ['master', 'admin', 'stock', 'representative'].includes(userRole);
 
                   return (
                     <>
@@ -349,12 +350,12 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                               </p>
                               <div className="mt-1.5">
                                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                  isMasterOrAdmin
+                                  isMasterOrAdmin || isResellerUser
                                     ? 'bg-amber-50 text-amber-900 border border-amber-200'
                                     : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 }`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${isMasterOrAdmin ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                  {isMasterOrAdmin ? 'Administrador Zeiq' : 'Lojista Autorizado'}
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isMasterOrAdmin || isResellerUser ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                  {isMaster ? 'Diretoria (Master)' : isResellerUser ? 'Revendedor Autorizado' : userRole === 'representative' ? 'Representante Comercial' : userRole === 'stock' ? 'Controle de Estoque' : isMasterOrAdmin ? 'Administrador Zeiq' : 'Lojista Autorizado'}
                                 </span>
                               </div>
                             </div>
@@ -362,17 +363,35 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
 
                           {/* Ações Rápidas */}
                           <div className="space-y-1">
-                            <Link
-                              href="/portal"
-                              onClick={() => setIsProfileOpen(false)}
-                              className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-700 hover:text-zeiq-black hover:bg-slate-100 transition-colors"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Package className="w-4 h-4 text-slate-500" />
-                                <span>Meus Pedidos & Cotações</span>
-                              </div>
-                              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-                            </Link>
+                            {isResellerUser && (
+                              <Link
+                                href="/revendedor"
+                                onClick={() => setIsProfileOpen(false)}
+                                className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-zeiq-black hover:bg-amber-50 hover:text-amber-950 transition-colors border border-transparent hover:border-amber-200/80"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Briefcase className="w-4 h-4 text-zeiq-orange" />
+                                  <span>Painel do Revendedor</span>
+                                </div>
+                                <span className="text-xs font-mono font-bold bg-zeiq-orange text-black px-1.5 py-0.5 rounded">
+                                  REVENDEDOR
+                                </span>
+                              </Link>
+                            )}
+
+                            {!isResellerUser && (
+                              <Link
+                                href="/portal"
+                                onClick={() => setIsProfileOpen(false)}
+                                className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold text-slate-700 hover:text-zeiq-black hover:bg-slate-100 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Package className="w-4 h-4 text-slate-500" />
+                                  <span>Meus Pedidos & Cotações</span>
+                                </div>
+                                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                              </Link>
+                            )}
 
                             {isMasterOrAdmin && (
                               <Link
@@ -385,7 +404,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                                   <span>Painel Administrativo B2B</span>
                                 </div>
                                 <span className="text-xs font-mono font-bold bg-zeiq-orange text-black px-1.5 py-0.5 rounded">
-                                  {isMaster ? 'MASTER' : userRole === 'marketing' ? 'MARKETING' : userRole === 'stock' ? 'ESTOQUE' : 'ADMIN'}
+                                  {isMaster ? 'MASTER' : userRole === 'representative' ? 'REPRESENTANTE' : userRole === 'stock' ? 'ESTOQUE' : 'ADMIN'}
                                 </span>
                               </Link>
                             )}
