@@ -1,29 +1,23 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, Category } from '@/types';
 import { Department, DEPARTMENTS } from '@/lib/data/departments';
 import {
   Package,
   Layers,
-  Search,
+  Tag,
   Link2,
   Check,
-  ChevronDown,
-  Sparkles,
-  ExternalLink,
-  Info,
-  Flame,
-  Shirt,
-  Dumbbell,
-  Tag,
-  CircleDot,
+  Search,
   X,
+  Flame,
+  MessageCircle,
+  ExternalLink,
+  Ban,
   ArrowRight,
-  RefreshCw,
-  Plus,
   Loader2,
+  Plus,
 } from 'lucide-react';
 
 interface BannerDestinationPickerProps {
@@ -34,7 +28,7 @@ interface BannerDestinationPickerProps {
   departments?: Department[];
 }
 
-type DestinationType = 'category' | 'product' | 'search' | 'custom';
+type DestinationType = 'line' | 'product' | 'tag' | 'custom' | 'none';
 
 export function BannerDestinationPicker({
   link = '',
@@ -43,19 +37,38 @@ export function BannerDestinationPicker({
   categories = [],
   departments = DEPARTMENTS,
 }: BannerDestinationPickerProps) {
-  // Detecta o modo inicial a partir do link gravado
-  const detectInitialType = (val: string): DestinationType => {
+  // Detecta o tipo a partir do link gravado
+  const detectType = (val: string): DestinationType => {
     const clean = (val || '').trim();
-    if (!clean) return 'category';
-    if (clean.includes('product=') || clean.startsWith('product:')) return 'product';
-    if (clean.includes('dept=') || clean.includes('cat=')) return 'category';
-    if (clean.includes('search=')) return 'search';
+    if (!clean) return 'none';
+    if (
+      clean.includes('product=') ||
+      clean.includes('produto=') ||
+      clean.startsWith('product:') ||
+      clean.startsWith('produto:')
+    ) {
+      return 'product';
+    }
+    if (clean.includes('tag=') || clean.startsWith('tag:')) {
+      return 'tag';
+    }
+    if (
+      clean.includes('dept=') ||
+      clean.includes('linha=') ||
+      clean.includes('cat=') ||
+      clean.includes('categoria=')
+    ) {
+      return 'line';
+    }
+    if (clean.includes('search=') || clean.startsWith('search:')) {
+      return 'tag';
+    }
     return 'custom';
   };
 
-  const [activeType, setActiveType] = useState<DestinationType>(() => detectInitialType(link));
-  
-  // Cache / Auto-recuperação local de produtos caso a prop venha vazia
+  const [activeType, setActiveType] = useState<DestinationType>(() => detectType(link));
+
+  // Produtos locais com fallback caso a prop chegue vazia
   const [localProducts, setLocalProducts] = useState<Product[]>(products || []);
   const [loadingProducts, setLoadingProducts] = useState(false);
 
@@ -71,100 +84,118 @@ export function BannerDestinationPicker({
             setLocalProducts(data.products);
           }
         })
-        .catch((err) => console.warn('Falha na auto-recuperação de produtos:', err))
+        .catch(() => {})
         .finally(() => setLoadingProducts(false));
     }
   }, [products]);
 
-  // Estados para Produto Específico
-  const [productSearch, setProductSearch] = useState('');
+  const activeProducts = localProducts.length > 0 ? localProducts : products;
+
+  // Estados locais para cada modalidade
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const [isPickingProduct, setIsPickingProduct] = useState(false);
 
-  // Estados para Linha / Conjunto / Categoria
   const [selectedDept, setSelectedDept] = useState('all');
   const [selectedCat, setSelectedCat] = useState('');
-  const [catSearch, setCatSearch] = useState('');
 
-  // Estados para Busca / Palavra-chave
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
+  const [tagInput, setTagInput] = useState('');
 
-  // Estados para Link Livre
   const [customUrl, setCustomUrl] = useState('');
-
-  // Toggle do parâmetro técnico
   const [showTechnicalUrl, setShowTechnicalUrl] = useState(false);
 
-  // Normalização de texto sem acentos e minúsculo
-  const normalizeForSearch = (str?: string | null): string => {
-    if (!str) return '';
-    return str
-      .toString()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-  };
-
-  // Sincroniza dados internos caso a prop `link` seja alterada externamente
+  // Sincroniza estados a partir do link gravado
   useEffect(() => {
     const clean = (link || '').trim();
-    const detected = detectInitialType(clean);
-    setActiveType(detected);
+    const type = detectType(clean);
+    setActiveType(type);
 
-    if (detected === 'product') {
-      const match = clean.match(/(?:product=|product:)([^&]+)/);
-      if (match && match[1]) {
-        setSelectedProductId(match[1]);
-        setIsPickingProduct(false);
-      }
-    } else if (detected === 'category') {
+    if (type === 'product') {
       const qs = clean.includes('?') ? clean.substring(clean.indexOf('?') + 1) : clean;
       const params = new URLSearchParams(qs);
-      setSelectedDept(params.get('dept') || 'all');
-      setSelectedCat(params.get('cat') || '');
-    } else if (detected === 'search') {
+      const pid =
+        params.get('product') ||
+        params.get('produto') ||
+        clean.replace(/^(?:\/|\?|product:|produto:)/, '').split('&')[0];
+      setSelectedProductId(pid ? decodeURIComponent(pid).trim() : '');
+      setIsPickingProduct(false);
+    } else if (type === 'tag') {
       const qs = clean.includes('?') ? clean.substring(clean.indexOf('?') + 1) : clean;
       const params = new URLSearchParams(qs);
-      setSearchQuery(params.get('search') || '');
-    } else if (detected === 'custom') {
+      const t =
+        params.get('tag') ||
+        params.get('search') ||
+        clean.replace(/^(?:\/|\?|tag:|search:)/, '').split('&')[0];
+      const decodedTag = t ? decodeURIComponent(t).trim() : '';
+      setSelectedTag(decodedTag);
+      setTagInput(decodedTag);
+    } else if (type === 'line') {
+      const qs = clean.includes('?') ? clean.substring(clean.indexOf('?') + 1) : clean;
+      const params = new URLSearchParams(qs);
+      setSelectedDept(params.get('dept') || params.get('linha') || 'all');
+      setSelectedCat(params.get('cat') || params.get('categoria') || '');
+    } else if (type === 'custom') {
       setCustomUrl(clean);
     }
   }, [link]);
 
-  const activeProductsList = localProducts.length > 0 ? localProducts : products;
+  // Lista de todas as tags reais extraídas dos produtos do catálogo
+  const catalogTags = useMemo(() => {
+    const map = new Map<string, number>();
+    activeProducts.forEach((p) => {
+      (p.tags || []).forEach((t) => {
+        const clean = t.trim();
+        if (clean) {
+          map.set(clean, (map.get(clean) || 0) + 1);
+        }
+      });
+    });
 
-  // Objeto do produto selecionado atualmente
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [activeProducts]);
+
+  // Tags filtradas pelo que o usuário digita
+  const filteredTags = useMemo(() => {
+    if (!tagInput.trim()) return catalogTags;
+    const q = tagInput.toLowerCase().trim();
+    return catalogTags.filter((t) => t.name.toLowerCase().includes(q));
+  }, [catalogTags, tagInput]);
+
+  // Produto selecionado atualmente
   const selectedProduct = useMemo(() => {
     if (!selectedProductId) return null;
-    return activeProductsList.find((p) => p.id === selectedProductId || p.slug === selectedProductId) || null;
-  }, [selectedProductId, activeProductsList]);
+    const clean = selectedProductId.toLowerCase();
+    return (
+      activeProducts.find(
+        (p) =>
+          p.id?.toLowerCase() === clean ||
+          p.slug?.toLowerCase() === clean ||
+          p.code_sku?.toLowerCase() === clean ||
+          String(p.legacy_id || '').toLowerCase() === clean
+      ) || null
+    );
+  }, [selectedProductId, activeProducts]);
 
-  // Lista de produtos filtrada para seleção na combobox com busca inteligente tolerante a acentos e plural
+  // Busca de produtos por nome ou SKU
   const searchResults = useMemo(() => {
-    if (!productSearch.trim()) return activeProductsList.slice(0, 30);
+    if (!productSearch.trim()) return activeProducts.slice(0, 24);
 
-    const rawQuery = normalizeForSearch(productSearch);
-    const words = rawQuery.split(/\s+/).filter(Boolean);
+    const q = productSearch.toLowerCase().trim();
+    const tokens = q.split(/\s+/).filter(Boolean);
 
-    return activeProductsList
+    return activeProducts
       .filter((p) => {
-        const normName = normalizeForSearch(p.name);
-        const normSku = normalizeForSearch(p.code_sku);
-        const catNames = (p.categories || []).map((c) => normalizeForSearch(c.name)).join(' ');
-
-        return words.every((w) => {
-          if (normName.includes(w) || normSku.includes(w) || catNames.includes(w)) return true;
-          // Tratamento para singular / plural (ex: raquetes -> raquete, camisetas -> camiseta)
-          if (w.length > 3 && w.endsWith('s')) {
-            const singular = w.slice(0, -1);
-            if (normName.includes(singular) || catNames.includes(singular)) return true;
-          }
-          return false;
-        });
+        const name = (p.name || '').toLowerCase();
+        const sku = (p.code_sku || '').toLowerCase();
+        const cat = (p.categories || []).map((c) => c.name.toLowerCase()).join(' ');
+        const full = `${name} ${sku} ${cat}`;
+        return tokens.every((token) => full.includes(token));
       })
-      .slice(0, 50);
-  }, [activeProductsList, productSearch]);
+      .slice(0, 30);
+  }, [activeProducts, productSearch]);
 
   // Subcategorias disponíveis para a linha selecionada
   const availableCategories = useMemo(() => {
@@ -178,25 +209,15 @@ export function BannerDestinationPicker({
     );
   }, [categories, departments, selectedDept]);
 
-  // Categoria atualmente selecionada como objeto
-  const selectedCatObj = useMemo(() => {
-    if (!selectedCat) return null;
-    return categories.find((c) => c.slug === selectedCat || c.id === selectedCat) || null;
-  }, [selectedCat, categories]);
-
-  // Subcategorias filtradas pela busca por palavra digitada
-  const filteredSubcategories = useMemo(() => {
-    if (!catSearch.trim()) return [];
-    const q = catSearch.toLowerCase().trim();
-    return availableCategories.filter((c) => c.name.toLowerCase().includes(q));
-  }, [availableCategories, catSearch]);
-
-  // Quantidade de produtos que batem com o termo de busca atual
-  const searchMatchCount = useMemo(() => {
-    if (!searchQuery.trim()) return 0;
-    const q = searchQuery.toLowerCase().trim();
-    return products.filter((p) => p.name.toLowerCase().includes(q)).length;
-  }, [products, searchQuery]);
+  // Capa do produto
+  const getProductCover = (p: Product) => {
+    return (
+      p.images?.find((img) => img.is_cover)?.public_url ||
+      p.images?.[0]?.public_url ||
+      p.images?.[0]?.legacy_url ||
+      '/placeholder-product.svg'
+    );
+  };
 
   // Handlers para ações
   const handleSelectProduct = (p: Product) => {
@@ -214,36 +235,44 @@ export function BannerDestinationPicker({
 
   const handleSelectDepartment = (deptId: string) => {
     setSelectedDept(deptId);
-    setSelectedCat(''); // Reseta subcategoria ao trocar de linha
+    setSelectedCat('');
 
     if (deptId === 'all') {
-      onChange('');
+      onChange('?dept=all');
     } else {
       onChange(`?dept=${deptId}`);
     }
   };
 
-  const handleSelectCategory = (catSlug: string) => {
-    setSelectedCat(catSlug);
+  const handleToggleCategory = (catSlug: string) => {
+    const nextCat = selectedCat === catSlug ? '' : catSlug;
+    setSelectedCat(nextCat);
 
     const params = new URLSearchParams();
     if (selectedDept && selectedDept !== 'all') {
       params.set('dept', selectedDept);
     }
-    if (catSlug) {
-      params.set('cat', catSlug);
+    if (nextCat) {
+      params.set('cat', nextCat);
     }
 
-    const queryStr = params.toString();
-    onChange(queryStr ? `?${queryStr}` : '');
+    const query = params.toString();
+    onChange(query ? `?${query}` : '?dept=all');
   };
 
-  const handleApplySearch = (term: string) => {
-    setSearchQuery(term);
-    const clean = term.trim();
+  const handleSelectTag = (tagName: string) => {
+    setSelectedTag(tagName);
+    setTagInput(tagName);
+    onChange(`?tag=${encodeURIComponent(tagName)}`);
+  };
+
+  const handleApplyCustomTag = () => {
+    const clean = tagInput.trim();
     if (clean) {
-      onChange(`?search=${encodeURIComponent(clean)}`);
+      setSelectedTag(clean);
+      onChange(`?tag=${encodeURIComponent(clean)}`);
     } else {
+      setSelectedTag('');
       onChange('');
     }
   };
@@ -253,69 +282,84 @@ export function BannerDestinationPicker({
     onChange(url.trim());
   };
 
-  // Helper para obter capa do produto
-  const getProductCover = (p: Product) => {
-    return (
-      p.images?.find((img) => img.is_cover)?.public_url ||
-      p.images?.[0]?.public_url ||
-      p.images?.[0]?.legacy_url ||
-      '/placeholder-product.svg'
-    );
+  const handleSetNone = () => {
+    setActiveType('none');
+    onChange('');
   };
 
-  // Resumo inteligente da ação do banner
+  // Resumo inteligente da ação configurada
   const actionSummary = useMemo(() => {
     const clean = (link || '').trim();
     if (!clean) {
       return {
-        badge: 'Sem Ação',
-        title: 'Nenhum destino configurado',
-        description: 'O banner será exibido na página inicial apenas como destaque visual, sem ação de clique.',
+        badge: 'Apenas Imagem',
+        title: 'Sem ação de clique',
+        description: 'O banner será exibido na loja apenas como elemento visual decorativo.',
         isConfigured: false,
       };
     }
 
-    if (clean.includes('product=') || clean.startsWith('product:')) {
+    if (
+      clean.includes('product=') ||
+      clean.includes('produto=') ||
+      clean.startsWith('product:') ||
+      clean.startsWith('produto:')
+    ) {
       const prod = selectedProduct;
       return {
-        badge: 'Produto Específico',
-        title: prod ? prod.name : `Produto ID: ${selectedProductId}`,
-        description: 'Ao tocar no banner na loja, abrirá imediatamente a janela de detalhes e tamanhos deste produto.',
+        badge: 'Produto',
+        title: prod ? prod.name : `Produto (${selectedProductId})`,
+        description:
+          'Ao clicar no banner, abrirá imediatamente a janela de detalhes e tamanhos deste produto.',
         isConfigured: true,
       };
     }
 
-    if (clean.includes('dept=') || clean.includes('cat=')) {
+    if (clean.includes('tag=') || clean.startsWith('tag:')) {
       const qs = clean.includes('?') ? clean.substring(clean.indexOf('?') + 1) : clean;
       const params = new URLSearchParams(qs);
-      const deptId = params.get('dept');
+      const tag = params.get('tag') || clean.replace(/^(?:\/|\?|tag:)/, '');
+      const count = activeProducts.filter((p) =>
+        (p.tags || []).some((t) => t.toLowerCase().trim() === tag.toLowerCase().trim())
+      ).length;
+      return {
+        badge: 'Tag / Coleção',
+        title: `Tag: "${tag}"`,
+        description: `Ao clicar no banner, a vitrine será filtrada para os produtos com esta tag (${count} itens) e rolará automaticamente.`,
+        isConfigured: true,
+      };
+    }
+
+    if (clean.includes('dept=') || clean.includes('linha=') || clean.includes('cat=')) {
+      const qs = clean.includes('?') ? clean.substring(clean.indexOf('?') + 1) : clean;
+      const params = new URLSearchParams(qs);
+      const deptId = params.get('dept') || params.get('linha');
       const catSlug = params.get('cat');
+
       const deptObj = departments.find((d) => d.id === deptId);
       const catObj = categories.find((c) => c.slug === catSlug);
 
       const parts: string[] = [];
       if (deptId === 'lancamentos') parts.push('🔥 Novidades & Lançamentos 2026');
+      else if (deptId === 'all') parts.push('🌐 Todas as Linhas (Catálogo Geral)');
       else if (deptObj) parts.push(deptObj.name);
-      else if (deptId) parts.push(deptId);
 
       if (catObj) parts.push(catObj.name);
 
       return {
-        badge: 'Conjunto de Produtos',
-        title: parts.length > 0 ? parts.join(' → ') : 'Catálogo Geral Completo',
-        description: 'Ao tocar no banner, a vitrine será filtrada para essa linha/categoria com rolagem suave até os produtos.',
+        badge: 'Linha / Categoria',
+        title: parts.length > 0 ? parts.join(' → ') : 'Catálogo Geral',
+        description:
+          'Ao clicar no banner, a vitrine será filtrada para esta linha/categoria com rolagem suave.',
         isConfigured: true,
       };
     }
 
-    if (clean.includes('search=')) {
-      const qs = clean.includes('?') ? clean.substring(clean.indexOf('?') + 1) : clean;
-      const params = new URLSearchParams(qs);
-      const term = params.get('search') || '';
+    if (clean.startsWith('wa.me') || clean.includes('whatsapp') || clean.includes('wa.me')) {
       return {
-        badge: 'Busca por Palavra-Chave',
-        title: `Coleção / Termo: "${term}"`,
-        description: `Ao tocar no banner, a vitrine buscará por "${term}" e rolará automaticamente até os itens encontrados (${searchMatchCount} produtos).`,
+        badge: 'WhatsApp',
+        title: clean,
+        description: 'Abre o WhatsApp Comercial da loja em uma nova janela para atendimento direto.',
         isConfigured: true,
       };
     }
@@ -325,15 +369,14 @@ export function BannerDestinationPicker({
       title: clean,
       description: clean.startsWith('http')
         ? 'Abre o link externo em uma nova aba do navegador.'
-        : 'Navega para a rota interna configurada na loja.',
+        : 'Navega para a rota configurada na loja.',
       isConfigured: true,
     };
-  }, [link, selectedProduct, selectedProductId, departments, categories, searchMatchCount]);
+  }, [link, selectedProduct, selectedProductId, departments, categories, activeProducts]);
 
   return (
-    <div className="bg-slate-50/80 rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
-      
-      {/* 1. CABEÇALHO DO SELETOR DE DESTINO */}
+    <div className="bg-slate-50/90 rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
+      {/* 1. CABEÇALHO */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
         <div>
           <h4 className="text-xs sm:text-sm font-extrabold text-zeiq-black tracking-tight flex items-center gap-2">
@@ -341,50 +384,62 @@ export function BannerDestinationPicker({
             <span>Destino ao Clicar no Banner</span>
           </h4>
           <p className="text-[11px] text-slate-500 mt-0.5">
-            Defina o que o cliente verá ao tocar neste banner na página inicial.
+            Escolha o que acontece quando o cliente tocar neste banner na página inicial.
           </p>
         </div>
 
-        {/* Status rápido do destino */}
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold self-start sm:self-auto ${
-          actionSummary.isConfigured
-            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-            : 'bg-slate-100 text-slate-500 border border-slate-200'
-        }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${actionSummary.isConfigured ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+        {/* Status rápido */}
+        <span
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold self-start sm:self-auto ${
+            actionSummary.isConfigured
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-slate-100 text-slate-500 border border-slate-200'
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              actionSummary.isConfigured ? 'bg-emerald-500' : 'bg-slate-400'
+            }`}
+          />
           <span>{actionSummary.badge}</span>
         </span>
       </div>
 
-      {/* 2. ABAS DE MODALIDADE DE DESTINO (ESTILO PILULAS PREMIUM) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* 2. BOTÕES DE MODALIDADE (5 OPÇÕES SIMPLES E DIRETAS) */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {/* Opção 1: Linha / Categoria */}
         <button
           type="button"
           onClick={() => {
-            setActiveType('category');
-            if (selectedDept && selectedDept !== 'all') {
-              handleSelectCategory(selectedCat);
-            }
+            setActiveType('line');
+            if (selectedDept) handleSelectDepartment(selectedDept);
           }}
-          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
-            activeType === 'category'
+          className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
+            activeType === 'line'
               ? 'bg-zeiq-black text-white border-zeiq-black shadow-md ring-2 ring-zeiq-orange/20'
-              : 'bg-white text-slate-700 border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+              : 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50'
           }`}
         >
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-            activeType === 'category' ? 'bg-white/10 text-zeiq-orange' : 'bg-sky-50 text-sky-600'
-          }`}>
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              activeType === 'line' ? 'bg-white/10 text-zeiq-orange' : 'bg-sky-50 text-sky-600'
+            }`}
+          >
             <Layers className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-xs font-bold block leading-snug">Linha & Categoria</span>
-            <span className={`text-[10px] block leading-tight ${activeType === 'category' ? 'text-slate-300' : 'text-slate-400'}`}>
-              Conjunto de produtos
+            <span className="text-xs font-bold block leading-snug">Linha / Cat.</span>
+            <span
+              className={`text-[10px] block leading-tight ${
+                activeType === 'line' ? 'text-slate-300' : 'text-slate-400'
+              }`}
+            >
+              Conjunto
             </span>
           </div>
         </button>
 
+        {/* Opção 2: Produto Específico */}
         <button
           type="button"
           onClick={() => {
@@ -395,102 +450,145 @@ export function BannerDestinationPicker({
               setIsPickingProduct(true);
             }
           }}
-          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+          className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
             activeType === 'product'
               ? 'bg-zeiq-black text-white border-zeiq-black shadow-md ring-2 ring-zeiq-orange/20'
-              : 'bg-white text-slate-700 border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+              : 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50'
           }`}
         >
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-            activeType === 'product' ? 'bg-white/10 text-zeiq-orange' : 'bg-amber-50 text-amber-600'
-          }`}>
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              activeType === 'product' ? 'bg-white/10 text-zeiq-orange' : 'bg-amber-50 text-amber-600'
+            }`}
+          >
             <Package className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-xs font-bold block leading-snug">Produto Específico</span>
-            <span className={`text-[10px] block leading-tight ${activeType === 'product' ? 'text-slate-300' : 'text-slate-400'}`}>
-              Abre o item na hora
+            <span className="text-xs font-bold block leading-snug">Produto</span>
+            <span
+              className={`text-[10px] block leading-tight ${
+                activeType === 'product' ? 'text-slate-300' : 'text-slate-400'
+              }`}
+            >
+              Abre direto
             </span>
           </div>
         </button>
 
+        {/* Opção 3: Tag / Coleção */}
         <button
           type="button"
           onClick={() => {
-            setActiveType('search');
-            if (searchQuery) handleApplySearch(searchQuery);
+            setActiveType('tag');
+            if (selectedTag) handleSelectTag(selectedTag);
           }}
-          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
-            activeType === 'search'
+          className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
+            activeType === 'tag'
               ? 'bg-zeiq-black text-white border-zeiq-black shadow-md ring-2 ring-zeiq-orange/20'
-              : 'bg-white text-slate-700 border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+              : 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50'
           }`}
         >
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-            activeType === 'search' ? 'bg-white/10 text-zeiq-orange' : 'bg-purple-50 text-purple-600'
-          }`}>
-            <Search className="w-4 h-4" />
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              activeType === 'tag' ? 'bg-white/10 text-zeiq-orange' : 'bg-purple-50 text-purple-600'
+            }`}
+          >
+            <Tag className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-xs font-bold block leading-snug">Coleção & Busca</span>
-            <span className={`text-[10px] block leading-tight ${activeType === 'search' ? 'text-slate-300' : 'text-slate-400'}`}>
-              Termos e linhas
+            <span className="text-xs font-bold block leading-snug">Tag / Coleção</span>
+            <span
+              className={`text-[10px] block leading-tight ${
+                activeType === 'tag' ? 'text-slate-300' : 'text-slate-400'
+              }`}
+            >
+              Filtro de tag
             </span>
           </div>
         </button>
 
+        {/* Opção 4: Link / WhatsApp */}
         <button
           type="button"
           onClick={() => {
             setActiveType('custom');
-            onChange(customUrl);
+            onChange(customUrl || 'https://wa.me/5516991667020');
           }}
-          className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+          className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
             activeType === 'custom'
               ? 'bg-zeiq-black text-white border-zeiq-black shadow-md ring-2 ring-zeiq-orange/20'
-              : 'bg-white text-slate-700 border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+              : 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50'
           }`}
         >
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-            activeType === 'custom' ? 'bg-white/10 text-zeiq-orange' : 'bg-emerald-50 text-emerald-600'
-          }`}>
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              activeType === 'custom' ? 'bg-white/10 text-zeiq-orange' : 'bg-emerald-50 text-emerald-600'
+            }`}
+          >
             <Link2 className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-xs font-bold block leading-snug">Link Externo / URL</span>
-            <span className={`text-[10px] block leading-tight ${activeType === 'custom' ? 'text-slate-300' : 'text-slate-400'}`}>
-              WhatsApp ou rota
+            <span className="text-xs font-bold block leading-snug">Link / Zap</span>
+            <span
+              className={`text-[10px] block leading-tight ${
+                activeType === 'custom' ? 'text-slate-300' : 'text-slate-400'
+              }`}
+            >
+              URL externa
+            </span>
+          </div>
+        </button>
+
+        {/* Opção 5: Sem Link (Apenas Imagem) */}
+        <button
+          type="button"
+          onClick={handleSetNone}
+          className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 col-span-2 sm:col-span-1 ${
+            activeType === 'none'
+              ? 'bg-zeiq-black text-white border-zeiq-black shadow-md ring-2 ring-zeiq-orange/20'
+              : 'bg-white text-slate-700 border-slate-200/90 hover:bg-slate-50'
+          }`}
+        >
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+              activeType === 'none' ? 'bg-white/10 text-zeiq-orange' : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            <Ban className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold block leading-snug">Sem Link</span>
+            <span
+              className={`text-[10px] block leading-tight ${
+                activeType === 'none' ? 'text-slate-300' : 'text-slate-400'
+              }`}
+            >
+              Apenas foto
             </span>
           </div>
         </button>
       </div>
 
-      {/* 3. CONTEÚDO ESPECÍFICO DE CADA MODALIDADE */}
+      {/* 3. PAINEL DE CONTEÚDO DE ACORDO COM A OPÇÃO */}
 
-      {/* PAINEL 1: LINHA & CATEGORIA (CHIPS VISUAIS SEM NENHUM SELECT NATIVO) */}
-      {activeType === 'category' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4 animate-in fade-in duration-200">
+      {/* PAINEL 1: LINHA OU CATEGORIA */}
+      {activeType === 'line' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4 animate-in fade-in duration-150">
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
-                <span className="w-4 h-4 rounded-full bg-slate-900 text-white font-mono text-[10px] flex items-center justify-center">1</span>
-                <span>Escolha a Linha Esportiva:</span>
-              </span>
-              <span className="text-[11px] text-slate-400">Clique para selecionar</span>
-            </div>
-
-            {/* Chips de Linha */}
-            <div className="flex flex-wrap gap-2">
+            <label className="text-xs font-bold text-zeiq-black block mb-2">
+              1. Selecione a Linha Esportiva:
+            </label>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => handleSelectDepartment('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   selectedDept === 'all'
                     ? 'bg-zeiq-black text-white shadow-xs'
                     : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
-                <span>🌐 Catálogo Geral (Todas as Linhas)</span>
+                🌐 Catálogo Geral (Todas as Linhas)
               </button>
 
               <button
@@ -503,7 +601,7 @@ export function BannerDestinationPicker({
                 }`}
               >
                 <Flame className="w-3.5 h-3.5 fill-current" />
-                <span>Novidades 2026</span>
+                <span>Novidades & Lançamentos 2026</span>
               </button>
 
               {departments.map((dept) => {
@@ -513,135 +611,88 @@ export function BannerDestinationPicker({
                     key={dept.id}
                     type="button"
                     onClick={() => handleSelectDepartment(dept.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-zeiq-black text-white shadow-xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    <span>{dept.name}</span>
+                    {dept.name}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Subcategoria Específica com Busca por Palavra (Clean & Despoluído) */}
-          <div className="pt-3 border-t border-slate-100 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
-                <span className="w-4 h-4 rounded-full bg-slate-900 text-white font-mono text-[10px] flex items-center justify-center">2</span>
-                <span>Subcategoria Específica (Opcional):</span>
-              </span>
-              <span className="text-[11px] text-slate-400">Busque por palavra para filtrar</span>
-            </div>
-
-            {/* Subcategoria Selecionada (se houver) */}
-            {selectedCat ? (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-sky-50 border border-sky-200">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
-                  <span className="text-xs text-sky-950">
-                    Subcategoria ativa: <strong className="font-bold text-sky-900">{selectedCatObj?.name || selectedCat}</strong>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSelectCategory('');
-                    setCatSearch('');
-                  }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  <span>Remover subcategoria</span>
-                </button>
-              </div>
-            ) : (
-              /* Campo de busca por palavra para subcategoria */
-              <div className="space-y-2">
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={catSearch}
-                    onChange={(e) => setCatSearch(e.target.value)}
-                    placeholder="Digite para buscar subcategoria (ex: Raquetes, Shorts, Camisetas, Mochilas)..."
-                    className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                  />
-                  {catSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setCatSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Resultados da busca digitada */}
-                {catSearch.trim() ? (
-                  <div className="flex flex-wrap gap-1.5 pt-1 animate-in fade-in duration-150">
-                    {filteredSubcategories.length === 0 ? (
-                      <span className="text-[11px] text-slate-400 italic">
-                        Nenhuma subcategoria encontrada para "{catSearch}".
-                      </span>
-                    ) : (
-                      filteredSubcategories.slice(0, 8).map((cat) => (
-                        <button
-                          key={cat.id || cat.slug}
-                          type="button"
-                          onClick={() => {
-                            handleSelectCategory(cat.slug);
-                            setCatSearch('');
-                          }}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-800 border border-slate-200 hover:border-sky-300 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
-                        >
-                          <Plus className="w-3 h-3 text-sky-600" />
-                          <span>{cat.name}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
-                    <span>Todas as peças desta linha serão exibidas. Digite acima apenas se desejar filtrar por uma subcategoria específica.</span>
-                  </div>
+          {/* Subcategorias disponíveis */}
+          {availableCategories.length > 0 && (
+            <div className="pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-zeiq-black">
+                  2. Filtrar por Categoria Específica (Opcional):
+                </label>
+                {selectedCat && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleCategory(selectedCat)}
+                    className="text-xs text-rose-600 hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>Limpar categoria</span>
+                  </button>
                 )}
               </div>
-            )}
-          </div>
+
+              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1 bg-slate-50/70 rounded-xl border border-slate-200/80">
+                {availableCategories.map((cat) => {
+                  const isSelected = selectedCat === cat.slug;
+                  return (
+                    <button
+                      key={cat.id || cat.slug}
+                      type="button"
+                      onClick={() => handleToggleCategory(cat.slug)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-sky-600 text-white font-bold shadow-xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* PAINEL 2: PRODUTO ESPECÍFICO COM CARD VISUAL E COMBOBOX */}
+      {/* PAINEL 2: PRODUTO ESPECÍFICO */}
       {activeType === 'product' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 animate-in fade-in duration-200">
-          {/* Card do Produto Selecionado */}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 animate-in fade-in duration-150">
           {selectedProduct && !isPickingProduct ? (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/90">
-              <div className="flex items-center gap-3">
-                <div className="relative w-12 h-12 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+            /* Card do produto selecionado */
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                   <img
                     src={getProductCover(selectedProduct)}
                     alt={selectedProduct.name}
                     className="w-full h-full object-contain p-0.5"
                   />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     {selectedProduct.code_sku && (
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-800">
-                        {selectedProduct.code_sku}
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-800">
+                        SKU: {selectedProduct.code_sku}
                       </span>
                     )}
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
                       Produto Vinculado
                     </span>
                   </div>
-                  <strong className="text-xs font-bold text-zeiq-black block line-clamp-1 mt-0.5">
+                  <strong className="text-xs sm:text-sm font-bold text-zeiq-black block truncate mt-0.5">
                     {selectedProduct.name}
                   </strong>
                 </div>
@@ -653,24 +704,24 @@ export function BannerDestinationPicker({
                   onClick={() => setIsPickingProduct(true)}
                   className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors cursor-pointer"
                 >
-                  Trocar Produto
+                  Trocar
                 </button>
                 <button
                   type="button"
                   onClick={handleClearProduct}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                  title="Remover vinculação"
+                  title="Remover produto"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
           ) : (
-            /* Combobox de Busca de Produtos */
+            /* Busca de produtos */
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-zeiq-black">
-                  Buscar Produto no Catálogo:
+                  Buscar Produto por Nome ou SKU:
                 </label>
                 {selectedProduct && (
                   <button
@@ -690,7 +741,7 @@ export function BannerDestinationPicker({
                   autoFocus
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  placeholder="Digite o nome do produto ou código SKU..."
+                  placeholder="Ex: Raquete Carbono 3K, 0214, Leo Branco, Camiseta..."
                   className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                 />
                 {productSearch && (
@@ -704,17 +755,16 @@ export function BannerDestinationPicker({
                 )}
               </div>
 
-              {/* Lista Suspenso Visual com Miniatura, SKU e Título */}
-              <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white shadow-inner">
+              {/* Lista suspensa de produtos */}
+              <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white">
                 {loadingProducts && searchResults.length === 0 ? (
                   <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin text-zeiq-orange" />
-                    <span>Carregando produtos do catálogo...</span>
+                    <span>Carregando produtos...</span>
                   </div>
                 ) : searchResults.length === 0 ? (
                   <div className="p-4 text-center text-xs text-slate-400">
-                    <p>Nenhum produto localizado para "{productSearch}".</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Tente pesquisar pelo nome ou código SKU (ex: "raquete", "0214", "camisa").</p>
+                    Nenhum produto localizado para "{productSearch}".
                   </div>
                 ) : (
                   searchResults.map((p) => {
@@ -747,7 +797,7 @@ export function BannerDestinationPicker({
                           </div>
                         </div>
 
-                        <span className="px-2 py-1 rounded-md text-[11px] font-bold bg-slate-100 group-hover:bg-zeiq-black text-slate-700 shrink-0">
+                        <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 hover:bg-zeiq-black hover:text-white text-slate-700 shrink-0 transition-colors">
                           Selecionar
                         </span>
                       </button>
@@ -760,60 +810,87 @@ export function BannerDestinationPicker({
         </div>
       )}
 
-      {/* PAINEL 3: COLEÇÃO & BUSCA */}
-      {activeType === 'search' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 animate-in fade-in duration-200">
+      {/* PAINEL 3: TAG OU COLEÇÃO */}
+      {activeType === 'tag' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 animate-in fade-in duration-150">
           <div>
-            <label className="block text-xs font-bold text-zeiq-black mb-1.5">
-              Termo ou Palavra-Chave para Busca no Catálogo:
+            <label className="text-xs font-bold text-zeiq-black block mb-1.5">
+              Escolha ou digite uma Tag para vincular ao banner:
             </label>
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleApplySearch(e.target.value)}
-                placeholder="Ex: Leo Branco, Carbono 3K, Pro Dry, Beach Flex..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Tag className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleApplyCustomTag();
+                    }
+                  }}
+                  placeholder="Ex: Leo Branco, Carbono 3K, Lançamentos, Beach Tennis..."
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyCustomTag}
+                className="px-3.5 py-2 rounded-xl bg-zeiq-black text-white text-xs font-bold hover:bg-zeiq-charcoal transition-colors cursor-pointer shrink-0"
+              >
+                Aplicar Tag
+              </button>
             </div>
           </div>
 
+          {/* Nuvem de tags reais do catálogo */}
           <div>
-            <span className="text-[11px] text-slate-400 block mb-1.5">Coleções frequentes (clique para aplicar):</span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {['Leo Branco', 'Carbono 3K', 'Carbono 18k', 'Pro Dry', 'Beach Flex', 'Advanced'].map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => handleApplySearch(tag)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    searchQuery.toLowerCase() === tag.toLowerCase()
-                      ? 'bg-purple-600 text-white shadow-2xs'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
+            <span className="text-[11px] text-slate-400 block mb-1.5">
+              Tags cadastradas nos produtos (clique para selecionar):
+            </span>
+            <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto p-1 bg-slate-50/70 rounded-xl border border-slate-200/80">
+              {filteredTags.length === 0 ? (
+                <span className="text-xs text-slate-400 italic p-1">
+                  Nenhuma tag encontrada para "{tagInput}". Pressione "Aplicar Tag" para usar este termo.
+                </span>
+              ) : (
+                filteredTags.map((t) => {
+                  const isSelected = selectedTag.toLowerCase() === t.name.toLowerCase();
+                  return (
+                    <button
+                      key={t.name}
+                      type="button"
+                      onClick={() => handleSelectTag(t.name)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-purple-600 text-white font-bold shadow-xs'
+                          : 'bg-white hover:bg-purple-50 hover:text-purple-900 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      <span>{t.name}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          isSelected ? 'bg-purple-800 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {t.count}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
-
-          {searchQuery && (
-            <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 pt-1 border-t border-slate-100">
-              <Check className="w-3.5 h-3.5" />
-              <span>{searchMatchCount} produto(s) localizado(s) no catálogo com o termo "{searchQuery}".</span>
-            </p>
-          )}
         </div>
       )}
 
-      {/* PAINEL 4: LINK EXTERNO / URL */}
+      {/* PAINEL 4: LINK LIVRE OU WHATSAPP */}
       {activeType === 'custom' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 animate-in fade-in duration-150">
           <div>
-            <label className="block text-xs font-bold text-zeiq-black mb-1.5">
-              URL Externa ou Rota Interna do Catálogo:
+            <label className="text-xs font-bold text-zeiq-black block mb-1.5">
+              URL Externa ou Rota Interna da Loja:
             </label>
             <div className="relative">
               <Link2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -829,51 +906,87 @@ export function BannerDestinationPicker({
 
           <div>
             <span className="text-[11px] text-slate-400 block mb-1.5">Atalhos rápidos:</span>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleApplyCustomUrl('https://wa.me/5516991667020')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>WhatsApp Comercial Zeiq</span>
+              </button>
               <button
                 type="button"
                 onClick={() => handleApplyCustomUrl('/portal')}
-                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
               >
                 Portal do Lojista (/portal)
               </button>
               <button
                 type="button"
-                onClick={() => handleApplyCustomUrl('https://wa.me/5516991667020')}
-                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
+                onClick={() => handleApplyCustomUrl('#catalog-products-grid')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
               >
-                WhatsApp Oficial Zeiq
+                Rolar para o Catálogo (#catalogo)
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 4. CARD DE PRÉVIA VISUAL DA AÇÃO DO BANNER */}
-      <div className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
-        actionSummary.isConfigured
-          ? 'bg-gradient-to-r from-zinc-900 to-slate-900 text-white border-zinc-800 shadow-md'
-          : 'bg-white text-slate-700 border-slate-200'
-      }`}>
+      {/* PAINEL 5: SEM LINK (APENAS IMAGEM) */}
+      {activeType === 'none' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 text-center space-y-1 animate-in fade-in duration-150">
+          <p className="text-xs font-bold text-slate-700">Banner sem ação de clique configurada.</p>
+          <p className="text-[11px] text-slate-400">
+            O banner será exibido na página inicial apenas como destaque visual.
+          </p>
+        </div>
+      )}
+
+      {/* 4. RESUMO INTELIGENTE & PREVIEW DA AÇÃO */}
+      <div
+        className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
+          actionSummary.isConfigured
+            ? 'bg-gradient-to-r from-zinc-900 to-slate-900 text-white border-zinc-800 shadow-md'
+            : 'bg-white text-slate-700 border-slate-200'
+        }`}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-start gap-2.5">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-              actionSummary.isConfigured ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-100 text-slate-400'
-            }`}>
+            <div
+              className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                actionSummary.isConfigured
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-slate-100 text-slate-400'
+              }`}
+            >
               <Check className="w-4 h-4 stroke-[3]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.2 rounded ${
-                  actionSummary.isConfigured ? 'bg-white/10 text-zeiq-orange' : 'bg-slate-200 text-slate-600'
-                }`}>
+                <span
+                  className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.2 rounded ${
+                    actionSummary.isConfigured
+                      ? 'bg-white/10 text-zeiq-orange'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
                   {actionSummary.badge}
                 </span>
-                <strong className={`text-xs sm:text-sm font-bold block ${actionSummary.isConfigured ? 'text-white' : 'text-zeiq-black'}`}>
+                <strong
+                  className={`text-xs sm:text-sm font-bold block ${
+                    actionSummary.isConfigured ? 'text-white' : 'text-zeiq-black'
+                  }`}
+                >
                   {actionSummary.title}
                 </strong>
               </div>
-              <p className={`text-[11px] mt-0.5 leading-snug ${actionSummary.isConfigured ? 'text-slate-300' : 'text-slate-500'}`}>
+              <p
+                className={`text-[11px] mt-0.5 leading-snug ${
+                  actionSummary.isConfigured ? 'text-slate-300' : 'text-slate-500'
+                }`}
+              >
                 {actionSummary.description}
               </p>
             </div>
@@ -883,32 +996,31 @@ export function BannerDestinationPicker({
             type="button"
             onClick={() => setShowTechnicalUrl(!showTechnicalUrl)}
             className={`text-[11px] font-mono px-2 py-1 rounded transition-colors whitespace-nowrap self-start sm:self-auto cursor-pointer ${
-              actionSummary.isConfigured ? 'text-slate-400 hover:text-white bg-white/5' : 'text-slate-500 hover:text-zeiq-black bg-slate-100'
+              actionSummary.isConfigured
+                ? 'text-slate-400 hover:text-white bg-white/5'
+                : 'text-slate-500 hover:text-zeiq-black bg-slate-100'
             }`}
           >
-            {showTechnicalUrl ? 'Ocultar URL' : 'Ver URL Técnica'}
+            {showTechnicalUrl ? 'Ocultar Link' : 'Ver Link Bruto'}
           </button>
         </div>
 
-        {/* Parâmetro técnico expansível */}
+        {/* Input manual técnico expansível */}
         {showTechnicalUrl && (
           <div className="mt-3 pt-2.5 border-t border-white/10 text-xs">
             <label className="block text-[10px] font-mono text-slate-400 mb-1">
               Link técnico gravado no banco de dados:
             </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={link}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder="Link bruto"
-                className="flex-1 px-3 py-1.5 text-xs bg-black/40 border border-white/15 rounded-lg text-emerald-300 font-mono focus:outline-none"
-              />
-            </div>
+            <input
+              type="text"
+              value={link}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="Link bruto (ex: ?product=..., ?tag=..., https://...)"
+              className="w-full px-3 py-1.5 text-xs bg-black/40 border border-white/15 rounded-lg text-emerald-300 font-mono focus:outline-none"
+            />
           </div>
         )}
       </div>
-
     </div>
   );
 }

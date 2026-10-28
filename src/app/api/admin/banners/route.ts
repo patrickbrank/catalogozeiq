@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { verifyAdmin } from '@/lib/supabase/admin-auth';
 import { getBanners, saveBanners } from '@/lib/data/banners';
 import { BannerItem } from '@/types';
@@ -36,6 +37,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const updated = await saveBanners(banners as BannerItem[]);
+    try {
+      revalidatePath('/');
+      revalidatePath('/api/banners');
+    } catch (e) {
+      console.warn('Erro ao revalidar caminhos de banners:', e);
+    }
     return NextResponse.json({ success: true, banners: updated });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

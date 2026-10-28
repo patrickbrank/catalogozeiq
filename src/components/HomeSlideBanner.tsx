@@ -6,11 +6,12 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BannerItem } from '@/types';
 
 export interface BannerAction {
-  type: 'search' | 'category' | 'department' | 'cart' | 'scroll' | 'product';
+  type: 'search' | 'category' | 'department' | 'cart' | 'scroll' | 'product' | 'tag';
   query?: string;
   departmentId?: string;
   categorySlug?: string;
   productId?: string;
+  tag?: string;
 }
 
 export interface CarouselSlide {
@@ -72,8 +73,8 @@ export function HomeSlideBanner({
   const [slideStepPixels, setSlideStepPixels] = useState(0);
 
   const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
-  const isSwiping = useRef(false);
+  const touchStartY = useRef<number | null>(null);
+  const didSwipe = useRef(false);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -139,44 +140,127 @@ export function HomeSlideBanner({
     return () => clearInterval(interval);
   }, [isPaused, nextSlide, totalSlides]);
 
-  // Gestos de toque (swipe) no mobile
+  // Gestos de toque (swipe) no mobile com detecção limpa sem engolir cliques
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
-    touchEndX.current = null;
-    isSwiping.current = false;
+    touchStartY.current = e.touches[0].clientY;
+    didSwipe.current = false;
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-    if (touchStartX.current !== null && Math.abs(e.touches[0].clientX - touchStartX.current) > 8) {
-      isSwiping.current = true;
-    }
+  const handleTouchMove = () => {
+    // Não bloqueia o clique precocemente no touchmove
   };
 
-  const handleTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null) {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const endX = e.changedTouches[0]?.clientX ?? touchStartX.current;
+    const endY = e.changedTouches[0]?.clientY ?? (touchStartY.current ?? 0);
+
+    const diffX = touchStartX.current - endX;
+    const diffY = (touchStartY.current ?? 0) - endY;
+    const minSwipeDistance = 35;
+
+    // Apenas se for um gesto horizontal predominante com distância mínima
+    if (Math.abs(diffX) > minSwipeDistance && Math.abs(diffX) > Math.abs(diffY)) {
+      didSwipe.current = true;
+      if (diffX > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
       setTimeout(() => {
-        isSwiping.current = false;
-      }, 50);
+        didSwipe.current = false;
+      }, 250);
+    } else {
+      didSwipe.current = false;
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  const executeActionFromQueryOrPath = (pathname: string, searchStr: string, rawLink: string = '') => {
+    const qs = searchStr.replace(/^\?/, '');
+    const params = new URLSearchParams(qs);
+
+    // 1. Destino para Produto Específico
+    const prodParam = params.get('product') || params.get('produto');
+    if (prodParam) {
+      if (onBannerAction) onBannerAction({ type: 'product', productId: decodeURIComponent(prodParam).trim() });
       return;
     }
-    const diff = touchStartX.current - touchEndX.current;
-    const minSwipeDistance = 40;
-
-    if (diff > minSwipeDistance) {
-      nextSlide();
-    } else if (diff < -minSwipeDistance) {
-      prevSlide();
+    if (rawLink.startsWith('product:') || rawLink.startsWith('produto:')) {
+      const rawId = rawLink.replace(/^(?:product:|produto:)/, '').trim();
+      if (onBannerAction) onBannerAction({ type: 'product', productId: decodeURIComponent(rawId) });
+      return;
     }
-    touchStartX.current = null;
-    touchEndX.current = null;
-    setTimeout(() => {
-      isSwiping.current = false;
-    }, 150);
+
+    // 2. Destino para Tag / Coleção
+    const tagParam = params.get('tag');
+    if (tagParam) {
+      if (onBannerAction) onBannerAction({ type: 'tag', tag: decodeURIComponent(tagParam).trim() });
+      return;
+    }
+    if (rawLink.startsWith('tag:')) {
+      const rawTag = rawLink.replace(/^tag:/, '').trim();
+      if (onBannerAction) onBannerAction({ type: 'tag', tag: decodeURIComponent(rawTag) });
+      return;
+    }
+
+    // 3. Destino para Busca / Palavra-chave no Catálogo
+    const searchParam = params.get('search') || params.get('busca');
+    if (searchParam) {
+      if (onBannerAction) onBannerAction({ type: 'search', query: decodeURIComponent(searchParam).trim() });
+      return;
+    }
+
+    // 4. Destino para Linha / Departamento e/ou Categoria
+    const deptId = params.get('dept') || params.get('linha') || params.get('department') || undefined;
+    const catSlug = params.get('cat') || params.get('categoria') || params.get('category') || undefined;
+    if (deptId || catSlug) {
+      if (onBannerAction) {
+        onBannerAction({
+          type: 'category',
+          departmentId: deptId ? decodeURIComponent(deptId).trim() : undefined,
+          categorySlug: catSlug ? decodeURIComponent(catSlug).trim() : undefined,
+        });
+        return;
+      }
+      if (deptId && onSelectDepartment) onSelectDepartment(decodeURIComponent(deptId).trim());
+      if (catSlug && onSelectCategory) onSelectCategory(decodeURIComponent(catSlug).trim());
+      return;
+    }
+
+    // 5. Rolagem suave para o catálogo
+    if (rawLink.includes('#catalog-products-grid') || rawLink.includes('#catalogo')) {
+      if (onBannerAction) {
+        onBannerAction({ type: 'scroll' });
+        return;
+      }
+      const gridElem = document.getElementById('catalog-products-grid');
+      if (gridElem) gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    // 6. Rota interna pura (ex: /portal, /login)
+    if (pathname && pathname !== '/' && !pathname.includes('?')) {
+      router.push(pathname);
+      return;
+    }
+
+    // 7. Se for apenas "/"
+    if (pathname === '/' && !searchStr) {
+      const gridElem = document.getElementById('catalog-products-grid');
+      if (gridElem) gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
   };
 
   const handleCardClick = (slide: CarouselSlide, displayIndex: number) => {
-    if (isSwiping.current) return;
+    if (didSwipe.current) {
+      didSwipe.current = false;
+      return;
+    }
 
     const realIndex = displayIndex % totalSlides;
     // Se o usuário clicar no cartão que está espiando ao lado, desliza para ele
@@ -188,53 +272,37 @@ export function HomeSlideBanner({
     // Se o banner tiver link configurado
     if (slide.link) {
       const link = slide.link.trim();
+      if (!link) return;
 
-      // 1. Links externos e WhatsApp
-      if (link.startsWith('http://') || link.startsWith('https://') || link.startsWith('wa.me')) {
-        window.open(link.startsWith('wa.me') ? `https://${link}` : link, '_blank', 'noopener,noreferrer');
+      // 1. WhatsApp wa.me direto
+      if (link.startsWith('wa.me')) {
+        window.open(`https://${link}`, '_blank', 'noopener,noreferrer');
         return;
       }
 
-      // 2. Destino para Produto Específico
-      if (link.includes('product=') || link.startsWith('product:')) {
-        const rawId = link.replace(/^\/?\?product=/, '').replace(/^product:/, '').split('&')[0];
-        if (onBannerAction) {
-          onBannerAction({ type: 'product', productId: rawId });
-          return;
-        }
-      }
+      // 2. URLs completas (http:// ou https://)
+      if (link.startsWith('http://') || link.startsWith('https://')) {
+        try {
+          const parsed = new URL(link);
+          const isSameHost = typeof window !== 'undefined' && parsed.hostname === window.location.hostname;
+          if (isSameHost) {
+            // Se for do mesmo domínio da aplicação, processa internamente via query params ou pathname
+            executeActionFromQueryOrPath(parsed.pathname, parsed.search, link);
+            return;
+          }
+        } catch {}
 
-      // 3. Destino para Busca / Palavra-chave no Catálogo
-      if (link.includes('search=')) {
-        const qs = link.includes('?') ? link.substring(link.indexOf('?') + 1) : link;
-        const params = new URLSearchParams(qs);
-        const query = params.get('search') || '';
-        if (onBannerAction) {
-          onBannerAction({ type: 'search', query });
-          return;
-        }
-      }
-
-      // 4. Destino para Departamento / Categoria (Conjunto de Produtos)
-      if (link.includes('dept=') || link.includes('cat=')) {
-        const qs = link.includes('?') ? link.substring(link.indexOf('?') + 1) : link;
-        const params = new URLSearchParams(qs);
-        const deptId = params.get('dept') || undefined;
-        const catSlug = params.get('cat') || undefined;
-        if (onBannerAction) {
-          onBannerAction({ type: 'category', departmentId: deptId, categorySlug: catSlug });
-          return;
-        }
-        if (deptId && onSelectDepartment) onSelectDepartment(deptId);
-        if (catSlug && onSelectCategory) onSelectCategory(catSlug);
+        // Link externo real (redes sociais, outro site, etc.)
+        window.open(link, '_blank', 'noopener,noreferrer');
         return;
       }
 
-      // 5. Rota interna pura (ex: /portal)
-      if (link.startsWith('/') && !link.includes('?')) {
-        router.push(link);
-        return;
-      }
+      // 3. Link interno, âncora ou query param
+      const pathname = link.includes('?') ? link.substring(0, link.indexOf('?')) : (link.startsWith('/') ? link : '');
+      const search = link.includes('?') ? link.substring(link.indexOf('?')) : (link.startsWith('?') ? link : `?${link}`);
+
+      executeActionFromQueryOrPath(pathname, search, link);
+      return;
     }
 
     // Ação herdada se existir

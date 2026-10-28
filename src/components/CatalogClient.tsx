@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Header } from '@/components/Header';
 import { HomeSlideBanner, BannerAction } from '@/components/HomeSlideBanner';
 import { CatalogNav, isProductLancamento } from '@/components/CatalogNav';
@@ -11,7 +11,7 @@ import { Footer } from '@/components/Footer';
 import { Product, Category, BannerItem, StoreSettings } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { DEPARTMENTS, Department, findDepartmentForCategory } from '@/lib/data/departments';
-import { Search, ArrowDown, X, ShieldAlert } from 'lucide-react';
+import { Search, ArrowDown, X, ShieldAlert, Tag } from 'lucide-react';
 import { isProductOutOfStock } from '@/lib/utils/sizes';
 
 export function normalizeSearchText(text: string | null | undefined): string {
@@ -45,11 +45,30 @@ export function CatalogClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [hideOutOfStock, setHideOutOfStock] = useState(false);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
   const setIsOpenCart = useQuoteCart((state) => state.setIsOpen);
+
+  // Localização resiliente de produto por ID, Slug, SKU ou Nome
+  const findProductMatch = useCallback((identifier: string): Product | null => {
+    if (!identifier) return null;
+    const clean = decodeURIComponent(identifier).trim().toLowerCase();
+    return (
+      initialProducts.find((p) => {
+        if (p.id?.toLowerCase() === clean) return true;
+        if (p.slug?.toLowerCase() === clean) return true;
+        if (p.code_sku && p.code_sku.toLowerCase() === clean) return true;
+        if (p.legacy_id && String(p.legacy_id).toLowerCase() === clean) return true;
+        return false;
+      }) ||
+      initialProducts.find((p) => p.name.toLowerCase() === clean) ||
+      initialProducts.find((p) => p.slug.toLowerCase().includes(clean)) ||
+      null
+    );
+  }, [initialProducts]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -63,31 +82,62 @@ export function CatalogClient({
         return () => clearTimeout(timer);
       }
 
-      // Abre modal de produto se houver ?product=...
-      const productParam = params.get('product');
+      let hasFilterFromUrl = false;
+
+      // 1. Abre modal de produto se houver ?product=... ou ?produto=...
+      const productParam = params.get('product') || params.get('produto');
       if (productParam) {
-        const found = initialProducts.find((p) => p.id === productParam || p.slug === productParam);
+        const found = findProductMatch(productParam);
         if (found) {
           setActiveProduct(found);
+        } else {
+          // Se não achou exato, usa na busca
+          setSearchQuery(decodeURIComponent(productParam));
+          hasFilterFromUrl = true;
         }
       }
 
-      const deptParam = params.get('dept');
+      // 2. Filtro por Tag (?tag=...)
+      const tagParam = params.get('tag');
+      if (tagParam) {
+        setSelectedTag(decodeURIComponent(tagParam).trim());
+        hasFilterFromUrl = true;
+      }
+
+      // 3. Filtro por Departamento / Linha (?dept=... ou ?linha=...)
+      let deptParam = params.get('dept') || params.get('linha') || params.get('department');
       if (deptParam) {
+        deptParam = decodeURIComponent(deptParam).trim();
+        if (deptParam === 'masculino') deptParam = 'vestuario-masculino';
+        if (deptParam === 'feminino') deptParam = 'vestuario-feminino';
         setSelectedDepartment(deptParam);
+        hasFilterFromUrl = true;
       }
 
-      const catParam = params.get('cat');
+      // 4. Filtro por Categoria (?cat=... ou ?categoria=...)
+      const catParam = params.get('cat') || params.get('categoria') || params.get('category');
       if (catParam) {
-        setSelectedCategory(catParam);
+        setSelectedCategory(decodeURIComponent(catParam).trim());
+        hasFilterFromUrl = true;
       }
 
-      const searchParam = params.get('search');
+      // 5. Busca por texto (?search=... ou ?busca=...)
+      const searchParam = params.get('search') || params.get('busca');
       if (searchParam) {
-        setSearchQuery(searchParam);
+        setSearchQuery(decodeURIComponent(searchParam).trim());
+        hasFilterFromUrl = true;
+      }
+
+      if (hasFilterFromUrl && !productParam) {
+        setTimeout(() => {
+          const gridElem = document.getElementById('catalog-products-grid');
+          if (gridElem) {
+            gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 180);
       }
     }
-  }, [initialProducts]);
+  }, [findProductMatch]);
 
   // Filtra produtos por busca de texto, departamento e subcategoria selecionada
   const filteredProducts = useMemo(() => {
@@ -145,12 +195,20 @@ export function CatalogClient({
       }
     }
 
-    // 5. Filtragem por estoque (ocultar esgotados se ativado)
+    // 5. Filtragem por Tag específica
+    if (selectedTag) {
+      const normTag = normalizeSearchText(selectedTag);
+      result = result.filter((p) =>
+        p.tags?.some((t) => normalizeSearchText(t).includes(normTag))
+      );
+    }
+
+    // 6. Filtragem por estoque (ocultar esgotados se ativado)
     if (hideOutOfStock) {
       result = result.filter((p) => !isProductOutOfStock(p));
     }
 
-    // 6. Ordenação estrita por lançamentos e data: do mais recente para o mais antigo
+    // 7. Ordenação estrita por lançamentos e data: do mais recente para o mais antigo
     return [...result].sort((a, b) => {
       // Prioriza produtos marcados como destaque ou com tag de lançamento
       const aLanc = isProductLancamento(a) ? 1 : 0;
@@ -167,45 +225,7 @@ export function CatalogClient({
       const idB = parseInt(b.legacy_id || '0', 10) || 0;
       return idB - idA;
     });
-  }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, searchQuery, hideOutOfStock]);
-
-  // Carrega parâmetros da URL (?search=..., ?dept=..., ?cat=...) se presentes
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const q = params.get('search');
-      let dept = params.get('dept');
-      const cat = params.get('cat');
-
-      // Suporte a apelidos amigáveis
-      if (dept === 'masculino') dept = 'vestuario-masculino';
-      if (dept === 'feminino') dept = 'vestuario-feminino';
-
-      let hasFilterFromUrl = false;
-
-      if (q) {
-        setSearchQuery(q);
-        hasFilterFromUrl = true;
-      }
-      if (dept) {
-        setSelectedDepartment(dept);
-        hasFilterFromUrl = true;
-      }
-      if (cat) {
-        setSelectedCategory(cat);
-        hasFilterFromUrl = true;
-      }
-
-      if (hasFilterFromUrl) {
-        setTimeout(() => {
-          const gridElem = document.getElementById('catalog-products-grid');
-          if (gridElem) {
-            gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 180);
-      }
-    }
-  }, []);
+  }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, selectedTag, searchQuery, hideOutOfStock]);
 
   // Produtos visíveis na página
   const visibleProducts = useMemo(() => {
@@ -216,6 +236,7 @@ export function CatalogClient({
   const handleDepartmentSelect = (deptId: string) => {
     setSelectedDepartment(deptId);
     setSelectedCategory(null);
+    setSelectedTag(null);
     setVisibleCount(ITEMS_PER_PAGE);
   };
 
@@ -231,37 +252,50 @@ export function CatalogClient({
       }
     }
     setSelectedCategory(slug);
+    setSelectedTag(null);
     setVisibleCount(ITEMS_PER_PAGE);
   };
 
-  // Handler de ações dos banners (produto, busca, categoria ou carrinho)
+  // Handler de ações dos banners (produto, busca, categoria, tag ou carrinho)
   const handleBannerAction = (action: BannerAction) => {
     // 1. Abertura direta do modal de produto específico
     if (action.type === 'product' && action.productId) {
-      const found = initialProducts.find(
-        (p) => p.id === action.productId || p.slug === action.productId
-      );
+      const found = findProductMatch(action.productId);
       if (found) {
         setActiveProduct(found);
+        return;
       }
-      return;
-    }
-
-    // 2. Busca por palavra-chave ou coleção
-    if (action.type === 'search' && action.query) {
+      // Se não encontrou pelo ID/SKU exato, busca pelo termo no catálogo para não deixar o clique sem resposta
+      setSearchQuery(action.productId);
+      setSelectedDepartment('all');
+      setSelectedCategory(null);
+      setSelectedTag(null);
+      setVisibleCount(ITEMS_PER_PAGE);
+    } else if (action.type === 'tag' && action.tag) {
+      // 2. Filtragem por Tag específica
+      setSelectedTag(action.tag);
+      setSearchQuery('');
+      setSelectedDepartment('all');
+      setSelectedCategory(null);
+      setVisibleCount(ITEMS_PER_PAGE);
+    } else if (action.type === 'search' && action.query) {
+      // 3. Busca por palavra-chave ou coleção
       setSearchQuery(action.query);
+      setSelectedTag(null);
       setSelectedDepartment('all');
       setSelectedCategory(null);
       setVisibleCount(ITEMS_PER_PAGE);
     } else if (action.type === 'category') {
-      // 3. Filtragem por departamento e/ou subcategoria
+      // 4. Filtragem por departamento e/ou subcategoria
       setSelectedDepartment(action.departmentId || 'all');
       setSelectedCategory(action.categorySlug || null);
+      setSelectedTag(null);
       setSearchQuery('');
       setVisibleCount(ITEMS_PER_PAGE);
     } else if (action.type === 'department' && action.departmentId) {
       setSelectedDepartment(action.departmentId);
       setSelectedCategory(null);
+      setSelectedTag(null);
       setSearchQuery('');
       setVisibleCount(ITEMS_PER_PAGE);
     } else if (action.type === 'cart') {
@@ -270,10 +304,12 @@ export function CatalogClient({
     }
 
     // Rola suavemente até a vitrine de produtos
-    const gridElem = document.getElementById('catalog-products-grid');
-    if (gridElem) {
-      gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setTimeout(() => {
+      const gridElem = document.getElementById('catalog-products-grid');
+      if (gridElem) {
+        gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 60);
   };
 
   const handleSearchChange = (query: string) => {
@@ -281,9 +317,10 @@ export function CatalogClient({
     setVisibleCount(ITEMS_PER_PAGE);
 
     // Se o usuário está buscando por texto, abre a busca para o catálogo todo
-    if (query.trim() && (selectedDepartment !== 'all' || selectedCategory !== null)) {
+    if (query.trim() && (selectedDepartment !== 'all' || selectedCategory !== null || selectedTag !== null)) {
       setSelectedDepartment('all');
       setSelectedCategory(null);
+      setSelectedTag(null);
     }
 
     // Se digitou algo, rola suavemente para os resultados no catálogo
@@ -303,7 +340,9 @@ export function CatalogClient({
   const currentCategoryName = categories.find((c) => c.slug === selectedCategory)?.name;
 
   const currentFilterTitle =
-    selectedDepartment === 'lancamentos'
+    selectedTag
+      ? `Coleção / Tag › ${selectedTag}`
+      : selectedDepartment === 'lancamentos'
       ? currentCategoryName
         ? `Lançamentos › ${currentCategoryName}`
         : '🔥 Lançamentos & Novidades 2026'
@@ -315,7 +354,7 @@ export function CatalogClient({
       ? activeDepartmentObj.name
       : 'Todos os Equipamentos e Vestuário';
 
-  const isAnyFilterActive = selectedDepartment !== 'all' || selectedCategory !== null || searchQuery !== '' || hideOutOfStock;
+  const isAnyFilterActive = selectedDepartment !== 'all' || selectedCategory !== null || selectedTag !== null || searchQuery !== '' || hideOutOfStock;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -375,18 +414,32 @@ export function CatalogClient({
               <h2 className="text-base sm:text-lg font-black text-zeiq-black tracking-tight">
                 {currentFilterTitle}
               </h2>
-              {(selectedDepartment !== 'all' || selectedCategory) && (
+              {(selectedDepartment !== 'all' || selectedCategory || selectedTag) && (
                 <span className="text-xs font-bold uppercase tracking-wider bg-zeiq-black text-white px-2 py-0.5 rounded">
                   Filtrado
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Exibindo <strong>{visibleProducts.length}</strong> de <strong>{filteredProducts.length}</strong> produtos
+            <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span>Exibindo <strong>{visibleProducts.length}</strong> de <strong>{filteredProducts.length}</strong> produtos</span>
               {hideOutOfStock && (
                 <span className="text-emerald-700 font-semibold"> (apenas disponíveis)</span>
               )}
-              {searchQuery && ` para busca "${searchQuery}"`}
+              {searchQuery && <span> para busca "{searchQuery}"</span>}
+              {selectedTag && (
+                <span className="inline-flex items-center gap-1 font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/70">
+                  <Tag className="w-3 h-3 text-purple-600" />
+                  <span>tag: <strong>{selectedTag}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTag(null)}
+                    className="hover:text-purple-900 cursor-pointer ml-0.5"
+                    title="Remover filtro de tag"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
             </p>
           </div>
 
@@ -415,6 +468,7 @@ export function CatalogClient({
                 onClick={() => {
                   setSelectedDepartment('all');
                   setSelectedCategory(null);
+                  setSelectedTag(null);
                   setSearchQuery('');
                   setHideOutOfStock(false);
                   setVisibleCount(ITEMS_PER_PAGE);
@@ -444,6 +498,7 @@ export function CatalogClient({
               onClick={() => {
                 setSelectedDepartment('all');
                 setSelectedCategory(null);
+                setSelectedTag(null);
                 setSearchQuery('');
               }}
               className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-md text-xs font-semibold transition-all shadow-xs"
