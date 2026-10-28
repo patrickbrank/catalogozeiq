@@ -2,20 +2,63 @@ import { Product } from '@/types';
 
 export const COMMON_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'G1', 'G2', 'Único'];
 
+// Extrai tamanhos que foram marcados com <del> ou <s> na descrição do produto
+export function getDescriptionOutOfStockSizes(description?: string | null): Set<string> {
+  const result = new Set<string>();
+  if (!description) return result;
+
+  const match = description.match(/Tamanhos?:\s*([^\n\r]+)/i);
+  if (!match) return result;
+
+  const rawSizesStr = match[1];
+  let rawList: string[] = [];
+  if (rawSizesStr.includes('|')) {
+    rawList = rawSizesStr.split('|');
+  } else if (rawSizesStr.includes(',')) {
+    rawList = rawSizesStr.split(',');
+  } else {
+    rawList = rawSizesStr.split(/\s+/);
+  }
+
+  rawList.forEach((token) => {
+    const isDel = /<del|<strike|<s\b|line-through/i.test(token);
+    if (!isDel) return;
+
+    const clean = token.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').trim();
+    if (!clean) return;
+
+    const upper = clean.toUpperCase();
+    if (upper === 'UNICO' || upper === 'ÚNICO') {
+      result.add('Único');
+    } else {
+      result.add(upper);
+      result.add(clean);
+    }
+  });
+
+  return result;
+}
+
 export function parseProductSizes(
   description?: string | null,
   explicitSizes?: string[],
   productName?: string
 ): {
   sizes: string[];
+  outOfStockSizes: string[];
   cleanDescription: string;
 } {
+  const descOutOfStock = getDescriptionOutOfStockSizes(description);
+
   if (explicitSizes && explicitSizes.length > 0) {
     // Se o produto já possui tamanhos explícitos cadastrados no admin
     let cleanDesc = description || '';
     cleanDesc = cleanDesc.replace(/Tamanhos?:\s*[^\n\r]+/gi, '').trim();
     return {
       sizes: explicitSizes,
+      outOfStockSizes: explicitSizes.filter(
+        (sz) => descOutOfStock.has(sz) || descOutOfStock.has(sz.toUpperCase())
+      ),
       cleanDescription: cleanDesc,
     };
   }
@@ -24,18 +67,18 @@ export function parseProductSizes(
 
   if (!description) {
     if (/tamanho\s*[uú]nico/i.test(fullText)) {
-      return { sizes: ['Único'], cleanDescription: '' };
+      return { sizes: ['Único'], outOfStockSizes: [], cleanDescription: '' };
     }
-    return { sizes: [], cleanDescription: '' };
+    return { sizes: [], outOfStockSizes: [], cleanDescription: '' };
   }
 
   // Procura padrão "Tamanhos: PP | P | M | G..." ou "Tamanho: 33/34 | 35/36..."
   const match = description.match(/Tamanhos?:\s*([^\n\r]+)/i);
   if (!match) {
     if (/tamanho\s*[uú]nico/i.test(fullText)) {
-      return { sizes: ['Único'], cleanDescription: description };
+      return { sizes: ['Único'], outOfStockSizes: [], cleanDescription: description };
     }
-    return { sizes: [], cleanDescription: description };
+    return { sizes: [], outOfStockSizes: [], cleanDescription: description };
   }
 
   const rawSizesStr = match[1];
@@ -82,9 +125,13 @@ export function parseProductSizes(
 
   // Remove a linha "Tamanhos: ..." da descrição
   const cleanDescription = description.replace(/Tamanhos?:\s*[^\n\r]+/gi, '').trim();
+  const uniqueSizes = Array.from(new Set(extracted));
 
   return {
-    sizes: Array.from(new Set(extracted)),
+    sizes: uniqueSizes,
+    outOfStockSizes: uniqueSizes.filter(
+      (sz) => descOutOfStock.has(sz) || descOutOfStock.has(sz.toUpperCase())
+    ),
     cleanDescription,
   };
 }
@@ -102,7 +149,19 @@ export function isSizeOutOfStock(product?: Product | null, size?: string): boole
     return true;
   }
 
-  // 2. Se não há grade por tamanho, verifica o estoque total do produto
+  // 2. Se a descrição do produto marca o tamanho como indisponível via <del> ou <s>
+  if (product.description) {
+    const descOutOfStock = getDescriptionOutOfStockSizes(product.description);
+    if (
+      descOutOfStock.has(size) ||
+      descOutOfStock.has(size.toUpperCase()) ||
+      descOutOfStock.has(size.trim())
+    ) {
+      return true;
+    }
+  }
+
+  // 3. Se não há grade por tamanho, verifica o estoque total do produto
   if (typeof product.total_stock === 'number') {
     return product.total_stock <= 0;
   }

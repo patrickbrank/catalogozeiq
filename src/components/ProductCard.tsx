@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Plus, Check, Layers } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
-import { parseProductSizes, isProductOutOfStock } from '@/lib/utils/sizes';
+import { parseProductSizes, isProductOutOfStock, isSizeOutOfStock } from '@/lib/utils/sizes';
 import { flyToCartAnimation } from '@/lib/utils/cart-animation';
 
 interface ProductCardProps {
@@ -125,17 +125,34 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
           {/* Exibição rápida de grade de tamanhos em micro-badges atléticos de alta precisão */}
           {hasSizes ? (
             <div className="mt-2 flex items-center gap-1 overflow-hidden h-5.5">
-              {sizes.slice(0, 4).map((sz) => (
-                <span
-                  key={sz}
-                  className="h-5 min-w-[22px] px-1 rounded-md bg-white border border-slate-200 text-slate-800 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs group-hover:border-slate-300 transition-colors"
-                >
-                  {sz}
-                </span>
-              ))}
-              {sizes.length > 4 && (
+              {sizes.slice(0, 5).map((sz) => {
+                const outOfStock = isSizeOutOfStock(product, sz);
+
+                if (outOfStock) {
+                  return (
+                    <span
+                      key={sz}
+                      title={`Tamanho ${sz} indisponível`}
+                      className="h-5 min-w-[24px] px-1 rounded-md bg-slate-100/90 border border-dashed border-slate-300 text-slate-400 font-mono text-[10px] flex items-center justify-center gap-0.5 shrink-0 opacity-70 select-none"
+                    >
+                      <span className="line-through">{sz}</span>
+                      <span className="text-[8px] font-black text-rose-500 leading-none">✕</span>
+                    </span>
+                  );
+                }
+
+                return (
+                  <span
+                    key={sz}
+                    className="h-5 min-w-[22px] px-1 rounded-md bg-white border border-slate-200 text-slate-800 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs group-hover:border-slate-300 transition-colors"
+                  >
+                    {sz}
+                  </span>
+                );
+              })}
+              {sizes.length > 5 && (
                 <span className="h-5 px-1.5 rounded-md bg-slate-100 border border-slate-200/80 text-slate-500 font-mono font-bold text-[10px] flex items-center justify-center shrink-0">
-                  +{sizes.length - 4}
+                  +{sizes.length - 5}
                 </span>
               )}
             </div>

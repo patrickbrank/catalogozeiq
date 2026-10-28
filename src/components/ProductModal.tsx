@@ -304,14 +304,15 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                           return (
                             <div
                               key={sz}
-                              className="h-10 sm:h-9 rounded-xl border border-dashed border-slate-200 bg-slate-100/70 flex items-center justify-between overflow-hidden opacity-60 cursor-not-allowed select-none px-2"
-                              title="Tamanho indisponível no momento"
+                              className="h-10 sm:h-9 rounded-xl border border-dashed border-slate-300 bg-slate-100/80 flex items-center justify-between overflow-hidden opacity-65 cursor-not-allowed select-none px-2"
+                              title={`Tamanho ${sz} indisponível no momento`}
                             >
                               <span className="text-xs font-bold text-slate-400 line-through">
                                 {sz}
                               </span>
-                              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                                Esgotado
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                <X className="w-3 h-3 text-rose-500 stroke-[3]" />
+                                <span>Esgotado</span>
                               </span>
                             </div>
                           );

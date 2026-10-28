@@ -22,6 +22,7 @@ import {
   X,
   ArrowRight,
   RefreshCw,
+  Plus,
 } from 'lucide-react';
 
 interface BannerDestinationPickerProps {
@@ -61,6 +62,7 @@ export function BannerDestinationPicker({
   // Estados para Linha / Conjunto / Categoria
   const [selectedDept, setSelectedDept] = useState('all');
   const [selectedCat, setSelectedCat] = useState('');
+  const [catSearch, setCatSearch] = useState('');
 
   // Estados para Busca / Palavra-chave
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,6 +125,19 @@ export function BannerDestinationPicker({
       deptObj.categoryNames.some((n) => n.toLowerCase().trim() === c.name.toLowerCase().trim())
     );
   }, [categories, departments, selectedDept]);
+
+  // Categoria atualmente selecionada como objeto
+  const selectedCatObj = useMemo(() => {
+    if (!selectedCat) return null;
+    return categories.find((c) => c.slug === selectedCat || c.id === selectedCat) || null;
+  }, [selectedCat, categories]);
+
+  // Subcategorias filtradas pela busca por palavra digitada
+  const filteredSubcategories = useMemo(() => {
+    if (!catSearch.trim()) return [];
+    const q = catSearch.toLowerCase().trim();
+    return availableCategories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [availableCategories, catSearch]);
 
   // Quantidade de produtos que batem com o termo de busca atual
   const searchMatchCount = useMemo(() => {
@@ -459,56 +474,92 @@ export function BannerDestinationPicker({
             </div>
           </div>
 
-          {/* Subcategorias Disponíveis para a Linha Selecionada */}
-          <div className="pt-3 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-2">
+          {/* Subcategoria Específica com Busca por Palavra (Clean & Despoluído) */}
+          <div className="pt-3 border-t border-slate-100 space-y-2.5">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
                 <span className="w-4 h-4 rounded-full bg-slate-900 text-white font-mono text-[10px] flex items-center justify-center">2</span>
                 <span>Subcategoria Específica (Opcional):</span>
               </span>
-              {selectedCat && (
+              <span className="text-[11px] text-slate-400">Busque por palavra para filtrar</span>
+            </div>
+
+            {/* Subcategoria Selecionada (se houver) */}
+            {selectedCat ? (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-sky-50 border border-sky-200">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
+                  <span className="text-xs text-sky-950">
+                    Subcategoria ativa: <strong className="font-bold text-sky-900">{selectedCatObj?.name || selectedCat}</strong>
+                  </span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => handleSelectCategory('')}
-                  className="text-[11px] text-rose-600 hover:underline cursor-pointer"
+                  onClick={() => {
+                    handleSelectCategory('');
+                    setCatSearch('');
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
                 >
-                  Limpar subcategoria
+                  <X className="w-3.5 h-3.5" />
+                  <span>Remover subcategoria</span>
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              /* Campo de busca por palavra para subcategoria */
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={catSearch}
+                    onChange={(e) => setCatSearch(e.target.value)}
+                    placeholder="Digite para buscar subcategoria (ex: Raquetes, Shorts, Camisetas, Mochilas)..."
+                    className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                  {catSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setCatSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleSelectCategory('')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  !selectedCat
-                    ? 'bg-sky-600 text-white font-bold shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                Todas as peças desta linha
-              </button>
-
-              {availableCategories.map((cat) => {
-                const isCatSelected = selectedCat === cat.slug;
-                return (
-                  <button
-                    key={cat.id || cat.slug}
-                    type="button"
-                    onClick={() => handleSelectCategory(cat.slug)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 ${
-                      isCatSelected
-                        ? 'bg-sky-600 text-white font-bold shadow-2xs'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {isCatSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                    <span>{cat.name}</span>
-                  </button>
-                );
-              })}
-            </div>
+                {/* Resultados da busca digitada */}
+                {catSearch.trim() ? (
+                  <div className="flex flex-wrap gap-1.5 pt-1 animate-in fade-in duration-150">
+                    {filteredSubcategories.length === 0 ? (
+                      <span className="text-[11px] text-slate-400 italic">
+                        Nenhuma subcategoria encontrada para "{catSearch}".
+                      </span>
+                    ) : (
+                      filteredSubcategories.slice(0, 8).map((cat) => (
+                        <button
+                          key={cat.id || cat.slug}
+                          type="button"
+                          onClick={() => {
+                            handleSelectCategory(cat.slug);
+                            setCatSearch('');
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-800 border border-slate-200 hover:border-sky-300 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                        >
+                          <Plus className="w-3 h-3 text-sky-600" />
+                          <span>{cat.name}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+                    <span>Todas as peças desta linha serão exibidas. Digite acima apenas se desejar filtrar por uma subcategoria específica.</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
