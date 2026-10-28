@@ -62,8 +62,32 @@ export function CatalogClient({
         const timer = setTimeout(() => setAdminNotice(null), 6500);
         return () => clearTimeout(timer);
       }
+
+      // Abre modal de produto se houver ?product=...
+      const productParam = params.get('product');
+      if (productParam) {
+        const found = initialProducts.find((p) => p.id === productParam || p.slug === productParam);
+        if (found) {
+          setActiveProduct(found);
+        }
+      }
+
+      const deptParam = params.get('dept');
+      if (deptParam) {
+        setSelectedDepartment(deptParam);
+      }
+
+      const catParam = params.get('cat');
+      if (catParam) {
+        setSelectedCategory(catParam);
+      }
+
+      const searchParam = params.get('search');
+      if (searchParam) {
+        setSearchQuery(searchParam);
+      }
     }
-  }, []);
+  }, [initialProducts]);
 
   // Filtra produtos por busca de texto, departamento e subcategoria selecionada
   const filteredProducts = useMemo(() => {
@@ -210,26 +234,42 @@ export function CatalogClient({
     setVisibleCount(ITEMS_PER_PAGE);
   };
 
-  // Handler de ações dos banners (busca, categoria ou carrinho)
+  // Handler de ações dos banners (produto, busca, categoria ou carrinho)
   const handleBannerAction = (action: BannerAction) => {
+    // 1. Abertura direta do modal de produto específico
+    if (action.type === 'product' && action.productId) {
+      const found = initialProducts.find(
+        (p) => p.id === action.productId || p.slug === action.productId
+      );
+      if (found) {
+        setActiveProduct(found);
+      }
+      return;
+    }
+
+    // 2. Busca por palavra-chave ou coleção
     if (action.type === 'search' && action.query) {
       setSearchQuery(action.query);
       setSelectedDepartment('all');
       setSelectedCategory(null);
+      setVisibleCount(ITEMS_PER_PAGE);
     } else if (action.type === 'category') {
-      if (action.departmentId) setSelectedDepartment(action.departmentId);
-      if (action.categorySlug) setSelectedCategory(action.categorySlug);
+      // 3. Filtragem por departamento e/ou subcategoria
+      setSelectedDepartment(action.departmentId || 'all');
+      setSelectedCategory(action.categorySlug || null);
       setSearchQuery('');
+      setVisibleCount(ITEMS_PER_PAGE);
     } else if (action.type === 'department' && action.departmentId) {
       setSelectedDepartment(action.departmentId);
       setSelectedCategory(null);
       setSearchQuery('');
+      setVisibleCount(ITEMS_PER_PAGE);
     } else if (action.type === 'cart') {
       setIsOpenCart(true);
       return;
     }
 
-    // Rola suavemente até o catálogo
+    // Rola suavemente até a vitrine de produtos
     const gridElem = document.getElementById('catalog-products-grid');
     if (gridElem) {
       gridElem.scrollIntoView({ behavior: 'smooth', block: 'start' });

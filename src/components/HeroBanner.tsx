@@ -24,7 +24,7 @@ export function HeroBanner() {
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3.5 shrink-0 pt-4 lg:pt-0 border-t border-white/10 lg:border-t-0">
             <div className="flex items-center gap-2.5 text-xs text-slate-300">
               <ShieldCheck className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>Condições especiais para lojistas e arenas</span>
+              <span>Condições especiais para lojistas e revendedores autorizados</span>
             </div>
             <div className="flex items-center gap-2.5 text-xs text-slate-300">
               <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />

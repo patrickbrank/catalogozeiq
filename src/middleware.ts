@@ -42,6 +42,11 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  const userEmail = user?.email?.toLowerCase().trim();
+  const isMaster = userEmail === 'marketing@zeiq.com.br' || userEmail === 'patrickbrank@outlook.com';
+  const userAppRole = user?.app_metadata?.role;
+  const isStaff = isMaster || ['admin', 'marketing', 'stock'].includes(userAppRole);
+
   // 1. BLOQUEIO GERAL: Catálogo exclusivo B2B restrito a clientes cadastrados
   if (!user && !isPublicAuthRoute) {
     if (pathname.startsWith('/admin')) {
@@ -50,18 +55,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // 1.1 BLOQUEIO DE USUÁRIOS PENDENTES DE APROVAÇÃO
+  if (user && !isStaff && !isPublicAuthRoute) {
+    const isApprovedMeta = user.app_metadata?.is_approved ?? user.user_metadata?.is_approved;
+    if (isApprovedMeta === false) {
+      return NextResponse.redirect(new URL('/login?pending_approval=1', request.url));
+    }
+  }
+
   // 2. Proteção do Painel Administrativo
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     if (!user) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    const email = user.email?.toLowerCase().trim();
-    const isMasterEmail = email === 'marketing@zeiq.com.br' || email === 'patrickbrank@outlook.com';
-    const appRole = user.app_metadata?.role;
-    const isStaffRole = ['admin', 'marketing', 'stock'].includes(appRole);
-
-    if (!isMasterEmail && !isStaffRole) {
+    if (!isStaff) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -78,20 +86,18 @@ export async function middleware(request: NextRequest) {
 
   // 3. Redirecionamento se já estiver logado
   if (user) {
-    // Se acessar /login ou /portal/login e já estiver autenticado, vai para o catálogo
+    // Se acessar /login ou /portal/login e já estiver autenticado e aprovado, vai para o catálogo
     if (pathname === '/login' || pathname === '/portal/login') {
-      return NextResponse.redirect(new URL('/', request.url));
+      const isApprovedMeta = user.app_metadata?.is_approved ?? user.user_metadata?.is_approved;
+      if (isApprovedMeta !== false || isStaff) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
     }
 
     // Se acessar /admin/login:
     // Se for admin/equipe, vai para /admin. Se for lojista comum, vai para o catálogo /
     if (pathname === '/admin/login') {
-      const email = user.email?.toLowerCase().trim();
-      const isMasterEmail = email === 'marketing@zeiq.com.br' || email === 'patrickbrank@outlook.com';
-      const appRole = user.app_metadata?.role;
-      const isStaffRole = ['admin', 'marketing', 'stock'].includes(appRole);
-
-      if (isMasterEmail || isStaffRole) {
+      if (isStaff) {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
 

@@ -95,7 +95,7 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Grade Livre</h4>
-                <p className="text-xs text-slate-400 leading-snug mt-0.5">Monte os tamanhos conforme a demanda da sua arena.</p>
+                <p className="text-xs text-slate-400 leading-snug mt-0.5">Monte os tamanhos conforme a demanda da sua loja.</p>
               </div>
             </div>
 
@@ -132,7 +132,7 @@ export function Footer({ settings: initialSettings }: FooterProps) {
             </Link>
 
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
-              Marca oficial especializada em Beach Tennis, vestuário técnico de alta performance e equipamentos premium para arenas esportivas, lojistas e revendedores autorizados.
+              Marca oficial especializada em Beach Tennis, vestuário técnico de alta performance e equipamentos premium para lojistas e revendedores autorizados.
             </p>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -141,7 +141,7 @@ export function Footer({ settings: initialSettings }: FooterProps) {
                 Catálogo B2B 2026
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-bold text-slate-300">
-                Fábrica Oficial
+                Marca Oficial
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-bold text-slate-300">
                 Venda PJ
@@ -199,21 +199,6 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               <li>
                 <Link href="/portal" className="text-slate-400 hover:text-white transition-colors block">
                   Meus Pedidos & Cotações
-                </Link>
-              </li>
-              <li>
-                <Link href="/portal" className="text-slate-400 hover:text-white transition-colors block">
-                  Rastreamento de Envio
-                </Link>
-              </li>
-              <li>
-                <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors block">
-                  Login do Revendedor
-                </Link>
-              </li>
-              <li>
-                <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors block">
-                  Cadastrar Minha Arena
                 </Link>
               </li>
               <li>
@@ -299,17 +284,13 @@ export function Footer({ settings: initialSettings }: FooterProps) {
           <div className="text-center sm:text-left">
             <p>© {currentYear} Zeiq Sports. Todos os direitos reservados.</p>
             <p className="text-xs text-slate-500 mt-0.5">
-              Catálogo de revenda e cotações de atacado exclusivo para pessoas jurídicas, lojistas e arenas esportivas.
+              Catálogo de revenda e cotações de atacado exclusivo para pessoas jurídicas, lojistas e revendedores autorizados.
             </p>
           </div>
 
           <div className="flex items-center justify-center sm:justify-end gap-3 sm:gap-4 text-xs flex-wrap sm:flex-nowrap">
             <Link href="/portal" className="text-slate-400 hover:text-white transition-colors whitespace-nowrap">
-              Rastrear Pedido
-            </Link>
-            <span className="text-slate-600 select-none">•</span>
-            <Link href="/portal/login" className="text-slate-400 hover:text-white transition-colors whitespace-nowrap">
-              Portal do Revendedor
+              Portal do Lojista
             </Link>
             <button
               type="button"

@@ -6,10 +6,11 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BannerItem } from '@/types';
 
 export interface BannerAction {
-  type: 'search' | 'category' | 'department' | 'cart' | 'scroll';
+  type: 'search' | 'category' | 'department' | 'cart' | 'scroll' | 'product';
   query?: string;
   departmentId?: string;
   categorySlug?: string;
+  productId?: string;
 }
 
 export interface CarouselSlide {
@@ -72,6 +73,7 @@ export function HomeSlideBanner({
 
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+  const isSwiping = useRef(false);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -141,14 +143,23 @@ export function HomeSlideBanner({
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchEndX.current = null;
+    isSwiping.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     touchEndX.current = e.touches[0].clientX;
+    if (touchStartX.current !== null && Math.abs(e.touches[0].clientX - touchStartX.current) > 8) {
+      isSwiping.current = true;
+    }
   };
 
   const handleTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null) return;
+    if (touchStartX.current === null || touchEndX.current === null) {
+      setTimeout(() => {
+        isSwiping.current = false;
+      }, 50);
+      return;
+    }
     const diff = touchStartX.current - touchEndX.current;
     const minSwipeDistance = 40;
 
@@ -159,9 +170,14 @@ export function HomeSlideBanner({
     }
     touchStartX.current = null;
     touchEndX.current = null;
+    setTimeout(() => {
+      isSwiping.current = false;
+    }, 150);
   };
 
   const handleCardClick = (slide: CarouselSlide, displayIndex: number) => {
+    if (isSwiping.current) return;
+
     const realIndex = displayIndex % totalSlides;
     // Se o usuário clicar no cartão que está espiando ao lado, desliza para ele
     if (realIndex !== currentSlide) {
@@ -172,27 +188,50 @@ export function HomeSlideBanner({
     // Se o banner tiver link configurado
     if (slide.link) {
       const link = slide.link.trim();
+
+      // 1. Links externos e WhatsApp
       if (link.startsWith('http://') || link.startsWith('https://') || link.startsWith('wa.me')) {
         window.open(link.startsWith('wa.me') ? `https://${link}` : link, '_blank', 'noopener,noreferrer');
         return;
       }
 
-      if (link.startsWith('?search=')) {
-        const query = decodeURIComponent(link.replace('?search=', ''));
-        if (onBannerAction) onBannerAction({ type: 'search', query });
-        return;
+      // 2. Destino para Produto Específico
+      if (link.includes('product=') || link.startsWith('product:')) {
+        const rawId = link.replace(/^\/?\?product=/, '').replace(/^product:/, '').split('&')[0];
+        if (onBannerAction) {
+          onBannerAction({ type: 'product', productId: rawId });
+          return;
+        }
       }
 
-      if (link.startsWith('?dept=')) {
-        const params = new URLSearchParams(link.replace('?', ''));
-        const deptId = params.get('dept');
-        const catSlug = params.get('cat');
+      // 3. Destino para Busca / Palavra-chave no Catálogo
+      if (link.includes('search=')) {
+        const qs = link.includes('?') ? link.substring(link.indexOf('?') + 1) : link;
+        const params = new URLSearchParams(qs);
+        const query = params.get('search') || '';
+        if (onBannerAction) {
+          onBannerAction({ type: 'search', query });
+          return;
+        }
+      }
+
+      // 4. Destino para Departamento / Categoria (Conjunto de Produtos)
+      if (link.includes('dept=') || link.includes('cat=')) {
+        const qs = link.includes('?') ? link.substring(link.indexOf('?') + 1) : link;
+        const params = new URLSearchParams(qs);
+        const deptId = params.get('dept') || undefined;
+        const catSlug = params.get('cat') || undefined;
+        if (onBannerAction) {
+          onBannerAction({ type: 'category', departmentId: deptId, categorySlug: catSlug });
+          return;
+        }
         if (deptId && onSelectDepartment) onSelectDepartment(deptId);
         if (catSlug && onSelectCategory) onSelectCategory(catSlug);
         return;
       }
 
-      if (link.startsWith('/')) {
+      // 5. Rota interna pura (ex: /portal)
+      if (link.startsWith('/') && !link.includes('?')) {
         router.push(link);
         return;
       }
