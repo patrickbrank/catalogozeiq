@@ -367,47 +367,65 @@ export default function ResellerDashboardPage() {
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${isAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
               </button>
 
-              {/* Popover dos 3 Símbolos Esportivos */}
+              {/* Popover Seletor de Avatares Estilo Apple */}
               {isAvatarPickerOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-zeiq-dark border border-zeiq-charcoal rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95">
-                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-84 bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 text-white">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
                     <div>
-                      <h4 className="text-xs font-black text-white">Símbolo Esportivo</h4>
-                      <p className="text-[10px] text-slate-400">Personalize seu badge oficial Zeiq</p>
+                      <h4 className="text-sm font-black text-white tracking-tight">Escolha seu Avatar</h4>
+                      <p className="text-[11px] text-slate-400">Estilo Apple com emojis e tons suaves</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsAvatarPickerOpen(false)}
-                      className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+                      className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="space-y-2 mt-3">
-                    {ADMIN_AVATARS.map((av) => (
-                      <button
-                        key={av.id}
-                        type="button"
-                        onClick={() => handleSelectAvatar(av.id)}
-                        className={`w-full p-2.5 rounded-xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
-                          selectedAvatarId === av.id
-                            ? `${av.badgeBg} ${av.badgeBorder} ring-1 ring-zeiq-orange/50 shadow-md`
-                            : 'bg-zeiq-charcoal/50 border-white/5 hover:border-white/20 hover:bg-zeiq-charcoal'
-                        }`}
-                      >
-                        <AvatarIcon avatarId={av.id} className="w-9 h-9" />
+                  {/* Prévia do Avatar Ativo */}
+                  {(() => {
+                    const activeAv = ADMIN_AVATARS.find((a) => a.id === selectedAvatarId) || ADMIN_AVATARS[0];
+                    return (
+                      <div className="my-3.5 p-3 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
+                        <AvatarIcon avatarId={activeAv.id} className="w-12 h-12" emojiClassName="text-2xl" />
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold text-white flex items-center justify-between">
-                            <span>{av.name}</span>
-                            {selectedAvatarId === av.id && (
-                              <Check className="w-3.5 h-3.5 text-zeiq-orange" />
-                            )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-white">{activeAv.name}</span>
+                            <span className="text-[9px] font-mono font-bold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-1.5 py-0.5 rounded uppercase">
+                              Ativo
+                            </span>
                           </div>
-                          <div className="text-[11px] text-slate-400">{av.theme}</div>
+                          <span className="text-[11px] text-slate-400 block truncate mt-0.5">{activeAv.theme}</span>
                         </div>
-                      </button>
-                    ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Grade de Avatares (4 colunas) */}
+                  <div className="grid grid-cols-4 gap-2.5 pt-1">
+                    {ADMIN_AVATARS.map((av) => {
+                      const isSelected = selectedAvatarId === av.id;
+                      return (
+                        <button
+                          key={av.id}
+                          type="button"
+                          onClick={() => handleSelectAvatar(av.id)}
+                          className={`p-2 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group active:scale-95 ${
+                            isSelected
+                              ? 'bg-white/10 ring-2 ring-zeiq-orange ring-offset-2 ring-offset-[#111111] shadow-lg'
+                              : 'hover:bg-white/5'
+                          }`}
+                          title={`${av.name} (${av.theme})`}
+                        >
+                          <AvatarIcon avatarId={av.id} className="w-11 h-11 group-hover:scale-105 transition-transform" emojiClassName="text-xl" />
+                          <span className="text-[10px] font-bold text-slate-300 truncate max-w-[60px] block text-center leading-none">
+                            {av.name.split(' ')[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
