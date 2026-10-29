@@ -35,14 +35,15 @@ async function sync() {
 
     if (existing) {
       console.log(`\nAtualizando usuário existente: ${r.name} (${cleanEmail})`);
-      // Atualiza role no Supabase Auth para ROLE_RESELLER
+      // Atualiza role no Supabase Auth para representative
       const { error: updErr } = await supabase.auth.admin.updateUserById(existing.id, {
         app_metadata: {
-          role: 'ROLE_RESELLER',
+          role: 'representative',
         },
         user_metadata: {
-          role: 'ROLE_RESELLER',
+          role: 'representative',
           contact_name: r.name,
+          store_name: 'Representação Comercial Zeiq',
           phone: r.whatsapp,
           is_approved: true,
         },
@@ -51,14 +52,14 @@ async function sync() {
       if (updErr) {
         console.error(`Erro ao atualizar auth de ${cleanEmail}:`, updErr.message);
       } else {
-        console.log(`✓ Auth atualizado para ROLE_RESELLER`);
+        console.log(`✓ Auth atualizado para representative`);
       }
 
       // Atualiza tabela profiles
       await supabase.from('profiles').upsert({
         id: existing.id,
         email: cleanEmail,
-        role: 'ROLE_RESELLER',
+        role: 'representative',
         contact_name: r.name,
         store_name: 'Representação Comercial Zeiq',
         phone: r.whatsapp,
@@ -77,11 +78,12 @@ async function sync() {
         password: INITIAL_PASSWORD,
         email_confirm: true,
         app_metadata: {
-          role: 'ROLE_RESELLER',
+          role: 'representative',
         },
         user_metadata: {
-          role: 'ROLE_RESELLER',
+          role: 'representative',
           contact_name: r.name,
+          store_name: 'Representação Comercial Zeiq',
           phone: r.whatsapp,
           is_approved: true,
         },
@@ -97,7 +99,7 @@ async function sync() {
         await supabase.from('profiles').upsert({
           id: userId,
           email: cleanEmail,
-          role: 'ROLE_RESELLER',
+          role: 'representative',
           contact_name: r.name,
           store_name: 'Representação Comercial Zeiq',
           phone: r.whatsapp,

@@ -4,6 +4,7 @@ export interface AdminAvatar {
   id: string;
   name: string;
   theme: string;
+  symbolLabel: string;
   primaryColor: string;
   secondaryColor: string;
   badgeBg: string;
@@ -13,8 +14,9 @@ export interface AdminAvatar {
 export const ADMIN_AVATARS: AdminAvatar[] = [
   {
     id: 'avatar-fire',
-    name: 'Zeiq Fire',
-    theme: 'Energia & Foco',
+    name: 'Raio & Raquete',
+    theme: 'Potência & Beach Tennis',
+    symbolLabel: 'Zeiq Flash Racket',
     primaryColor: '#FF5500',
     secondaryColor: '#FFAA00',
     badgeBg: 'bg-orange-500/10',
@@ -22,8 +24,9 @@ export const ADMIN_AVATARS: AdminAvatar[] = [
   },
   {
     id: 'avatar-cyber',
-    name: 'Cyber Pro',
-    theme: 'Alta Performance',
+    name: 'Bola Speed',
+    theme: 'Precisão & Velocidade',
+    symbolLabel: 'Velocity Ball',
     primaryColor: '#0066FF',
     secondaryColor: '#00D2FF',
     badgeBg: 'bg-blue-500/10',
@@ -31,144 +34,202 @@ export const ADMIN_AVATARS: AdminAvatar[] = [
   },
   {
     id: 'avatar-emerald',
-    name: 'Champion Gold',
-    theme: 'Vitória & Conquista',
+    name: 'Troféu Campeão',
+    theme: 'Vitória & Liderança',
+    symbolLabel: 'Victory Trophy',
     primaryColor: '#059669',
-    secondaryColor: '#10B981',
+    secondaryColor: '#F59E0B',
     badgeBg: 'bg-emerald-500/10',
     badgeBorder: 'border-emerald-500/30',
   },
 ];
 
+/**
+ * Renderiza os 3 símbolos esportivos minimalistas da Zeiq
+ */
 export function AvatarIcon({ avatarId, className = 'w-9 h-9' }: { avatarId?: string; className?: string }) {
   const current = ADMIN_AVATARS.find((a) => a.id === avatarId) || ADMIN_AVATARS[0];
 
+  // Símbolo 2: Bola de Beach Tennis / Aerodinâmica Speed (Azul & Ciano)
   if (current.id === 'avatar-cyber') {
     return (
       <svg
         viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={`${className} shrink-0 drop-shadow-md select-none`}
+        className={`${className} shrink-0 select-none`}
       >
         <defs>
-          <linearGradient id="cyber-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#0052D4" />
-            <stop offset="50%" stopColor="#4364F7" />
-            <stop offset="100%" stopColor="#6FB1FC" />
+          <linearGradient id="cyber-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#08101a" />
+            <stop offset="100%" stopColor="#0d1b2a" />
           </linearGradient>
-          <linearGradient id="cyber-glow" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00D2FF" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#0052D4" stopOpacity="0.2" />
+          <linearGradient id="cyber-ball" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#00D2FF" />
+            <stop offset="100%" stopColor="#0052D4" />
           </linearGradient>
         </defs>
-        <circle cx="50" cy="50" r="48" fill="#0c1017" stroke="url(#cyber-glow)" strokeWidth="3" />
-        <circle cx="50" cy="50" r="44" fill="url(#cyber-grad)" fillOpacity="0.2" />
-        {/* Hexágono Tech */}
+        <circle cx="50" cy="50" r="48" fill="url(#cyber-bg)" stroke="#00D2FF" strokeWidth="2.5" />
+        {/* Bola de Beach Tennis com Costuras Aerodinâmicas */}
+        <circle cx="50" cy="50" r="28" fill="url(#cyber-ball)" stroke="#FFFFFF" strokeWidth="2" />
         <path
-          d="M50 18 L76 33 L76 67 L50 82 L24 67 L24 33 Z"
+          d="M32 38 C42 42 42 58 32 62"
           fill="none"
-          stroke="#00D2FF"
+          stroke="#FFFFFF"
           strokeWidth="2.5"
-          strokeLinejoin="round"
-          strokeOpacity="0.7"
+          strokeLinecap="round"
         />
-        {/* Cabeça / Capacete de Performance */}
-        <circle cx="50" cy="40" r="13" fill="url(#cyber-grad)" stroke="#FFFFFF" strokeWidth="2" />
-        {/* Ombros / Corpo Atlético */}
         <path
-          d="M28 72 C32 58 40 54 50 54 C60 54 68 58 72 72 Z"
-          fill="url(#cyber-grad)"
-          stroke="#00D2FF"
-          strokeWidth="2"
+          d="M68 38 C58 42 58 58 68 62"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2.5"
+          strokeLinecap="round"
         />
-        {/* Badge Tech Central */}
-        <circle cx="50" cy="40" r="4" fill="#FFFFFF" />
+        {/* Linhas de Velocidade Esportivas */}
+        <path d="M20 28 L14 28" stroke="#00D2FF" strokeWidth="2" strokeLinecap="round" />
+        <path d="M22 72 L16 72" stroke="#00D2FF" strokeWidth="2" strokeLinecap="round" />
+        <path d="M84 32 L78 32" stroke="#00D2FF" strokeWidth="2" strokeLinecap="round" />
+        <path d="M86 68 L80 68" stroke="#00D2FF" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
 
+  // Símbolo 3: Troféu & Brasão de Vitória (Verde Esmeralda & Ouro)
   if (current.id === 'avatar-emerald') {
     return (
       <svg
         viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={`${className} shrink-0 drop-shadow-md select-none`}
+        className={`${className} shrink-0 select-none`}
       >
         <defs>
-          <linearGradient id="emerald-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#047857" />
-            <stop offset="50%" stopColor="#10B981" />
-            <stop offset="100%" stopColor="#34D399" />
+          <linearGradient id="emerald-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#061a12" />
+            <stop offset="100%" stopColor="#0a261a" />
           </linearGradient>
-          <linearGradient id="gold-crown" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#F59E0B" />
-            <stop offset="100%" stopColor="#FDE68A" />
+          <linearGradient id="gold-trophy" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FDE68A" />
+            <stop offset="50%" stopColor="#F59E0B" />
+            <stop offset="100%" stopColor="#D97706" />
           </linearGradient>
         </defs>
-        <circle cx="50" cy="50" r="48" fill="#08140e" stroke="#10B981" strokeWidth="3" />
-        <circle cx="50" cy="50" r="44" fill="url(#emerald-grad)" fillOpacity="0.2" />
-        {/* Coroa de Campeão */}
+        <circle cx="50" cy="50" r="48" fill="url(#emerald-bg)" stroke="#10B981" strokeWidth="2.5" />
+        {/* Cálice do Troféu */}
         <path
-          d="M36 28 L43 36 L50 25 L57 36 L64 28 L62 40 L38 40 Z"
-          fill="url(#gold-crown)"
-          stroke="#D97706"
+          d="M34 26 L66 26 L64 48 C64 57 58 64 50 64 C42 64 36 57 36 48 Z"
+          fill="url(#gold-trophy)"
+          stroke="#FFFFFF"
           strokeWidth="1.5"
         />
-        {/* Cabeça do Atleta Campeão */}
-        <circle cx="50" cy="45" r="12" fill="url(#emerald-grad)" stroke="#FFFFFF" strokeWidth="2" />
-        {/* Ombros / Peitoral de Vitória */}
+        {/* Alças Laterais */}
         <path
-          d="M28 75 C32 60 40 57 50 57 C60 57 68 60 72 75 Z"
-          fill="url(#emerald-grad)"
-          stroke="#F59E0B"
-          strokeWidth="2"
+          d="M34 30 C26 30 26 44 34 44"
+          fill="none"
+          stroke="url(#gold-trophy)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
         />
-        {/* Estrela de Campeão */}
-        <polygon points="50,60 52,65 57,65 53,68 55,73 50,70 45,73 47,68 43,65 48,65" fill="#FDE68A" />
+        <path
+          d="M66 30 C74 30 74 44 66 44"
+          fill="none"
+          stroke="url(#gold-trophy)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+        {/* Haste e Base */}
+        <rect x="47" y="64" width="6" height="10" fill="url(#gold-trophy)" />
+        <rect x="36" y="74" width="28" height="6" rx="2" fill="url(#gold-trophy)" />
+        {/* Estrela da Vitória */}
+        <polygon points="50,34 52,39 57,39 53,42 55,47 50,44 45,47 47,42 43,39 48,39" fill="#FFFFFF" />
       </svg>
     );
   }
 
-  // Padrão: Avatar 1 (Zeiq Fire - Laranja & Ouro)
+  // Símbolo 1 (Padrão): Raquete & Raio Zeiq (Laranja Zeiq & Fogo Esportivo)
   return (
     <svg
       viewBox="0 0 100 100"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`${className} shrink-0 drop-shadow-md select-none`}
+      className={`${className} shrink-0 select-none`}
     >
       <defs>
-        <linearGradient id="fire-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FF3B00" />
-          <stop offset="50%" stopColor="#FF5500" />
-          <stop offset="100%" stopColor="#FFAA00" />
+        <linearGradient id="fire-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1a0d06" />
+          <stop offset="100%" stopColor="#2a1208" />
         </linearGradient>
-        <linearGradient id="fire-glow" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FF8800" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#FF3B00" stopOpacity="0.3" />
+        <linearGradient id="racket-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFAA00" />
+          <stop offset="100%" stopColor="#FF5500" />
+        </linearGradient>
+        <linearGradient id="bolt-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFFFFF" />
+          <stop offset="100%" stopColor="#FFCC00" />
         </linearGradient>
       </defs>
-      <circle cx="50" cy="50" r="48" fill="#140b08" stroke="url(#fire-glow)" strokeWidth="3" />
-      <circle cx="50" cy="50" r="44" fill="url(#fire-grad)" fillOpacity="0.25" />
-      {/* Raio Esportivo Zeiq no Fundo */}
-      <path
-        d="M48 14 L36 44 L48 44 L44 76 L66 40 L52 40 Z"
-        fill="#FF5500"
-        fillOpacity="0.3"
+      <circle cx="50" cy="50" r="48" fill="url(#fire-bg)" stroke="#FF5500" strokeWidth="2.5" />
+      {/* Cabeça Oval da Raquete de Beach Tennis */}
+      <ellipse
+        cx="50"
+        cy="42"
+        rx="22"
+        ry="25"
+        fill="none"
+        stroke="url(#racket-grad)"
+        strokeWidth="3.5"
       />
-      {/* Cabeça do Atleta de Foco */}
-      <circle cx="50" cy="38" r="13" fill="url(#fire-grad)" stroke="#FFFFFF" strokeWidth="2" />
-      {/* Ombros / Peitoral Forte */}
+      {/* Furação Geométrica de Beach Tennis */}
+      <circle cx="43" cy="36" r="1.8" fill="#FF5500" />
+      <circle cx="50" cy="33" r="1.8" fill="#FF5500" />
+      <circle cx="57" cy="36" r="1.8" fill="#FF5500" />
+      <circle cx="43" cy="46" r="1.8" fill="#FF5500" />
+      <circle cx="50" cy="48" r="1.8" fill="#FF5500" />
+      <circle cx="57" cy="46" r="1.8" fill="#FF5500" />
+      {/* Cabo da Raquete */}
+      <path d="M48 67 L46 82 L54 82 L52 67 Z" fill="url(#racket-grad)" />
+      {/* Raio Dinâmico Cortando a Raquete */}
       <path
-        d="M26 72 C30 56 40 52 50 52 C60 52 70 56 74 72 Z"
-        fill="url(#fire-grad)"
-        stroke="#FFAA00"
-        strokeWidth="2"
+        d="M56 18 L38 46 L49 46 L44 70 L64 38 L51 38 Z"
+        fill="url(#bolt-grad)"
+        stroke="#1a0d06"
+        strokeWidth="1.2"
       />
-      {/* Ponto de Energia Central */}
-      <circle cx="50" cy="38" r="4" fill="#FFFFFF" />
     </svg>
   );
+}
+
+/**
+ * Máscara brasileira de telefone/WhatsApp:
+ * Formata para: (16) 9 9665-5050 ou (16) 3333-4444
+ */
+export function formatPhoneBR(phone?: string | null): string {
+  if (!phone) return '—';
+  let digits = String(phone).replace(/\D/g, '');
+  if (!digits) return '—';
+
+  // Remove DDI 55 se presente
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+    digits = digits.slice(2);
+  }
+
+  // Celular com 9 dígitos: (16) 9 9665-5050
+  if (digits.length === 11) {
+    const ddd = digits.slice(0, 2);
+    const n9 = digits.slice(2, 3);
+    const p1 = digits.slice(3, 7);
+    const p2 = digits.slice(7);
+    return `(${ddd}) ${n9} ${p1}-${p2}`;
+  }
+
+  // Fixo ou antigo com 8 dígitos: (16) 3333-4444
+  if (digits.length === 10) {
+    const ddd = digits.slice(0, 2);
+    const p1 = digits.slice(2, 6);
+    const p2 = digits.slice(6);
+    return `(${ddd}) ${p1}-${p2}`;
+  }
+
+  return phone;
 }

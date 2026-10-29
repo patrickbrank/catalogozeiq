@@ -64,6 +64,7 @@ import { ProductFormModal } from '@/components/admin/ProductFormModal';
 import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/OrderStatusPopover';
 import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPicker';
 import { AvatarIcon, ADMIN_AVATARS } from '@/lib/constants/avatars';
+import { PanelFooter } from '@/components/PanelFooter';
 
 const ITEMS_PER_PAGE = 25;
 
@@ -302,11 +303,11 @@ export default function AdminDashboardPage() {
         setCategories(cats || []);
       }
 
-      // 2. Busca Produtos
+      // 2. Busca Produtos (Sempre dados frescos e em tempo real)
       try {
-        const prodRes = await fetch('/api/admin/products');
+        const prodRes = await fetch('/api/admin/products', { cache: 'no-store' });
         const prodData = await prodRes.json();
-        if (prodData.success && Array.isArray(prodData.products) && prodData.products.length > 0) {
+        if (prodData.success && Array.isArray(prodData.products)) {
           setProducts(prodData.products);
         } else {
           // Fallback para query direta no Supabase
@@ -576,9 +577,15 @@ export default function AdminDashboardPage() {
     );
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from('products').update({ is_published: newStatus }).eq('id', product.id);
-      if (error) throw error;
+      const res = await fetch('/api/admin/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: product.id, is_published: newStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao atualizar status do produto.');
+      }
       showToast(
         newStatus
           ? `"${product.name.slice(0, 24)}..." reativado (Em Estoque) e visível no catálogo.`
@@ -598,9 +605,15 @@ export default function AdminDashboardPage() {
     );
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from('products').update({ is_featured: newFeatured }).eq('id', product.id);
-      if (error) throw error;
+      const res = await fetch('/api/admin/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: product.id, is_featured: newFeatured }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao alterar destaque do produto.');
+      }
       showToast(`Destaque ${newFeatured ? 'ativado' : 'removido'}.`);
     } catch (e: any) {
       console.error('Erro ao atualizar destaque do produto:', e);
@@ -614,15 +627,23 @@ export default function AdminDashboardPage() {
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch(`/api/admin/products?id=${product.id}`, {
+      const res = await fetch(`/api/admin/products?id=${encodeURIComponent(product.id)}`, {
         method: 'DELETE',
+        cache: 'no-store',
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Erro ao excluir produto.');
       }
-      setProducts((prev) => prev.filter((p) => p.id !== product.id));
-      showToast('Produto excluído com sucesso.');
+      setProducts((prev) =>
+        prev.filter(
+          (p) =>
+            p.id !== product.id &&
+            (!product.legacy_id || p.legacy_id !== product.legacy_id) &&
+            (!p.legacy_id || p.legacy_id !== product.id)
+        )
+      );
+      showToast('Produto excluído com sucesso do catálogo.');
     } catch (err: any) {
       alert(`Falha ao excluir produto: ${err.message}`);
       fetchDashboardData();
@@ -679,26 +700,27 @@ export default function AdminDashboardPage() {
         )
       );
 
-      const supabase = createClient();
-      let { error } = await supabase
-        .from('products')
-        .update({
+      // Salva via API administrativa interna com bypass de RLS e invalidação automática de cache
+      const res = await fetch('/api/admin/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: quickStockProduct.id,
           stock_by_size: finalStock,
           total_stock: finalTotal,
-        })
-        .eq('id', quickStockProduct.id);
+        }),
+      });
 
-      if (error && error.message?.includes('stock')) {
-        showToast('Aviso: Execute o script migration-add-stock.sql no Supabase.');
-      } else if (error) {
-        throw error;
-      } else {
-        showToast(`Estoque de "${quickStockProduct.name.slice(0, 20)}..." atualizado para ${finalTotal} un.`);
+      const resData = await res.json();
+      if (!res.ok || !resData.success) {
+        throw new Error(resData.error || 'Falha ao gravar estoque no banco.');
       }
 
+      showToast(`Estoque de "${quickStockProduct.name.slice(0, 20)}..." atualizado para ${finalTotal} un.`);
       setQuickStockProduct(null);
     } catch (err: any) {
-      showToast(`Erro ao salvar estoque: ${err.message}`);
+      alert(`Erro ao salvar estoque: ${err.message}`);
+      fetchDashboardData();
     } finally {
       setSavingQuickStock(false);
     }
@@ -725,10 +747,12 @@ export default function AdminDashboardPage() {
       if (data.success) {
         showToast(`Status do pedido atualizado para "${statusLabel}".`);
       } else {
-        showToast(`Status atualizado localmente para "${statusLabel}".`);
+        alert(data.error || `Falha ao atualizar pedido para "${statusLabel}".`);
+        fetchDashboardData();
       }
-    } catch {
-      showToast(`Status atualizado para "${statusLabel}".`);
+    } catch (err: any) {
+      alert(`Erro ao atualizar pedido: ${err.message || 'Erro de comunicação'}`);
+      fetchDashboardData();
     }
   };
 
@@ -1641,48 +1665,48 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Seletor de Avatar SVG com 3 Opções de Cores */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Seletor de Avatar SVG com 3 Símbolos Esportivos */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setAdminAvatarPickerOpen(!adminAvatarPickerOpen)}
-                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 hover:border-zeiq-orange/40 transition-all cursor-pointer group active:scale-95"
-                title="Clique para escolher seu Avatar com cores esportivas"
+                className="h-10 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 hover:border-zeiq-orange/40 transition-all cursor-pointer flex items-center gap-2.5 active:scale-95 group shadow-xs shrink-0"
+                title="Clique para escolher seu símbolo esportivo Zeiq"
               >
-                <div className="relative">
-                  <AvatarIcon avatarId={adminAvatarId} className="w-8 h-8 rounded-full" />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-zeiq-black animate-pulse" />
+                <div className="relative shrink-0 flex items-center justify-center">
+                  <AvatarIcon avatarId={adminAvatarId} className="w-6 h-6" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-zeiq-black animate-pulse" />
                 </div>
-                <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-xs font-bold text-white leading-tight">
+                <div className="hidden sm:flex items-center gap-1.5 min-w-0">
+                  <span className="text-xs font-bold text-white truncate max-w-[130px]">
                     {user?.contact_name || user?.email?.split('@')[0] || 'Administrador'}
                   </span>
-                  <span className="text-[10px] text-slate-400 leading-none">
+                  <span className="text-[10px] font-mono font-extrabold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-1.5 py-0.5 rounded leading-none">
                     {isCurrentUserMaster
-                      ? '👑 Diretoria (Master)'
+                      ? 'MASTER'
                       : isCurrentUserRepresentative
-                      ? '💼 Representante'
+                      ? 'REP'
                       : isCurrentUserStock
-                      ? '📦 Estoque'
-                      : '🛡️ Administrador'}
+                      ? 'ESTOQUE'
+                      : 'ADM'}
                   </span>
                 </div>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${adminAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
               </button>
 
-              {/* Popover dos 3 Avatares */}
+              {/* Popover dos 3 Símbolos Esportivos */}
               {adminAvatarPickerOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-zeiq-dark border border-zeiq-charcoal rounded-3xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-white">
+                <div className="absolute right-0 top-full mt-2 w-72 bg-zeiq-dark border border-zeiq-charcoal rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 text-white">
                   <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
                     <div>
-                      <h4 className="text-xs font-black text-white">Escolha seu Avatar</h4>
-                      <p className="text-[10px] text-slate-400">Personalize com as cores esportivas Zeiq</p>
+                      <h4 className="text-xs font-black text-white">Símbolo Esportivo</h4>
+                      <p className="text-[10px] text-slate-400">Personalize seu badge oficial Zeiq</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setAdminAvatarPickerOpen(false)}
-                      className="text-slate-400 hover:text-white p-1 rounded-lg"
+                      className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -1694,13 +1718,13 @@ export default function AdminDashboardPage() {
                         key={av.id}
                         type="button"
                         onClick={() => handleSelectAdminAvatar(av.id)}
-                        className={`w-full p-2.5 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                        className={`w-full p-2.5 rounded-xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
                           adminAvatarId === av.id
                             ? `${av.badgeBg} ${av.badgeBorder} ring-1 ring-zeiq-orange/50 shadow-md`
                             : 'bg-zeiq-charcoal/50 border-white/5 hover:border-white/20 hover:bg-zeiq-charcoal'
                         }`}
                       >
-                        <AvatarIcon avatarId={av.id} className="w-10 h-10" />
+                        <AvatarIcon avatarId={av.id} className="w-9 h-9" />
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-white flex items-center justify-between">
                             <span>{av.name}</span>
@@ -1719,7 +1743,7 @@ export default function AdminDashboardPage() {
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-rose-500/20 hover:text-rose-300 text-slate-300 rounded-xl text-xs font-semibold transition-colors border border-white/10 cursor-pointer active:scale-95"
+              className="h-10 px-3.5 bg-white/10 hover:bg-rose-500/20 hover:text-rose-300 text-slate-300 rounded-xl text-xs font-semibold transition-colors border border-white/10 cursor-pointer active:scale-95 flex items-center gap-1.5"
               title="Sair do painel"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -4356,7 +4380,7 @@ export default function AdminDashboardPage() {
       {/* ======================================================== */}
       {quickStockProduct && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <button
               onClick={() => setQuickStockProduct(null)}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors cursor-pointer"
@@ -4525,7 +4549,7 @@ export default function AdminDashboardPage() {
       {/* ======================================================== */}
       {selectedOrderDetails && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative border border-slate-200 overflow-hidden">
             <button
               onClick={() => setSelectedOrderDetails(null)}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-zeiq-black"
@@ -5512,6 +5536,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Rodapé Oficial Zeiq com Card do Instagram */}
+      <PanelFooter />
 
     </div>
   );

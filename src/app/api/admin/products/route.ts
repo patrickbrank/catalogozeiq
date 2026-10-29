@@ -1,18 +1,74 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getCatalogData } from '@/lib/data/products';
+import { revalidatePath } from 'next/cache';
+import { getCatalogData, invalidateCatalogCache, cleanProductDescription } from '@/lib/data/products';
 import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET: Retorna catálogo de produtos para administração
+// GET: Retorna catálogo de produtos para administração (em tempo real do banco)
 export async function GET() {
   try {
-    const { products } = await getCatalogData();
-    return NextResponse.json({
-      success: true,
-      products: products || [],
-      total: products?.length || 0,
-    });
+    const adminSupabase = getAdminClient();
+    if (!adminSupabase) {
+      const { products } = await getCatalogData();
+      return NextResponse.json(
+        {
+          success: true,
+          products: products || [],
+          total: products?.length || 0,
+        },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          },
+        }
+      );
+    }
+
+    // Busca todos os produtos (publicados e rascunhos) com categorias e imagens diretamente do banco
+    const { data: dbProducts, error: prodErr } = await adminSupabase
+      .from('products')
+      .select(`
+        *,
+        images:product_images(*),
+        categories:product_categories(
+          category:categories(*)
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (prodErr) {
+      // Fallback para getCatalogData se houver erro de query
+      const { products } = await getCatalogData();
+      return NextResponse.json(
+        { success: true, products: products || [], total: products?.length || 0 },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } }
+      );
+    }
+
+    const formattedProducts = (dbProducts || []).map((p: any) => ({
+      ...p,
+      description: cleanProductDescription(p.description),
+      images: (p.images || []).sort((a: any, b: any) => {
+        if (a.is_cover && !b.is_cover) return -1;
+        if (!a.is_cover && b.is_cover) return 1;
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      }),
+      categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
+    }));
+
+    return NextResponse.json(
+      {
+        success: true,
+        products: formattedProducts,
+        total: formattedProducts.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        },
+      }
+    );
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || 'Erro ao carregar produtos.' },
@@ -143,6 +199,14 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
+    // Invalida o cache em memória e revalida as páginas do Next.js
+    invalidateCatalogCache();
+    try {
+      revalidatePath('/');
+      revalidatePath('/admin');
+      revalidatePath('/catalogo');
+    } catch {}
+
     return NextResponse.json({
       success: true,
       product: newProd,
@@ -233,6 +297,14 @@ export async function PUT(request: NextRequest) {
       } catch {}
     }
 
+    // Invalida o cache em memória e revalida as páginas do Next.js
+    invalidateCatalogCache();
+    try {
+      revalidatePath('/');
+      revalidatePath('/admin');
+      revalidatePath('/catalogo');
+    } catch {}
+
     return NextResponse.json({
       success: true,
       product: updatedProd,
@@ -255,32 +327,73 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const rawId = searchParams.get('id');
 
-    if (!id) {
+    if (!rawId?.trim()) {
       return NextResponse.json({ success: false, error: 'ID do produto é obrigatório.' }, { status: 400 });
     }
+
+    const id = rawId.trim();
 
     const adminSupabase = getAdminClient();
     if (!adminSupabase) {
       return NextResponse.json({ success: false, error: 'Serviço de administração Supabase indisponível.' }, { status: 500 });
     }
 
+    // Identifica o ID real no banco (pode ser UUID direto ou legacy_id)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    let targetId = id;
+
+    if (!isUuid) {
+      // Se não for UUID, busca o produto correspondente por legacy_id ou slug
+      const { data: foundProd } = await adminSupabase
+        .from('products')
+        .select('id')
+        .or(`legacy_id.eq.${id},slug.eq.${id}`)
+        .maybeSingle();
+
+      if (foundProd?.id) {
+        targetId = foundProd.id;
+      }
+    }
+
     // 1. Remove dependências relacionais
     try {
-      await adminSupabase.from('product_categories').delete().eq('product_id', id);
-      await adminSupabase.from('product_images').delete().eq('product_id', id);
+      await adminSupabase.from('product_categories').delete().eq('product_id', targetId);
+      await adminSupabase.from('product_images').delete().eq('product_id', targetId);
     } catch {}
 
     // 2. Exclui o produto
-    const { error: delErr } = await adminSupabase
+    let { data: deletedRows, error: delErr } = await adminSupabase
       .from('products')
       .delete()
-      .eq('id', id);
+      .eq('id', targetId)
+      .select('id');
+
+    // Se não encontrou por ID primário e não era UUID, tenta exclusão por legacy_id
+    if ((!deletedRows || deletedRows.length === 0) && !delErr && !isUuid) {
+      const { data: fallbackRows, error: fallbackErr } = await adminSupabase
+        .from('products')
+        .delete()
+        .eq('legacy_id', id)
+        .select('id');
+      if (fallbackRows && fallbackRows.length > 0) {
+        deletedRows = fallbackRows;
+      }
+      if (fallbackErr) delErr = fallbackErr;
+    }
 
     if (delErr) {
       return NextResponse.json({ success: false, error: delErr.message }, { status: 400 });
     }
+
+    // 3. Invalida imediatamente todo o cache em memória e do Next.js
+    invalidateCatalogCache();
+    try {
+      revalidatePath('/');
+      revalidatePath('/admin');
+      revalidatePath('/catalogo');
+    } catch {}
 
     return NextResponse.json({
       success: true,

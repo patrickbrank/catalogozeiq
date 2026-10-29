@@ -126,11 +126,12 @@ export async function POST(request: NextRequest) {
         password: initialPassword,
         email_confirm: true,
         app_metadata: {
-          role: 'ROLE_RESELLER',
+          role: 'representative',
         },
         user_metadata: {
-          role: 'ROLE_RESELLER',
+          role: 'representative',
           contact_name: name.trim(),
+          store_name: 'Representação Comercial Zeiq',
           phone: cleanWhatsapp,
           is_approved: true,
         },
@@ -139,14 +140,14 @@ export async function POST(request: NextRequest) {
       if (!authError && authUser?.user) {
         authUserId = authUser.user.id;
       } else if (authError?.message?.includes('already registered') || authError?.message?.includes('exists')) {
-        // Se usuário já existe no auth, busca o ID dele e atualiza role
+        // Se usuário já existe no auth, busca o ID dele e atualiza role para representative
         const { data: usersList } = await adminSupabase.auth.admin.listUsers();
         const existing = usersList?.users?.find((u) => u.email?.toLowerCase() === cleanEmail);
         if (existing) {
           authUserId = existing.id;
           await adminSupabase.auth.admin.updateUserById(existing.id, {
-            app_metadata: { role: 'ROLE_RESELLER' },
-            user_metadata: { role: 'ROLE_RESELLER', contact_name: name.trim() },
+            app_metadata: { role: 'representative' },
+            user_metadata: { role: 'representative', contact_name: name.trim(), store_name: 'Representação Comercial Zeiq' },
           });
         }
       }
@@ -177,16 +178,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: insertErr.message }, { status: 400 });
     }
 
-    // 3. Também sincroniza ou insere na tabela profiles se authUserId existir
+    // 3. Também sincroniza ou insere na tabela profiles se authUserId existir com cargo representative
     if (authUserId) {
       try {
         await adminSupabase.from('profiles').upsert({
           id: authUserId,
           email: cleanEmail,
           contact_name: name.trim(),
-          store_name: `Revenda ${name.trim()}`,
+          store_name: 'Representação Comercial Zeiq',
           phone: cleanWhatsapp,
-          role: 'ROLE_RESELLER',
+          role: 'representative',
           is_approved: true,
         });
       } catch {}
@@ -258,13 +259,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: updateErr.message }, { status: 400 });
     }
 
-    // Se houver alteração de senha ou user_id vinculado, atualiza no Supabase Auth
+    // Se houver alteração de senha ou user_id vinculado, atualiza no Supabase Auth e Profiles
     const targetUserId = updatedReseller.user_id;
     if (targetUserId) {
       try {
         const authUpdates: any = {
+          app_metadata: {
+            role: 'representative',
+          },
           user_metadata: {
+            role: 'representative',
             contact_name: updatePayload.name || updatedReseller.name,
+            store_name: 'Representação Comercial Zeiq',
             phone: updatePayload.whatsapp || updatedReseller.whatsapp,
           },
         };
@@ -274,6 +280,14 @@ export async function PUT(request: NextRequest) {
         }
 
         await adminSupabase.auth.admin.updateUserById(targetUserId, authUpdates);
+
+        // Sincroniza tabela profiles
+        await adminSupabase.from('profiles').update({
+          role: 'representative',
+          contact_name: updatePayload.name || updatedReseller.name,
+          store_name: 'Representação Comercial Zeiq',
+          phone: updatePayload.whatsapp || updatedReseller.whatsapp,
+        }).eq('id', targetUserId);
       } catch (authUpdateErr) {
         console.warn('Aviso ao sincronizar credenciais no auth:', authUpdateErr);
       }
@@ -284,10 +298,11 @@ export async function PUT(request: NextRequest) {
           email: updatedReseller.email,
           password: password.trim(),
           email_confirm: true,
-          app_metadata: { role: 'ROLE_RESELLER' },
+          app_metadata: { role: 'representative' },
           user_metadata: {
-            role: 'ROLE_RESELLER',
+            role: 'representative',
             contact_name: updatedReseller.name,
+            store_name: 'Representação Comercial Zeiq',
             phone: updatedReseller.whatsapp,
             is_approved: true,
           },
@@ -297,6 +312,16 @@ export async function PUT(request: NextRequest) {
             .from('resellers')
             .update({ user_id: newAuth.user.id })
             .eq('id', id);
+
+          await adminSupabase.from('profiles').upsert({
+            id: newAuth.user.id,
+            email: updatedReseller.email,
+            contact_name: updatedReseller.name,
+            store_name: 'Representação Comercial Zeiq',
+            phone: updatedReseller.whatsapp,
+            role: 'representative',
+            is_approved: true,
+          });
         }
       } catch {}
     }
@@ -338,12 +363,24 @@ export async function DELETE(request: NextRequest) {
       .eq('id', id)
       .maybeSingle();
 
-    // Desvincula clientes associados para não quebrar integridade
+    // Desvincula clientes associados em reseller_id e representative_id para não quebrar integridade
     try {
       await adminSupabase
         .from('profiles')
         .update({ reseller_id: null })
         .eq('reseller_id', id);
+
+      await adminSupabase
+        .from('profiles')
+        .update({ representative_id: null })
+        .eq('representative_id', id);
+
+      if (reseller?.user_id) {
+        await adminSupabase
+          .from('profiles')
+          .update({ representative_id: null })
+          .eq('representative_id', reseller.user_id);
+      }
     } catch {}
 
     // Exclui da tabela resellers

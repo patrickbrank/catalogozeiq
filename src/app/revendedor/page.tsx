@@ -38,7 +38,8 @@ import {
   UserCheck,
   UserX,
 } from 'lucide-react';
-import { AvatarIcon, ADMIN_AVATARS } from '@/lib/constants/avatars';
+import { AvatarIcon, ADMIN_AVATARS, formatPhoneBR } from '@/lib/constants/avatars';
+import { PanelFooter } from '@/components/PanelFooter';
 
 const ORDER_STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; text: string; border: string }> = {
   pending: { label: 'Pendente', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
@@ -305,9 +306,9 @@ export default function ResellerDashboardPage() {
 
   return (
     <div className="min-h-screen bg-zeiq-black text-white font-sans selection:bg-zeiq-orange selection:text-zeiq-black">
-      {/* Toast Notification */}
+      {/* Toast Flutuante de Feedback */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 bg-zeiq-dark border border-zeiq-orange/40 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-3">
+        <div className="fixed bottom-6 right-6 z-50 bg-zeiq-dark/95 backdrop-blur-md border border-zeiq-orange/40 text-white px-4 py-3 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.85)] flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-bottom-3">
           <CheckCircle2 className="w-4 h-4 text-zeiq-orange shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -338,49 +339,46 @@ export default function ResellerDashboardPage() {
                 <Briefcase className="w-3 h-3" />
                 Painel do Revendedor
               </span>
-              <span className="hidden md:inline-block text-xs font-bold text-slate-300">
-                {reseller?.name}
-              </span>
             </div>
           </div>
 
-          {/* Ações da Direita */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Seletor de Avatar SVG com 3 Opções de Cores */}
+          {/* Ações da Direita (Alinhadas em Linha Perfeita com Altura Padronizada de 40px) */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Seletor de Avatar SVG com Símbolos Esportivos Minimalistas */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
-                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-2xl bg-zeiq-charcoal hover:bg-white/10 border border-white/10 hover:border-zeiq-orange/40 transition-all cursor-pointer group active:scale-95"
-                title="Clique para escolher seu Avatar com cores personalizadas"
+                className="h-10 px-3 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 hover:border-zeiq-orange/40 transition-all cursor-pointer flex items-center gap-2.5 active:scale-95 group shadow-xs shrink-0"
+                title="Clique para escolher seu símbolo esportivo Zeiq"
               >
-                <div className="relative">
-                  <AvatarIcon avatarId={selectedAvatarId} className="w-8 h-8 rounded-full" />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-zeiq-dark animate-pulse" />
+                <div className="relative shrink-0 flex items-center justify-center">
+                  <AvatarIcon avatarId={selectedAvatarId} className="w-6 h-6" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full border border-zeiq-dark animate-pulse" />
                 </div>
-                <div className="text-left hidden sm:block">
-                  <div className="text-xs font-black text-white leading-tight">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-xs font-extrabold text-white truncate max-w-[120px] hidden sm:inline">
                     {reseller?.name?.split(' ')[0] || user?.email?.split('@')[0]}
-                  </div>
-                  <div className="text-[10px] text-slate-400 leading-none">
-                    Revendedor
-                  </div>
+                  </span>
+                  <span className="text-[10px] font-mono font-extrabold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-1.5 py-0.5 rounded leading-none">
+                    REV
+                  </span>
                 </div>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${isAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
               </button>
 
-              {/* Popover dos 3 Avatares */}
+              {/* Popover dos 3 Símbolos Esportivos */}
               {isAvatarPickerOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-zeiq-dark border border-zeiq-charcoal rounded-3xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                <div className="absolute right-0 top-full mt-2 w-72 bg-zeiq-dark border border-zeiq-charcoal rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95">
                   <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
                     <div>
-                      <h4 className="text-xs font-black text-white">Escolha seu Avatar</h4>
-                      <p className="text-[10px] text-slate-400">Personalize seu perfil com as cores Zeiq</p>
+                      <h4 className="text-xs font-black text-white">Símbolo Esportivo</h4>
+                      <p className="text-[10px] text-slate-400">Personalize seu badge oficial Zeiq</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsAvatarPickerOpen(false)}
-                      className="text-slate-400 hover:text-white p-1 rounded-lg"
+                      className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -392,13 +390,13 @@ export default function ResellerDashboardPage() {
                         key={av.id}
                         type="button"
                         onClick={() => handleSelectAvatar(av.id)}
-                        className={`w-full p-2.5 rounded-2xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
+                        className={`w-full p-2.5 rounded-xl border flex items-center gap-3 transition-all cursor-pointer text-left ${
                           selectedAvatarId === av.id
                             ? `${av.badgeBg} ${av.badgeBorder} ring-1 ring-zeiq-orange/50 shadow-md`
                             : 'bg-zeiq-charcoal/50 border-white/5 hover:border-white/20 hover:bg-zeiq-charcoal'
                         }`}
                       >
-                        <AvatarIcon avatarId={av.id} className="w-10 h-10" />
+                        <AvatarIcon avatarId={av.id} className="w-9 h-9" />
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-bold text-white flex items-center justify-between">
                             <span>{av.name}</span>
@@ -419,8 +417,8 @@ export default function ResellerDashboardPage() {
               type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-zeiq-charcoal hover:bg-white/10 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Atualizar dados"
+              className="h-10 px-3 sm:px-3.5 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0"
+              title="Atualizar dados da carteira"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-zeiq-orange' : ''}`} />
               <span className="hidden sm:inline">Atualizar</span>
@@ -429,8 +427,8 @@ export default function ResellerDashboardPage() {
             <Link
               href="/"
               target="_blank"
-              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-zeiq-charcoal hover:bg-white/10 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
-              title="Ver Catálogo Público"
+              className="h-10 px-3 sm:px-3.5 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 active:scale-95"
+              title="Ver Catálogo Público de Produtos"
             >
               <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
               <span className="hidden sm:inline">Catálogo</span>
@@ -439,7 +437,7 @@ export default function ResellerDashboardPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="h-10 px-3 sm:px-3.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95"
               title="Sair do painel"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -868,13 +866,16 @@ export default function ResellerDashboardPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-extrabold text-white text-sm flex items-center gap-1.5 truncate">
-                            <Building2 className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
-                            <span className="truncate">{cust.store_name}</span>
+                          <div className="font-extrabold text-white text-sm truncate">
+                            {cust.store_name || cust.contact_name}
                           </div>
-                          <div className="text-xs text-slate-300 mt-0.5 truncate">{cust.contact_name}</div>
-                          <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-                            {cust.cnpj_cpf || 'Sem documento informado'}
+                          <div className="text-xs text-slate-300 mt-0.5 truncate flex items-center gap-1.5">
+                            <span>{cust.contact_name}</span>
+                            <span className="text-slate-600">•</span>
+                            <span className="text-slate-500 font-mono text-[11px] truncate">{cust.email}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            {cust.cnpj_cpf || '—'}
                           </div>
                         </div>
 
@@ -893,10 +894,10 @@ export default function ResellerDashboardPage() {
 
                       <div className="text-xs text-slate-400 flex items-center justify-between border-t border-white/5 pt-2">
                         <span className="truncate">
-                          {cust.city ? `${cust.city}/${cust.state || ''}` : 'Cidade a confirmar'}
+                          {cust.city ? `${cust.city}/${cust.state || ''}` : '—'}
                         </span>
-                        <span className="font-bold text-white shrink-0 ml-2">
-                          {cust.orders_count || 0} pedidos
+                        <span className="font-mono font-medium text-white shrink-0 ml-2">
+                          {formatPhoneBR(cust.phone)}
                         </span>
                       </div>
 
@@ -952,10 +953,10 @@ export default function ResellerDashboardPage() {
                     <table className="w-full text-left text-xs">
                       <thead>
                         <tr className="bg-zeiq-charcoal/80 border-b border-white/5 text-slate-400 font-extrabold uppercase tracking-wider text-[11px]">
-                          <th className="py-3.5 px-4">Loja / Responsável</th>
+                          <th className="py-3.5 px-5">Lojista / Razão Social</th>
                           <th className="py-3.5 px-4">CNPJ / CPF</th>
                           <th className="py-3.5 px-4">Localização</th>
-                          <th className="py-3.5 px-4">Contato</th>
+                          <th className="py-3.5 px-4">Contato WhatsApp</th>
                           <th className="py-3.5 px-4 text-center">Status</th>
                           <th className="py-3.5 px-4 text-center">Pedidos</th>
                           <th className="py-3.5 px-4 text-right">Ações</th>
@@ -964,41 +965,44 @@ export default function ResellerDashboardPage() {
                       <tbody className="divide-y divide-white/5">
                         {filteredCustomers.map((cust) => (
                           <tr key={cust.id} className="hover:bg-white/[0.02] transition-colors">
-                            <td className="py-3.5 px-4">
-                              <div className="font-extrabold text-white text-sm flex items-center gap-1.5">
-                                <Building2 className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
-                                <span>{cust.store_name}</span>
+                            <td className="py-4 px-5">
+                              <div className="font-bold text-white text-sm">
+                                {cust.store_name || cust.contact_name}
                               </div>
-                              <div className="text-xs text-slate-300 mt-0.5">{cust.contact_name}</div>
-                              <div className="text-[11px] text-slate-500">{cust.email}</div>
+                              <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span>{cust.contact_name}</span>
+                                <span className="text-slate-600">•</span>
+                                <span className="text-slate-500 font-mono text-[11px]">{cust.email}</span>
+                              </div>
                             </td>
 
-                            <td className="py-3.5 px-4 font-mono text-slate-300">
-                              {cust.cnpj_cpf || '-'}
+                            <td className="py-4 px-4 font-mono text-slate-300">
+                              {cust.cnpj_cpf || <span className="text-slate-600">—</span>}
                             </td>
 
-                            <td className="py-3.5 px-4 text-slate-300">
-                              <div className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-                                <span>
-                                  {cust.city ? `${cust.city}/${cust.state || ''}` : 'Não informado'}
-                                </span>
-                              </div>
-                              {cust.address && (
-                                <div className="text-[10px] text-slate-500 truncate max-w-xs">{cust.address}</div>
+                            <td className="py-4 px-4 text-slate-300">
+                              {cust.city ? (
+                                <div>
+                                  <span className="font-medium text-slate-200">{cust.city}{cust.state ? `/${cust.state}` : ''}</span>
+                                  {cust.address && <div className="text-[11px] text-slate-500 truncate max-w-xs">{cust.address}</div>}
+                                </div>
+                              ) : (
+                                <span className="text-slate-600 font-medium">—</span>
                               )}
                             </td>
 
-                            <td className="py-3.5 px-4">
-                              <div className="text-slate-300">{cust.phone || '-'}</div>
+                            <td className="py-4 px-4">
+                              <div className="font-mono font-medium text-white tracking-wide">
+                                {formatPhoneBR(cust.phone)}
+                              </div>
                               {cust.whatsapp_url && (
                                 <a
                                   href={cust.whatsapp_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 mt-0.5"
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 mt-1"
                                 >
-                                  <MessageCircle className="w-3 h-3" />
+                                  <MessageCircle className="w-3.5 h-3.5" />
                                   <span>Chamar WhatsApp</span>
                                 </a>
                               )}
@@ -1064,10 +1068,10 @@ export default function ResellerDashboardPage() {
       {/* MODAL DE DETALHES DO PEDIDO                             */}
       {/* ======================================================== */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-zeiq-dark border border-zeiq-charcoal rounded-3xl max-w-2xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto custom-scrollbar-dark shadow-2xl animate-in zoom-in-95">
-            {/* Cabeçalho do Modal */}
-            <div className="flex items-start justify-between gap-4 border-b border-white/5 pb-4">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="relative w-full max-w-2xl max-h-[90vh] bg-zeiq-dark border border-zeiq-charcoal rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95">
+            {/* Cabeçalho Fixo do Modal (Sem scrollbar, botão X perfeitamente integrado e contido) */}
+            <div className="flex items-start justify-between gap-4 p-5 sm:p-6 border-b border-white/5 shrink-0 bg-zeiq-dark">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-base sm:text-lg font-black text-white">
@@ -1086,12 +1090,15 @@ export default function ResellerDashboardPage() {
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                title="Fechar detalhes do pedido"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {/* Conteúdo Rolável Isolado (Scrollbar 100% contida dentro do corpo, sem vazar cantos arredondados) */}
+            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto custom-scrollbar-dark flex-1">
             {/* Seletor de Status do Pedido (Permissão do Revendedor) */}
             <div className="bg-zeiq-charcoal/80 rounded-2xl p-4 border border-white/5 space-y-2">
               <label className="block text-xs font-bold text-slate-300">
@@ -1227,9 +1234,13 @@ export default function ResellerDashboardPage() {
                 <span>Salvar Observação</span>
               </button>
             </div>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Rodapé Oficial Zeiq com Card do Instagram */}
+      <PanelFooter />
     </div>
   );
 }

@@ -47,8 +47,9 @@ export async function middleware(request: NextRequest) {
   const userEmail = user?.email?.toLowerCase().trim();
   const isMaster = userEmail === 'marketing@zeiq.com.br' || userEmail === 'patrickbrank@outlook.com';
   const userAppRole = user?.app_metadata?.role || user?.user_metadata?.role;
+  const isRepresentative = userAppRole === 'representative';
   const isResellerRole = userAppRole === 'ROLE_RESELLER';
-  const isStaff = isMaster || ['master', 'admin', 'stock'].includes(userAppRole);
+  const isStaff = isMaster || ['master', 'admin', 'stock', 'representative'].includes(userAppRole);
 
   // Redirecionamento amigável /reseller -> /revendedor
   if (pathname.startsWith('/reseller')) {
@@ -91,8 +92,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    // Revendedor comercial nunca acessa o Admin Master
-    if (isResellerRole) {
+    // Revendedor comercial externo nunca acessa o Admin Master (mas representantes autorizados têm acesso à sua carteira)
+    if (isResellerRole && !isStaff) {
       return NextResponse.redirect(new URL('/revendedor', request.url));
     }
 
@@ -120,8 +121,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/revendedor/login', request.url));
     }
 
-    // Master e Administradores têm acesso
-    if (!isMaster && !['master', 'admin'].includes(userAppRole)) {
+    // Master, Administradores e Representantes têm acesso autorizado
+    if (!isMaster && !['master', 'admin', 'representative'].includes(userAppRole)) {
       let isAllowedReseller = isResellerRole;
 
       if (!isAllowedReseller) {
@@ -157,7 +158,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // 3. Redirecionamento inteligente se o usuário já estiver logado
-  if (user) {
+  // Se for um link de recuperação/redefinição de senha, nunca intercepta para permitir a troca de senha
+  const isRecoveryRequest =
+    request.nextUrl.searchParams.get('type') === 'recovery' ||
+    request.nextUrl.searchParams.has('token_hash') ||
+    request.nextUrl.searchParams.has('code');
+
+  if (user && !isRecoveryRequest) {
     // Se acessar /login ou /portal/login e já estiver autenticado:
     if (pathname === '/login' || pathname === '/portal/login') {
       if (isResellerRole) {
@@ -174,7 +181,7 @@ export async function middleware(request: NextRequest) {
           .eq('id', user.id)
           .maybeSingle();
 
-        if (profile?.role === 'ROLE_RESELLER') {
+        if (profile?.role === 'ROLE_RESELLER' || profile?.role === 'representative') {
           return NextResponse.redirect(new URL('/revendedor', request.url));
         }
 
@@ -193,7 +200,7 @@ export async function middleware(request: NextRequest) {
 
     // Se acessar /admin/login:
     if (pathname === '/admin/login') {
-      if (isResellerRole) {
+      if (isResellerRole && !isStaff) {
         return NextResponse.redirect(new URL('/revendedor', request.url));
       }
       if (isStaff) {
@@ -209,7 +216,7 @@ export async function middleware(request: NextRequest) {
       if (profile?.role === 'ROLE_RESELLER') {
         return NextResponse.redirect(new URL('/revendedor', request.url));
       }
-      if (['master', 'admin', 'stock'].includes(profile?.role)) {
+      if (['master', 'admin', 'stock', 'representative'].includes(profile?.role)) {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
 

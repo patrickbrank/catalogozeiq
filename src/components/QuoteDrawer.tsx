@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { X, Trash2, Send, Mail, ShoppingBag, Plus, Minus, ArrowRight, ArrowLeft, Layers, UserCheck } from 'lucide-react';
+import { X, Trash2, Send, Mail, ShoppingBag, Plus, Minus, ArrowRight, ArrowLeft, Layers, UserCheck, CheckCircle2, Check, Loader2 } from 'lucide-react';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { createClient } from '@/lib/supabase/client';
 
@@ -12,8 +12,16 @@ export function QuoteDrawer() {
   const [buyerName, setBuyerName] = useState('');
   const [buyerCompany, setBuyerCompany] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [buyerEmail, setBuyerEmail] = useState('');
   const [isEditingBuyer, setIsEditingBuyer] = useState(false);
   const [openNotesIds, setOpenNotesIds] = useState<Record<string, boolean>>({});
+
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderNumber: string;
+    totalPieces: number;
+    repName?: string;
+  } | null>(null);
 
   const isOpen = useQuoteCart((state) => state.isOpen);
   const setIsOpen = useQuoteCart((state) => state.setIsOpen);
@@ -29,13 +37,14 @@ export function QuoteDrawer() {
 
   const [whatsappPhone, setWhatsappPhone] = useState(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020');
   const [contactEmail, setContactEmail] = useState(process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br');
-  const [assignedRep, setAssignedRep] = useState<{ name?: string; phone?: string } | null>(null);
+  const [assignedRep, setAssignedRep] = useState<{ id?: string; name?: string; phone?: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
+        if (user.email) setBuyerEmail(user.email);
         const meta = user.user_metadata || {};
         if (meta.contact_name) setBuyerName(meta.contact_name);
         else if (user.email) setBuyerName(user.email.split('@')[0]);
@@ -53,6 +62,7 @@ export function QuoteDrawer() {
                 if (phone) setWhatsappPhone(phone);
                 if (rep.email) setContactEmail(rep.email);
                 setAssignedRep({
+                  id: rep.id,
                   name: rep.name || rep.contact_name || rep.store_name || 'Seu Revendedor Comercial',
                   phone: phone,
                 });
@@ -92,71 +102,67 @@ export function QuoteDrawer() {
 
   const totalItemsCount = getTotalItems();
 
-  const saveOrder = async (): Promise<{ orderNumber: string; whatsappUrl?: string }> => {
+  const handlePlaceOrder = async () => {
+    if (items.length === 0 || submittingOrder) return;
+    setSubmittingOrder(true);
+
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const generatedNumber = `ZEIQ-${randomSuffix}`;
 
-    // Salva imediatamente no localStorage para aparecer em Meus Pedidos
-    try {
-      const existingStr = typeof window !== 'undefined' ? localStorage.getItem('zeiq_recent_orders') : null;
-      const existing: any[] = existingStr ? JSON.parse(existingStr) : [];
-      const newOrder = {
-        id: `local-${Date.now()}`,
-        order_number: generatedNumber,
-        buyer_name: buyerName?.trim() || 'Revendedor Zeiq',
-        buyer_company: buyerCompany?.trim() || null,
-        buyer_phone: buyerPhone?.trim() || '',
-        items: [...items],
-        total_pieces: totalItemsCount,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        customer_notes: buyerCompany ? `Loja / Arena: ${buyerCompany}` : undefined,
-      };
-      const updated = [newOrder, ...existing.filter((o) => o.order_number !== generatedNumber)].slice(0, 30);
-      localStorage.setItem('zeiq_recent_orders', JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Falha ao salvar pedido no navegador:', e);
-    }
-
-    let serverWhatsappUrl: string | undefined;
-
-    // Tenta persistir no banco de dados e obter URL pré-formatada do revendedor
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           order_number: generatedNumber,
-          buyer_name: buyerName,
-          buyer_company: buyerCompany,
-          buyer_phone: buyerPhone,
+          buyer_name: buyerName?.trim() || 'Lojista Zeiq',
+          buyer_company: buyerCompany?.trim() || null,
+          buyer_phone: buyerPhone?.trim() || '',
+          buyer_email: buyerEmail?.trim() || undefined,
+          reseller_id: assignedRep?.id || null,
           items: items,
           total_pieces: totalItemsCount,
         }),
       });
+
       const data = await res.json();
-      if (data?.whatsappUrl) {
-        serverWhatsappUrl = data.whatsappUrl;
+      const confirmedNumber = data?.orderNumber || generatedNumber;
+
+      // Salva imediatamente no histórico local do navegador para exibição rápida em Meus Pedidos
+      try {
+        const existingStr = typeof window !== 'undefined' ? localStorage.getItem('zeiq_recent_orders') : null;
+        const existing: any[] = existingStr ? JSON.parse(existingStr) : [];
+        const newOrder = {
+          id: `local-${Date.now()}`,
+          order_number: confirmedNumber,
+          buyer_name: buyerName?.trim() || 'Lojista Zeiq',
+          buyer_company: buyerCompany?.trim() || null,
+          buyer_phone: buyerPhone?.trim() || '',
+          items: [...items],
+          total_pieces: totalItemsCount,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          customer_notes: buyerCompany ? `Loja / Arena: ${buyerCompany}` : undefined,
+        };
+        const updated = [newOrder, ...existing.filter((o) => o.order_number !== confirmedNumber)].slice(0, 30);
+        localStorage.setItem('zeiq_recent_orders', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Falha ao salvar pedido no navegador:', e);
       }
-    } catch (e) {}
 
-    return { orderNumber: generatedNumber, whatsappUrl: serverWhatsappUrl };
-  };
+      // REGRA DE OURO: Zera o carrinho completamente
+      clearCart();
 
-  const handleSendWhatsApp = async () => {
-    const { orderNumber, whatsappUrl } = await saveOrder();
-    const link = whatsappUrl || generateWhatsAppLink(whatsappPhone, buyerName, buyerCompany, orderNumber, buyerPhone);
-    if (link) {
-      // Usa window.location.href para evitar bloqueador de popups em navegadores móveis (Safari iOS / Android)
-      window.location.href = link;
-    }
-  };
-
-  const handleSendEmail = async () => {
-    const { orderNumber } = await saveOrder();
-    const link = generateEmailLink(contactEmail, buyerName, buyerCompany, orderNumber, buyerPhone);
-    if (link) {
-      window.location.href = link;
+      // Exibe a tela de confirmação dentro da própria gaveta (sem abrir WhatsApp para o cliente)
+      setCompletedOrder({
+        orderNumber: confirmedNumber,
+        totalPieces: totalItemsCount,
+        repName: assignedRep?.name,
+      });
+    } catch (err: any) {
+      alert(err.message || 'Falha ao registrar pedido. Tente novamente.');
+    } finally {
+      setSubmittingOrder(false);
     }
   };
 
@@ -209,7 +215,47 @@ export function QuoteDrawer() {
           </div>
 
           {/* Conteúdo da Gaveta */}
-          {items.length === 0 ? (
+          {completedOrder ? (
+            <div className="flex-1 p-6 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 border border-emerald-200 shadow-xs">
+                <CheckCircle2 className="w-9 h-9" />
+              </div>
+              <span className="text-[11px] font-mono font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100/60 border border-emerald-300 px-3 py-1 rounded-full mb-2">
+                Pedido #{completedOrder.orderNumber}
+              </span>
+              <h3 className="text-lg font-black text-zeiq-black mb-1.5">
+                Pedido Realizado com Sucesso!
+              </h3>
+              <p className="text-xs text-slate-500 max-w-sm mb-6 leading-relaxed">
+                Sua lista com <strong>{completedOrder.totalPieces} {completedOrder.totalPieces === 1 ? 'peça' : 'peças'}</strong> foi registrada no sistema e encaminhada para o seu representante comercial{completedOrder.repName ? ` (${completedOrder.repName})` : ''}. Nossa equipe já recebeu sua solicitação e entrará em contato em breve para dar andamento.
+              </p>
+
+              <div className="w-full space-y-2.5 max-w-xs">
+                <Link
+                  href="/portal"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setCompletedOrder(null);
+                  }}
+                  className="w-full py-3 px-4 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <UserCheck className="w-4 h-4 text-zeiq-orange" />
+                  <span>Acompanhar em Meus Pedidos</span>
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setCompletedOrder(null);
+                  }}
+                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all border border-slate-200 cursor-pointer active:scale-98"
+                >
+                  Continuar Navegando
+                </button>
+              </div>
+            </div>
+          ) : items.length === 0 ? (
             <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
               <div className="w-14 h-14 rounded-lg bg-[#f8f9fa] flex items-center justify-center text-slate-400 mb-3 border border-slate-200">
                 <ShoppingBag className="w-6 h-6" />
@@ -218,11 +264,11 @@ export function QuoteDrawer() {
                 Sua lista está vazia
               </h3>
               <p className="text-xs text-slate-500 max-w-xs mb-5 leading-relaxed">
-                Navegue pelas categorias e selecione os modelos desejados para solicitar a cotação direta no WhatsApp.
+                Navegue pelas categorias e selecione os modelos desejados para solicitar seu pedido de atacado.
               </p>
               <button
                 onClick={() => setIsOpen(false)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-md text-xs font-semibold transition-all shadow-xs"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-md text-xs font-semibold transition-all shadow-xs cursor-pointer"
               >
                 Explorar Catálogo
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -463,38 +509,37 @@ export function QuoteDrawer() {
                   </div>
                 )}
 
-                {/* Botão de Envio WhatsApp (Ação Principal com Altura 48px e Raio Padronizado) */}
+                {/* Botão Principal de Envio do Pedido (Registra no sistema e zera o carrinho) */}
                 <button
                   type="button"
-                  onClick={handleSendWhatsApp}
-                  className="w-full h-12 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 cursor-pointer"
+                  disabled={submittingOrder}
+                  onClick={handlePlaceOrder}
+                  className="w-full h-12 px-4 bg-zeiq-black hover:bg-zeiq-charcoal active:scale-98 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
                 >
-                  <Send className="w-4 h-4" />
-                  <span>Enviar Pedido via WhatsApp</span>
+                  {submittingOrder ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-zeiq-orange" />
+                      <span>Registrando Pedido...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 text-zeiq-orange" />
+                      <span>Finalizar e Enviar Pedido</span>
+                    </>
+                  )}
                 </button>
 
-                {/* Botões Secundários em Linha com Alturas e Bordas 100% Harmônicas */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsOpen(false)}
-                    className="w-full h-11 px-3 bg-slate-100 hover:bg-slate-200 text-zeiq-black rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer border border-slate-200"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
-                    <span className="truncate">Voltar ao Catálogo</span>
-                  </button>
+                {/* Botão Secundário para Voltar ao Catálogo */}
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full h-10 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-98 cursor-pointer border border-slate-200"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
+                  <span>Continuar Escolhendo Produtos</span>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={handleSendEmail}
-                    className="w-full h-11 px-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
-                  >
-                    <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="truncate">Enviar por E-mail</span>
-                  </button>
-                </div>
-
-                {/* Link de Acesso ao Portal do Revendedor */}
+                {/* Link de Acesso ao Portal e Limpar Carrinho */}
                 <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs pb-1 sm:pb-0">
                   <Link
                     href="/portal"

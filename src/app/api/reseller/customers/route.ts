@@ -33,7 +33,14 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (!auth.isMaster) {
-      query = query.or(`reseller_id.eq.${resellerId},representative_id.eq.${resellerUserId}`);
+      const repFilters = [
+        resellerId ? `reseller_id.eq.${resellerId}` : null,
+        resellerId ? `representative_id.eq.${resellerId}` : null,
+        resellerUserId ? `reseller_id.eq.${resellerUserId}` : null,
+        resellerUserId ? `representative_id.eq.${resellerUserId}` : null,
+      ].filter(Boolean).join(',');
+
+      query = query.or(repFilters);
     }
 
     const { data: clients, error } = await query;
@@ -60,8 +67,19 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
+    // Busca revendedores cadastrados para nunca listar membros da equipe como lojistas/clientes
+    const { data: allResellers } = await adminSupabase.from('resellers').select('email, user_id');
+    const resellerEmails = new Set((allResellers || []).map((r: any) => r.email?.toLowerCase().trim()).filter(Boolean));
+    const resellerUserIds = new Set((allResellers || []).map((r: any) => r.user_id).filter(Boolean));
+
     const formattedCustomers = (clients || [])
-      .filter((c: any) => c.role === 'reseller' || !c.role) // Filtra apenas lojistas b2b
+      .filter((c: any) => {
+        const email = c.email?.toLowerCase().trim();
+        if (resellerEmails.has(email) || resellerUserIds.has(c.id)) return false;
+        if (['admin', 'master', 'stock', 'ROLE_RESELLER'].includes(c.role)) return false;
+        if (c.store_name === 'Representação Comercial Zeiq') return false;
+        return c.role === 'reseller' || !c.role;
+      })
       .map((c: any) => {
         const cleanPhone = sanitizeWhatsAppNumber(c.phone);
         const prefilledMsg = encodeURIComponent(
@@ -136,7 +154,9 @@ export async function PATCH(request: NextRequest) {
       const resellerUserId = auth.reseller?.user_id || auth.user.id;
       const isOwner =
         customer.reseller_id === resellerId ||
-        customer.representative_id === resellerUserId;
+        customer.representative_id === resellerUserId ||
+        customer.reseller_id === resellerUserId ||
+        customer.representative_id === resellerId;
 
       if (!isOwner) {
         return NextResponse.json(

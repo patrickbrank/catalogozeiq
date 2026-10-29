@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
+import { invalidateCatalogCache } from '@/lib/data/products';
 import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
 
 // GET: Lista todas as categorias com contagem de produtos vinculados
@@ -168,6 +170,12 @@ export async function DELETE(request: NextRequest) {
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
+
+    invalidateCatalogCache();
+    try {
+      revalidatePath('/');
+      revalidatePath('/admin');
+    } catch {}
 
     return NextResponse.json({ success: true, message: 'Categoria excluída com sucesso.' });
   } catch (err: any) {

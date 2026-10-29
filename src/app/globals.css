@@ -69,6 +69,11 @@
     width: 6px;
     height: 6px;
   }
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
   ::-webkit-scrollbar-track {
     background: #0c0d0e;
   }
@@ -88,6 +93,11 @@
   .custom-scrollbar-dark::-webkit-scrollbar {
     width: 6px;
     height: 6px;
+  }
+  .custom-scrollbar-dark::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
   }
   .custom-scrollbar-dark::-webkit-scrollbar-track {
     background: #141619;

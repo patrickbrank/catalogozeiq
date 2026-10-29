@@ -222,6 +222,32 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
+    // Fallback: Se não estava logado via sessão de cookie, busca por e-mail ou telefone para resgatar o representante do lojista
+    if (!userProf && (buyer_email || buyer_phone)) {
+      try {
+        const cleanPhone = (buyer_phone || '').replace(/\D/g, '');
+        const cleanMail = buyer_email ? buyer_email.trim().toLowerCase() : '';
+        let profQuery = client.from('profiles').select('id, reseller_id, representative_id, contact_name, store_name, phone, cnpj_cpf, city, state, address, cep');
+        if (cleanMail && cleanPhone) {
+          profQuery = profQuery.or(`email.ilike.${cleanMail},phone.eq.${cleanPhone}`);
+        } else if (cleanMail) {
+          profQuery = profQuery.ilike('email', cleanMail);
+        } else if (cleanPhone) {
+          profQuery = profQuery.eq('phone', cleanPhone);
+        }
+
+        const { data: profFound } = await profQuery.limit(1).maybeSingle();
+        if (profFound) {
+          userProf = profFound;
+          if (profFound.reseller_id) {
+            targetResellerId = profFound.reseller_id;
+          } else if (profFound.representative_id) {
+            targetResellerId = profFound.representative_id;
+          }
+        }
+      } catch {}
+    }
+
     // 2. Busca dados completos do revendedor vinculado
     let resellerRecord: Reseller | null = null;
     if (targetResellerId) {
@@ -383,9 +409,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: any) {
     return NextResponse.json({
-      success: true,
-      savedToDb: false,
-      message: 'Redirecionando para WhatsApp comercial.',
-    });
+      success: false,
+      error: err.message || 'Erro ao processar e salvar pedido.',
+    }, { status: 500 });
   }
 }

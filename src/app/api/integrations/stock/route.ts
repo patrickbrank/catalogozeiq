@@ -30,12 +30,12 @@ function extractApiKey(request: NextRequest): string | null {
   return null;
 }
 
-function isAuthorized(request: NextRequest): boolean {
+function isAuthorized(request: NextRequest, isMutation = false): boolean {
   const providedKey = extractApiKey(request);
 
-  // 1. Se nenhuma chave for enviada, libera o acesso como endpoint público
+  // 1. Mutações (POST/PUT) exigem chave de API obrigatoriamente
   if (!providedKey) {
-    return true;
+    return !isMutation;
   }
 
   // 2. Se uma chave for enviada, valida contra a chave configurada ou a chave padrão nativa
@@ -45,7 +45,7 @@ function isAuthorized(request: NextRequest): boolean {
 
 // GET: Verificação de status e conectividade (Health check para o ERP)
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isAuthorized(request, false)) {
     return NextResponse.json(
       {
         success: false,
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 // POST: Processamento de atualizações de estoque (individual ou lote)
 export async function POST(request: NextRequest) {
   try {
-    if (!isAuthorized(request)) {
+    if (!isAuthorized(request, true)) {
       return NextResponse.json(
         {
           success: false,

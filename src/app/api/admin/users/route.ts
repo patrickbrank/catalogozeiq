@@ -47,6 +47,21 @@ export async function GET(request: NextRequest) {
       // Ignora se tabela profiles ainda não foi migrada
     }
 
+    // 2.1 Busca dados da tabela resellers para identificar representantes comerciais oficiais
+    const resellersUserIds = new Set<string>();
+    const resellersEmails = new Set<string>();
+    try {
+      const { data: resellersList } = await adminSupabase.from('resellers').select('id, user_id, email, name');
+      if (resellersList) {
+        resellersList.forEach((r: any) => {
+          if (r.user_id) resellersUserIds.add(r.user_id);
+          if (r.email) resellersEmails.add(r.email.toLowerCase().trim());
+        });
+      }
+    } catch {
+      // Ignora se tabela resellers ainda não existir
+    }
+
     // 3. Monta lista unificada de usuários com seus dados e cargos
     let formattedUsers = authData.users.map((u) => {
       const p = profilesMap[u.id] || {};
@@ -54,10 +69,21 @@ export async function GET(request: NextRequest) {
       const appMeta = u.app_metadata || {};
       const isMaster = isMasterEmail(u.email);
       const authRole = appMeta.role || meta.role;
-      let userRole = isMaster ? 'master' : (authRole || p.role || 'reseller');
+      let userRole = isMaster ? 'master' : (p.role || authRole || 'reseller');
 
-      // Se havia role antiga de marketing, mapeia para admin
+      // Mapeamento de sinônimos legados
       if (userRole === 'marketing') userRole = 'admin';
+      if (userRole === 'ROLE_RESELLER') userRole = 'representative';
+
+      // Se o usuário está cadastrado na tabela oficial de representantes (resellers), garante o cargo de representative
+      const isOfficialRep =
+        resellersUserIds.has(u.id) ||
+        (u.email && resellersEmails.has(u.email.toLowerCase().trim())) ||
+        p.store_name === 'Representação Comercial Zeiq';
+
+      if (!isMaster && userRole !== 'admin' && isOfficialRep) {
+        userRole = 'representative';
+      }
 
       const repId = p.representative_id || meta.representative_id || null;
       const repProfile = repId ? profilesMap[repId] : null;
@@ -67,7 +93,7 @@ export async function GET(request: NextRequest) {
         : userRole === 'admin'
         ? 'Administração Zeiq'
         : userRole === 'representative'
-        ? 'Representação Comercial'
+        ? 'Representação Comercial Zeiq'
         : userRole === 'stock'
         ? 'Estoque Zeiq'
         : 'Lojista B2B';
@@ -94,9 +120,24 @@ export async function GET(request: NextRequest) {
 
     // Regra: REPRESENTANTE vê APENAS os lojistas da sua própria carteira
     if (callerRole === 'representative') {
-      formattedUsers = formattedUsers.filter(
-        (u) => u.role === 'reseller' && u.representative_id === callerUser.id
-      );
+      const { data: resRecord } = await adminSupabase
+        .from('resellers')
+        .select('id')
+        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .maybeSingle();
+
+      const resId = resRecord?.id;
+
+      formattedUsers = formattedUsers.filter((u) => {
+        if (u.role !== 'reseller') return false;
+        const uProfile = profilesMap[u.id] || {};
+        return (
+          u.representative_id === callerUser.id ||
+          uProfile.representative_id === callerUser.id ||
+          uProfile.reseller_id === callerUser.id ||
+          (resId && (u.representative_id === resId || uProfile.representative_id === resId || uProfile.reseller_id === resId))
+        );
+      });
     }
 
     return NextResponse.json({
@@ -226,6 +267,24 @@ export async function POST(request: NextRequest) {
       if (srvErr) {
         await adminSupabase.from('profiles').upsert(profilePayload);
       }
+
+      // Se for cadastrado com cargo de representante comercial, sincroniza na tabela resellers
+      if (cleanRole === 'representative') {
+        const cleanWhatsapp = (phone || '').replace(/\D/g, '');
+        try {
+          await adminSupabase.from('resellers').upsert({
+            name: contact_name?.trim() || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            whatsapp: cleanWhatsapp || '00000000000',
+            phone: phone?.trim() || null,
+            status: 'ativo',
+            notification_preference: 'both',
+            user_id: newUserId,
+          }, { onConflict: 'email' });
+        } catch (resErr) {
+          console.warn('Aviso ao sincronizar tabela resellers:', resErr);
+        }
+      }
     } catch (e) {
       console.warn('Aviso ao sincronizar profile do usuário:', e);
     }
@@ -294,23 +353,37 @@ export async function DELETE(request: NextRequest) {
     // Busca profile do alvo para checar cargo
     let targetProfileRole = targetUser.app_metadata?.role || targetUser.user_metadata?.role || 'reseller';
     let targetRepId = targetUser.app_metadata?.representative_id || targetUser.user_metadata?.representative_id;
+    let targetResellerId: string | null = null;
     try {
-      const { data: prof } = await adminSupabase.from('profiles').select('role, representative_id').eq('id', userId).maybeSingle();
+      const { data: prof } = await adminSupabase.from('profiles').select('role, representative_id, reseller_id').eq('id', userId).maybeSingle();
       if (prof) {
         if (prof.role) targetProfileRole = prof.role;
         if (prof.representative_id) targetRepId = prof.representative_id;
+        if (prof.reseller_id) targetResellerId = prof.reseller_id;
       }
     } catch {}
 
     // Regra: REPRESENTANTE não pode excluir ADMINISTRADOR, ESTOQUE, REPRESENTANTE ou MASTER
     if (callerRole === 'representative') {
+      const { data: resRecord } = await adminSupabase
+        .from('resellers')
+        .select('id')
+        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .maybeSingle();
+
+      const resId = resRecord?.id;
+      const isOwnedLojista =
+        targetRepId === callerUser.id ||
+        targetResellerId === callerUser.id ||
+        (resId && (targetRepId === resId || targetResellerId === resId));
+
       if (targetProfileRole !== 'reseller') {
         return NextResponse.json(
           { success: false, error: 'Representantes não podem excluir membros da equipe ou administração.' },
           { status: 403 }
         );
       }
-      if (targetRepId !== callerUser.id) {
+      if (!isOwnedLojista) {
         return NextResponse.json(
           { success: false, error: 'Você só pode excluir lojistas pertencentes à sua própria carteira.' },
           { status: 403 }
@@ -399,23 +472,37 @@ async function handleUpdateUser(request: NextRequest) {
     // Busca profile do alvo
     let targetProfileRole = targetUser.app_metadata?.role || targetUser.user_metadata?.role || 'reseller';
     let targetRepId = targetUser.app_metadata?.representative_id || targetUser.user_metadata?.representative_id;
+    let targetResellerId: string | null = null;
     try {
-      const { data: prof } = await adminSupabase.from('profiles').select('role, representative_id').eq('id', id).maybeSingle();
+      const { data: prof } = await adminSupabase.from('profiles').select('role, representative_id, reseller_id').eq('id', id).maybeSingle();
       if (prof) {
         if (prof.role) targetProfileRole = prof.role;
         if (prof.representative_id) targetRepId = prof.representative_id;
+        if (prof.reseller_id) targetResellerId = prof.reseller_id;
       }
     } catch {}
 
     // Regra: REPRESENTANTE só pode gerenciar lojistas da sua carteira (aprovar, ativar/desativar)
     if (callerRole === 'representative') {
+      const { data: resRecord } = await adminSupabase
+        .from('resellers')
+        .select('id')
+        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .maybeSingle();
+
+      const resId = resRecord?.id;
+      const isOwnedLojista =
+        targetRepId === callerUser.id ||
+        targetResellerId === callerUser.id ||
+        (resId && (targetRepId === resId || targetResellerId === resId));
+
       if (targetProfileRole !== 'reseller') {
         return NextResponse.json(
           { success: false, error: 'Representantes não podem alterar membros da equipe ou administração.' },
           { status: 403 }
         );
       }
-      if (targetRepId !== callerUser.id) {
+      if (!isOwnedLojista) {
         return NextResponse.json(
           { success: false, error: 'Você só tem permissão para gerenciar lojistas da sua própria carteira.' },
           { status: 403 }
@@ -498,10 +585,10 @@ async function handleUpdateUser(request: NextRequest) {
       if (targetApproved !== undefined) profileData.is_approved = targetApproved;
       if (representative_id !== undefined) profileData.representative_id = representative_id;
 
-      const { error: adminUpsertErr } = await adminSupabase.from('profiles').upsert(profileData);
-      if (adminUpsertErr) {
-        const serverSupabase = await createServerClient();
-        await serverSupabase.from('profiles').upsert(profileData);
+      const serverSupabase = await createServerClient();
+      const { error: srvErr } = await serverSupabase.from('profiles').upsert(profileData);
+      if (srvErr) {
+        await adminSupabase.from('profiles').upsert(profileData);
       }
     } catch (profileErr) {
       console.warn('Aviso ao atualizar profiles:', profileErr);

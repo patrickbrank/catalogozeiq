@@ -111,18 +111,29 @@ export async function verifyReseller(): Promise<ResellerAuthResult> {
       };
     }
 
-    // Valida se o usuário é realmente um Revendedor cadastrado e ativo
-    const isResellerRole = role === 'ROLE_RESELLER' || role === 'representative' || role === 'reseller';
+    // Valida se o usuário é um Representante Comercial ou Revendedor cadastrado
+    const isRepRole = role === 'representative' || role === 'ROLE_RESELLER';
     const isResellerActive = !!resellerRecord && resellerRecord.status === 'ativo';
 
-    if (isResellerActive && (isResellerRole || !role || role === 'reseller')) {
+    if (isRepRole || isResellerActive) {
+      const finalReseller: Reseller = resellerRecord || {
+        id: user.id,
+        name: userProfile?.contact_name || user.user_metadata?.contact_name || user.email?.split('@')[0] || 'Representante Comercial',
+        email: user.email || '',
+        whatsapp: userProfile?.phone || user.user_metadata?.phone || '00000000000',
+        phone: userProfile?.phone || user.user_metadata?.phone || null,
+        status: 'ativo',
+        notification_preference: 'both',
+        user_id: user.id,
+      };
+
       return {
         isReseller: true,
         isMaster: false,
         isAdmin: false,
         user,
-        reseller: resellerRecord,
-        role: 'ROLE_RESELLER',
+        reseller: finalReseller,
+        role: 'representative',
       };
     }
 

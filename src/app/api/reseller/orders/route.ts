@@ -33,18 +33,26 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (!auth.isMaster) {
-      // 1. Busca lojistas vinculados a este revendedor
+      // Cláusula abrangente com todas as combinações de identificadores (tabela resellers e auth users)
+      const repFilters = [
+        resellerId ? `reseller_id.eq.${resellerId}` : null,
+        resellerId ? `representative_id.eq.${resellerId}` : null,
+        resellerUserId ? `reseller_id.eq.${resellerUserId}` : null,
+        resellerUserId ? `representative_id.eq.${resellerUserId}` : null,
+      ].filter(Boolean).join(',');
+
+      // 1. Busca todos os lojistas vinculados a este representante
       const { data: clients } = await adminSupabase
         .from('profiles')
         .select('id')
-        .or(`reseller_id.eq.${resellerId},representative_id.eq.${resellerUserId}`);
+        .or(repFilters);
 
       const clientIds = (clients || []).map((c: any) => c.id);
 
       if (clientIds.length > 0) {
-        query = query.or(`reseller_id.eq.${resellerId},representative_id.eq.${resellerUserId},customer_id.in.(${clientIds.join(',')}),user_id.in.(${clientIds.join(',')})`);
+        query = query.or(`${repFilters},customer_id.in.(${clientIds.join(',')}),user_id.in.(${clientIds.join(',')})`);
       } else {
-        query = query.or(`reseller_id.eq.${resellerId},representative_id.eq.${resellerUserId}`);
+        query = query.or(repFilters);
       }
     }
 
@@ -139,9 +147,30 @@ export async function PATCH(request: NextRequest) {
     if (!auth.isMaster) {
       const resellerId = auth.reseller?.id;
       const resellerUserId = auth.reseller?.user_id || auth.user.id;
-      const isOwner =
+      let isOwner =
         order.reseller_id === resellerId ||
-        order.representative_id === resellerUserId;
+        order.representative_id === resellerUserId ||
+        order.reseller_id === resellerUserId ||
+        order.representative_id === resellerId;
+
+      if (!isOwner && (order.customer_id || order.user_id)) {
+        const targetCustId = order.customer_id || order.user_id;
+        const { data: clientProf } = await adminSupabase
+          .from('profiles')
+          .select('reseller_id, representative_id')
+          .eq('id', targetCustId)
+          .maybeSingle();
+
+        if (
+          clientProf &&
+          (clientProf.reseller_id === resellerId ||
+            clientProf.representative_id === resellerUserId ||
+            clientProf.reseller_id === resellerUserId ||
+            clientProf.representative_id === resellerId)
+        ) {
+          isOwner = true;
+        }
+      }
 
       if (!isOwner) {
         return NextResponse.json(

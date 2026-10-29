@@ -306,7 +306,8 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                   const userEmail = currentUser.email?.toLowerCase().trim();
                   const isMaster = userEmail === 'marketing@zeiq.com.br' || userEmail === 'patrickbrank@outlook.com';
                   const userRole = currentUser.app_metadata?.role || currentUser.user_metadata?.role;
-                  const isResellerUser = userRole === 'ROLE_RESELLER';
+                  const isRepresentative = userRole === 'representative';
+                  const isResellerUser = userRole === 'ROLE_RESELLER' || isRepresentative;
                   const isMasterOrAdmin = isMaster || ['master', 'admin', 'stock', 'representative'].includes(userRole);
 
                   return (
@@ -365,7 +366,17 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                                     : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 }`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${isMasterOrAdmin || isResellerUser ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                  {isMaster ? 'Diretoria (Master)' : isResellerUser ? 'Revendedor Autorizado' : userRole === 'representative' ? 'Representante Comercial' : userRole === 'stock' ? 'Controle de Estoque' : isMasterOrAdmin ? 'Administrador Zeiq' : 'Lojista Autorizado'}
+                                  {isMaster
+                                    ? 'Diretoria (Master)'
+                                    : isRepresentative
+                                    ? 'Representante Comercial'
+                                    : isResellerUser
+                                    ? 'Revendedor Autorizado'
+                                    : userRole === 'stock'
+                                    ? 'Controle de Estoque'
+                                    : isMasterOrAdmin
+                                    ? 'Administrador Zeiq'
+                                    : 'Lojista Autorizado'}
                                 </span>
                               </div>
                             </div>
@@ -381,10 +392,10 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                               >
                                 <div className="flex items-center gap-2">
                                   <Briefcase className="w-4 h-4 text-zeiq-orange" />
-                                  <span>Painel do Revendedor</span>
+                                  <span>{isRepresentative ? 'Painel do Representante' : 'Painel do Revendedor'}</span>
                                 </div>
                                 <span className="text-xs font-mono font-bold bg-zeiq-orange text-black px-1.5 py-0.5 rounded">
-                                  REVENDEDOR
+                                  {isRepresentative ? 'REPRESENTANTE' : 'REVENDEDOR'}
                                 </span>
                               </Link>
                             )}

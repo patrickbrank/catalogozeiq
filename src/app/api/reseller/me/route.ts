@@ -22,12 +22,21 @@ export async function GET() {
     let totalOrders = 0;
     let pendingOrders = 0;
 
-    if (adminSupabase && resellerId) {
+    if (adminSupabase && (resellerId || resellerUserId)) {
+      const repFilters = [
+        resellerId ? `reseller_id.eq.${resellerId}` : null,
+        resellerId ? `representative_id.eq.${resellerId}` : null,
+        resellerUserId ? `reseller_id.eq.${resellerUserId}` : null,
+        resellerUserId ? `representative_id.eq.${resellerUserId}` : null,
+      ].filter(Boolean).join(',');
+
       // 1. Clientes vinculados
       const { data: clients } = await adminSupabase
         .from('profiles')
         .select('id, is_approved')
-        .or(`reseller_id.eq.${resellerId},representative_id.eq.${resellerUserId}`);
+        .or(repFilters);
+
+      const clientIds = (clients || []).map((c: any) => c.id);
 
       if (clients) {
         totalCustomers = clients.length;
@@ -35,10 +44,14 @@ export async function GET() {
       }
 
       // 2. Pedidos vinculados
-      const { data: orders } = await adminSupabase
-        .from('orders')
-        .select('id, status')
-        .or(`reseller_id.eq.${resellerId},representative_id.eq.${resellerUserId}`);
+      let ordersQuery = adminSupabase.from('orders').select('id, status');
+      if (clientIds.length > 0) {
+        ordersQuery = ordersQuery.or(`${repFilters},customer_id.in.(${clientIds.join(',')}),user_id.in.(${clientIds.join(',')})`);
+      } else {
+        ordersQuery = ordersQuery.or(repFilters);
+      }
+
+      const { data: orders } = await ordersQuery;
 
       if (orders) {
         totalOrders = orders.length;

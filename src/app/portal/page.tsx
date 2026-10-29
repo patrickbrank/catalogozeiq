@@ -1450,7 +1450,7 @@ export default function ResellerPortalPage() {
       {/* Modal de Impressão do Comprovante do Pedido */}
       {printOrder && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white text-zeiq-black rounded-2xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200">
+          <div className="bg-white text-zeiq-black rounded-2xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 overflow-hidden">
             <button
               onClick={() => setPrintOrder(null)}
               className="absolute right-4 top-4 p-2 text-slate-400 hover:text-zeiq-black"
@@ -1550,7 +1550,7 @@ export default function ResellerPortalPage() {
       {/* ======================================================== */}
       {isEditProfileOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
             <button
               onClick={() => setIsEditProfileOpen(false)}
               className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors cursor-pointer"

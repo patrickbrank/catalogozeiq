@@ -29,18 +29,29 @@ export async function GET(request: NextRequest) {
 
     // Regra: REPRESENTANTE vê apenas pedidos da sua carteira de lojistas
     if (callerRole === 'representative') {
+      const { data: resRecord } = await adminSupabase
+        .from('resellers')
+        .select('id')
+        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .maybeSingle();
+
+      const resId = resRecord?.id;
+      const repFilter = resId
+        ? `representative_id.eq.${callerUser.id},reseller_id.eq.${resId},representative_id.eq.${resId},reseller_id.eq.${callerUser.id}`
+        : `representative_id.eq.${callerUser.id}`;
+
       // Busca os IDs dos lojistas da carteira deste representante
       const { data: lojistas } = await adminSupabase
         .from('profiles')
         .select('id')
-        .eq('representative_id', callerUser.id);
+        .or(repFilter);
 
       const lojistaIds = (lojistas || []).map((l: any) => l.id);
 
       if (lojistaIds.length > 0) {
-        query = query.or(`representative_id.eq.${callerUser.id},user_id.in.(${lojistaIds.join(',')})`);
+        query = query.or(`${repFilter},user_id.in.(${lojistaIds.join(',')}),customer_id.in.(${lojistaIds.join(',')})`);
       } else {
-        query = query.eq('representative_id', callerUser.id);
+        query = query.or(repFilter);
       }
     }
 
@@ -161,15 +172,32 @@ export async function PATCH(request: NextRequest) {
 
     // Regra: REPRESENTANTE só pode alterar pedidos da sua carteira
     if (callerRole === 'representative') {
-      let isAllowed = existingOrder.representative_id === callerUser.id;
-      if (!isAllowed && existingOrder.user_id) {
+      const { data: resRecord } = await adminSupabase
+        .from('resellers')
+        .select('id')
+        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .maybeSingle();
+
+      const resId = resRecord?.id;
+      let isAllowed =
+        existingOrder.representative_id === callerUser.id ||
+        existingOrder.reseller_id === callerUser.id ||
+        (resId && (existingOrder.representative_id === resId || existingOrder.reseller_id === resId));
+
+      if (!isAllowed && (existingOrder.user_id || existingOrder.customer_id)) {
+        const custId = existingOrder.customer_id || existingOrder.user_id;
         const { data: buyerProfile } = await adminSupabase
           .from('profiles')
-          .select('representative_id')
-          .eq('id', existingOrder.user_id)
+          .select('representative_id, reseller_id')
+          .eq('id', custId)
           .maybeSingle();
 
-        if (buyerProfile?.representative_id === callerUser.id) {
+        if (
+          buyerProfile &&
+          (buyerProfile.representative_id === callerUser.id ||
+            buyerProfile.reseller_id === callerUser.id ||
+            (resId && (buyerProfile.representative_id === resId || buyerProfile.reseller_id === resId)))
+        ) {
           isAllowed = true;
         }
       }
