@@ -651,70 +651,72 @@ export default function ResellerPortalPage() {
       )}
 
       {/* 2. Barra de Navegação e Contexto da Página */}
-      <section className="bg-white border-b border-zeiq-muted py-6">
+      <section className="bg-white border-b border-slate-200/80 py-5 sm:py-7">
         <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
                 <Link
                   href="/"
                   className="text-xs font-semibold text-slate-500 hover:text-zeiq-black transition-colors"
                 >
                   Catálogo
                 </Link>
-                <span className="text-slate-400 text-xs">/</span>
+                <span className="text-slate-300 text-xs">/</span>
                 <span className="text-xs font-bold text-zeiq-black">Meus Pedidos & Cotações</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-zeiq-black tracking-tight">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-zeiq-black tracking-tight">
                 Acompanhamento de Pedidos B2B
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-500 max-w-xl leading-relaxed">
                 Consulte o status em tempo real, rastreie envios e repita pedidos com um clique.
               </p>
             </div>
 
             {/* Ações da Conta de Lojista com Foto/Logo e Edição de Dados */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center w-full md:w-auto">
               {user ? (
-                <div className="flex items-center gap-3 bg-slate-50 p-2 sm:px-3.5 sm:py-2 rounded-2xl border border-slate-200 shadow-2xs">
+                <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3 bg-slate-50 hover:bg-slate-100/70 p-2 sm:px-3.5 sm:py-2.5 rounded-2xl border border-slate-200 shadow-2xs transition-all">
                   {/* Foto/Logo do Lojista */}
-                  <div className="w-10 h-10 rounded-full bg-zeiq-black text-white font-black flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-xs">
-                    {profile?.avatar_url || user?.user_metadata?.avatar_url ? (
-                      <img
-                        src={profile?.avatar_url || user?.user_metadata?.avatar_url}
-                        alt="Logo da loja"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs uppercase">
-                        {(profile?.store_name?.[0] || profile?.contact_name?.[0] || user?.email?.[0] || 'Z')}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-zeiq-black text-white font-black flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-xs">
+                      {profile?.avatar_url || user?.user_metadata?.avatar_url ? (
+                        <img
+                          src={profile?.avatar_url || user?.user_metadata?.avatar_url}
+                          alt="Logo da loja"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs uppercase font-mono">
+                          {(profile?.store_name?.[0] || profile?.contact_name?.[0] || user?.email?.[0] || 'Z')}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-left min-w-0">
+                      <span className="text-xs font-black text-zeiq-black block leading-tight truncate max-w-[140px] sm:max-w-[170px]">
+                        {profile?.store_name || user.user_metadata?.store_name || 'Minha Loja'}
                       </span>
-                    )}
+                      <span className="text-[11px] text-slate-500 font-medium block truncate max-w-[140px] sm:max-w-[170px]">
+                        {profile?.contact_name || user.user_metadata?.contact_name || user.email?.split('@')[0]}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="text-left min-w-0">
-                    <span className="text-xs font-bold text-zeiq-black block leading-tight truncate max-w-[130px]">
-                      {profile?.store_name || user.user_metadata?.store_name || 'Minha Loja'}
-                    </span>
-                    <span className="text-xs text-slate-500 font-medium block truncate max-w-[130px]">
-                      {profile?.contact_name || user.user_metadata?.contact_name || user.email?.split('@')[0]}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2.5 ml-1">
+                  <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2.5 shrink-0">
                     <button
                       type="button"
                       onClick={handleOpenEditProfile}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-zeiq-black rounded-xl text-xs font-bold transition-all border border-slate-200 shadow-2xs cursor-pointer active:scale-95"
+                      className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-white hover:bg-slate-100 text-zeiq-black rounded-xl text-xs font-bold transition-all border border-slate-200 shadow-2xs cursor-pointer active:scale-95"
                       title="Editar endereço, nome e logo da loja"
                     >
                       <Edit3 className="w-3.5 h-3.5 text-zeiq-orange" />
-                      <span className="hidden sm:inline">Editar Dados</span>
+                      <span className="hidden sm:inline">Editar</span>
                     </button>
 
                     <button
                       onClick={handleLogout}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-white transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-white transition-colors cursor-pointer"
                       title="Sair da conta"
                     >
                       <LogOut className="w-4 h-4" />
@@ -722,20 +724,20 @@ export default function ResellerPortalPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Link
                     href="/portal/login"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zeiq-black hover:bg-zeiq-charcoal text-white text-xs font-bold transition-all shadow-xs"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-zeiq-black hover:bg-zeiq-charcoal text-white text-xs font-bold transition-all shadow-xs"
                   >
                     <User className="w-3.5 h-3.5" />
                     <span>Entrar na Minha Conta</span>
                   </Link>
                   <Link
                     href="/portal/login"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all border border-slate-200"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all border border-slate-200"
                   >
                     <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Criar Cadastro Lojista</span>
+                    <span>Criar Cadastro</span>
                   </Link>
                 </div>
               )}
@@ -748,45 +750,52 @@ export default function ResellerPortalPage() {
       <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 space-y-6">
         
         {/* 3. Seção de Rastreio Rápido por Código */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
+        <div className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-7 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-xs sm:text-sm font-bold text-zeiq-black uppercase tracking-wider flex items-center gap-2">
-                <Search className="w-4 h-4 text-slate-700" />
-                Rastrear Pedido por Código
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Digite o código da cotação recebido no WhatsApp (ex: <strong>ZEIQ-1048</strong>).
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-orange-500/10 text-zeiq-orange flex items-center justify-center shrink-0 border border-orange-500/20">
+                <Search className="w-4 h-4 sm:w-5 sm:h-5 text-zeiq-orange" />
+              </div>
+              <div>
+                <h2 className="text-xs sm:text-sm font-black text-zeiq-black uppercase tracking-wider">
+                  Rastrear Pedido por Código
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Digite o código da cotação recebido no WhatsApp (ex: <strong>ZEIQ-1048</strong>).
+                </p>
+              </div>
             </div>
 
             {orders.length === 0 && !showDemo && (
               <button
                 type="button"
                 onClick={() => setShowDemo(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors border border-emerald-200 self-start sm:self-auto"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors border border-emerald-200 self-start sm:self-auto cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
-                Ver Demonstração de Pedido
+                <span>Ver Demonstração</span>
               </button>
             )}
           </div>
 
           <form onSubmit={handleQuickTrack} className="flex flex-col sm:flex-row gap-2.5 max-w-2xl">
             <div className="relative flex-1">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-mono text-xs font-bold">
+                #
+              </div>
               <input
                 type="text"
                 required
                 value={quickOrderNumber}
                 onChange={(e) => setQuickOrderNumber(e.target.value.toUpperCase())}
                 placeholder="Ex: ZEIQ-1048"
-                className="w-full pl-3.5 pr-8 py-2.5 bg-[#f8f9fa] border border-slate-200 rounded-xl text-base sm:text-sm font-mono font-bold text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black uppercase"
+                className="w-full pl-8 pr-9 h-11 bg-[#f8f9fa] hover:bg-slate-100/70 focus:bg-white border border-slate-200 focus:border-zeiq-black focus:ring-1 focus:ring-zeiq-black rounded-xl text-sm font-mono font-bold text-zeiq-black placeholder:text-slate-400 uppercase transition-all"
               />
               {quickOrderNumber && (
                 <button
                   type="button"
                   onClick={() => setQuickOrderNumber('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black cursor-pointer p-0.5"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -796,14 +805,14 @@ export default function ResellerPortalPage() {
             <button
               type="submit"
               disabled={quickLoading || !quickOrderNumber.trim()}
-              className="h-10 px-5 bg-zeiq-black hover:bg-zeiq-charcoal disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs"
+              className="h-11 px-6 bg-zeiq-black hover:bg-zeiq-charcoal disabled:opacity-50 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
             >
               {quickLoading ? (
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <Search className="w-3.5 h-3.5" />
-                  Localizar Pedido
+                  <Search className="w-3.5 h-3.5 text-zeiq-orange" />
+                  <span>Localizar Pedido</span>
                 </>
               )}
             </button>
@@ -914,79 +923,79 @@ export default function ResellerPortalPage() {
         </div>
 
         {/* 4. Cards de Métricas em Tempo Real */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 shadow-xs hover:border-slate-300 transition-all">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider">
                 Em Andamento
               </span>
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                <Clock className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-zeiq-black">
+            <div className="flex items-baseline gap-1.5 sm:gap-2">
+              <span className="text-xl sm:text-3xl font-black text-zeiq-black font-mono">
                 {ongoingOrders.length}
               </span>
               {ongoingOrders.length > 0 && (
-                <span className="text-xs font-bold text-emerald-600">ativos</span>
+                <span className="text-[10px] sm:text-xs font-bold text-emerald-600">ativos</span>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-1">Cotações em análise ou trânsito</p>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate hidden sm:block">Cotações em análise ou trânsito</p>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 shadow-xs hover:border-slate-300 transition-all">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider">
                 Entregues
               </span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-zeiq-black">
+            <div className="flex items-baseline gap-1.5 sm:gap-2">
+              <span className="text-xl sm:text-3xl font-black text-zeiq-black font-mono">
                 {deliveredOrders.length}
               </span>
-              <span className="text-xs text-slate-400">pedidos</span>
+              <span className="text-[10px] sm:text-xs text-slate-400">pedidos</span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">Histórico concluído</p>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate hidden sm:block">Histórico concluído</p>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Peças Solicitadas
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 shadow-xs hover:border-slate-300 transition-all">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider truncate">
+                Peças Grade
               </span>
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                <Layers className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-zeiq-black">
+            <div className="flex items-baseline gap-1.5 sm:gap-2">
+              <span className="text-xl sm:text-3xl font-black text-zeiq-black font-mono">
                 {totalPiecesCount}
               </span>
-              <span className="text-xs text-slate-400">unidades</span>
+              <span className="text-[10px] sm:text-xs text-slate-400">unidades</span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">Grade acumulada</p>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate hidden sm:block">Grade acumulada</p>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Total de Pedidos
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 shadow-xs hover:border-slate-300 transition-all">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-wider">
+                Total Geral
               </span>
-              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-zeiq-black">
+            <div className="flex items-baseline gap-1.5 sm:gap-2">
+              <span className="text-xl sm:text-3xl font-black text-zeiq-black font-mono">
                 {effectiveOrders.length}
               </span>
-              <span className="text-xs text-slate-400">registros</span>
+              <span className="text-[10px] sm:text-xs text-slate-400">registros</span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">Histórico completo</p>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate hidden sm:block">Histórico completo</p>
           </div>
         </div>
 

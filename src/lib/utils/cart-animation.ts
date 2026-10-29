@@ -50,23 +50,28 @@ export function flyToCartAnimation(options: FlyToCartOptions) {
   // 1. Resposta tátil imediata no botão clicado (micro-compressão suave)
   gsap.fromTo(
     startElement,
-    { scale: 0.95 },
-    { scale: 1, duration: 0.24, ease: 'power2.out', clearProps: 'transform' }
+    { scale: 0.94 },
+    { scale: 1, duration: 0.25, ease: 'back.out(2)', clearProps: 'transform' }
   );
 
-  // 2. Criação do Token Voador Refinado (48x48, cantos suaves, sombra realista)
-  const flyer = document.createElement('div');
-  flyer.className = 'fixed z-[9999] pointer-events-none select-none rounded-xl overflow-visible bg-white border border-slate-200/90';
-  flyer.style.width = '48px';
-  flyer.style.height = '48px';
-  flyer.style.left = `${startX - 24}px`;
-  flyer.style.top = `${startY - 24}px`;
-  flyer.style.boxShadow = '0 12px 28px -4px rgba(0, 0, 0, 0.22), 0 4px 10px -2px rgba(0, 0, 0, 0.1)';
-  flyer.style.willChange = 'transform, opacity, filter';
+  // Determina tamanho generoso do token voador (altamente visível em mobile e PC)
+  const isMobile = window.innerWidth < 640;
+  const tokenSize = isMobile ? 54 : 62;
+  const halfToken = tokenSize / 2;
 
-  // Container interno para manter a imagem perfeitamente clipada
+  // 2. Criação do Token Voador com Halo Esportivo Zeiq Luminoso
+  const flyer = document.createElement('div');
+  flyer.className = 'fixed z-[100000] pointer-events-none select-none rounded-2xl overflow-visible bg-white border-2 border-zeiq-orange';
+  flyer.style.width = `${tokenSize}px`;
+  flyer.style.height = `${tokenSize}px`;
+  flyer.style.left = `${startX - halfToken}px`;
+  flyer.style.top = `${startY - halfToken}px`;
+  flyer.style.boxShadow = '0 0 28px 6px rgba(255, 150, 0, 0.85), 0 16px 36px rgba(0, 0, 0, 0.5)';
+  flyer.style.willChange = 'transform, opacity';
+
+  // Container interno para manter a foto nítida e bem clipada
   const innerClip = document.createElement('div');
-  innerClip.className = 'w-full h-full rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center';
+  innerClip.className = 'w-full h-full rounded-[14px] overflow-hidden bg-slate-50 flex items-center justify-center';
 
   if (imageUrl) {
     const img = document.createElement('img');
@@ -75,14 +80,14 @@ export function flyToCartAnimation(options: FlyToCartOptions) {
     img.className = 'w-full h-full object-cover object-top';
     innerClip.appendChild(img);
   } else {
-    innerClip.innerHTML = `<svg class="w-5 h-5 text-zeiq-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>`;
+    innerClip.innerHTML = `<svg class="w-6 h-6 text-zeiq-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>`;
   }
   flyer.appendChild(innerClip);
 
-  // Badge numérico discreto no topo caso seja grade ou pacote (> 1 peça)
+  // Badge numérico em alto contraste no topo caso seja grade ou pacote (> 1 peça)
   if (count > 1) {
     const badgeEl = document.createElement('span');
-    badgeEl.className = 'absolute -top-2 -right-2 bg-zeiq-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-md border border-white tracking-tight';
+    badgeEl.className = 'absolute -top-2.5 -right-2.5 bg-zeiq-black text-zeiq-orange text-xs font-black px-2 py-0.5 rounded-full shadow-lg border-2 border-white tracking-tight';
     badgeEl.textContent = `+${count}`;
     flyer.appendChild(badgeEl);
   }
@@ -93,10 +98,12 @@ export function flyToCartAnimation(options: FlyToCartOptions) {
   const deltaX = targetX - startX;
   const deltaY = targetY - startY;
 
-  // Altura do arco (elevação fluida proporcional à distância)
-  const arcLift = Math.min(-60, deltaY * 0.35);
+  // Altura do arco cinemático (mais pronunciado no mobile para voar com destaque)
+  const arcLift = isMobile
+    ? Math.min(-90, deltaY * 0.45)
+    : Math.min(-75, deltaY * 0.38);
 
-  // Timeline GSAP de trajetória fluida e contínua (0.58s total)
+  // Timeline GSAP de trajetória visível, limpa e contínua (0.68s)
   const tl = gsap.timeline({
     onComplete: () => {
       if (flyer.parentNode) {
@@ -105,64 +112,69 @@ export function flyToCartAnimation(options: FlyToCartOptions) {
       triggerCartImpact(cartTarget);
       if (onImpact) onImpact();
       window.dispatchEvent(new CustomEvent('cart-item-arrived'));
+
+      // Vibração tátil sutil em dispositivos móveis
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate([15, 30, 20]);
+        } catch {}
+      }
     },
   });
 
-  // Decolagem: surge suave e ganha escala no ponto de partida
+  // Decolagem: ganha escala e decola vigorosa
   tl.fromTo(
     flyer,
-    { scale: 0.7, opacity: 0, rotate: 0 },
-    { scale: 1, opacity: 1, duration: 0.16, ease: 'power2.out' }
+    { scale: 0.5, opacity: 0, rotate: -8 },
+    { scale: 1.12, opacity: 1, rotate: 0, duration: 0.18, ease: 'back.out(2)' }
   );
 
-  // Trajetória X contínua com suavização orgânica
+  // Trajetória X contínua
   tl.to(
     flyer,
     {
       x: deltaX,
       duration: 0.52,
-      ease: 'power3.inOut',
+      ease: 'power2.inOut',
     },
-    0.04
+    0.06
   );
 
-  // Trajetória Y em arco cinético: elevação inicial e atração em direção à sacola
+  // Trajetória Y em arco parabólico: elevação inicial e atração em direção à sacola
   tl.to(
     flyer,
     {
       y: arcLift,
-      duration: 0.24,
-      ease: 'power2.out',
+      duration: 0.28,
+      ease: 'power1.out',
     },
-    0.04
+    0.06
   ).to(
     flyer,
     {
       y: deltaY,
-      duration: 0.32,
-      ease: 'power3.in',
+      duration: 0.28,
+      ease: 'power2.in',
     },
-    0.28
+    0.34
   );
 
-  // Entrada final na sacola: afunilação natural, rotação suave e fade
+  // Sucção final para a sacola (apenas nos últimos 0.1s para NUNCA sumir no meio)
   tl.to(
     flyer,
     {
-      scale: 0.15,
-      rotate: deltaX > 0 ? 18 : -18,
-      opacity: 0.2,
-      filter: 'blur(1px)',
-      duration: 0.22,
-      ease: 'power2.in',
+      scale: 0.12,
+      rotate: deltaX > 0 ? 25 : -25,
+      opacity: 0,
+      duration: 0.12,
+      ease: 'power3.in',
     },
-    0.38
+    0.56
   );
 }
 
 /**
  * Reação elástica e amortecida no botão da sacola ao absorver o item.
- * Evita saltos duros ou conflitos com transições do React.
  */
 export function triggerCartImpact(cartElement: HTMLElement) {
   if (!cartElement) return;
@@ -176,67 +188,64 @@ export function triggerCartImpact(cartElement: HTMLElement) {
   if (bagIcon) gsap.killTweensOf(bagIcon);
   if (badge) gsap.killTweensOf(badge);
 
-  // Timeline de absorção amortecida no botão (simula absorção física de peso)
   const impactTl = gsap.timeline();
 
-  // Compressão tátil inicial
-  impactTl.to(cartElement, {
-    scaleY: 0.94,
-    scaleX: 1.05,
-    y: 1.5,
-    duration: 0.09,
-    ease: 'power2.out',
-  });
+  // Onda de choque luminosa no botão da sacola (anel expansivo)
+  gsap.fromTo(
+    cartElement,
+    { boxShadow: '0 0 0 0 rgba(255, 150, 0, 0.85)' },
+    { boxShadow: '0 0 0 18px rgba(255, 150, 0, 0)', duration: 0.55, ease: 'power2.out', clearProps: 'boxShadow' }
+  );
 
-  // Expansão elástica e retorno ao repouso com amortecimento fluido
+  // Salto elástico do botão da sacola
   impactTl.to(cartElement, {
-    scaleY: 1,
-    scaleX: 1,
-    y: 0,
-    duration: 0.48,
-    ease: 'elastic.out(1.15, 0.4)',
+    scale: 1.25,
+    rotate: -6,
+    duration: 0.12,
+    ease: 'power2.out',
+  }).to(cartElement, {
+    scale: 1,
+    rotate: 0,
+    duration: 0.5,
+    ease: 'elastic.out(1.2, 0.35)',
     clearProps: 'transform',
   });
 
-  // Inclinação orgânica no ícone da sacola
+  // Salto do badge numérico com realce luminoso
+  if (badge) {
+    gsap.fromTo(
+      badge,
+      {
+        scale: 1.75,
+        backgroundColor: '#ff9600',
+        color: '#ffffff',
+      },
+      {
+        scale: 1,
+        backgroundColor: '#ffffff',
+        color: '#0a0a0a',
+        duration: 0.55,
+        ease: 'back.out(2)',
+        clearProps: 'transform,backgroundColor,color',
+      }
+    );
+  }
+
+  // Chacoalhada esportiva no ícone da sacola
   if (bagIcon) {
     gsap.timeline()
       .to(bagIcon, {
-        rotate: -10,
-        y: -1.5,
-        scale: 1.15,
+        rotate: -14,
+        scale: 1.22,
         duration: 0.12,
         ease: 'power2.out',
       })
       .to(bagIcon, {
         rotate: 0,
-        y: 0,
         scale: 1,
-        duration: 0.42,
-        ease: 'back.out(2)',
+        duration: 0.45,
+        ease: 'elastic.out(1.2, 0.35)',
         clearProps: 'transform',
       });
-  }
-
-  // Pulso refinado no badge numérico (elevação e realce luminoso discreto)
-  if (badge) {
-    gsap.fromTo(
-      badge,
-      {
-        y: 3,
-        scale: 1.3,
-        backgroundColor: '#f97316',
-        color: '#000000',
-      },
-      {
-        y: 0,
-        scale: 1,
-        backgroundColor: '#ffffff',
-        color: '#000000',
-        duration: 0.45,
-        ease: 'back.out(1.8)',
-        clearProps: 'transform,backgroundColor,color',
-      }
-    );
   }
 }

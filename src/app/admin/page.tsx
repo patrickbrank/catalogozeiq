@@ -1706,9 +1706,9 @@ export default function AdminDashboardPage() {
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${adminAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
               </button>
 
-              {/* Popover Seletor de Avatares Estilo Apple */}
+              {/* Popover Seletor de Avatares Estilo Apple (Responsivo com margens seguras no Mobile) */}
               {adminAvatarPickerOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 sm:w-84 bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 text-white">
+                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-84 max-w-sm mx-auto sm:mx-0 bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 text-white">
                   <div className="flex items-center justify-between pb-3 border-b border-white/10">
                     <div>
                       <h4 className="text-sm font-black text-white tracking-tight">Escolha seu Avatar</h4>

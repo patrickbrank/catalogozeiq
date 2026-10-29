@@ -316,12 +316,12 @@ export default function ResellerDashboardPage() {
       )}
 
       {/* 1. Barra Superior / Header */}
-      <header className="sticky top-0 z-40 bg-zeiq-dark/95 backdrop-blur-md border-b border-zeiq-charcoal px-4 sm:px-6 lg:px-8 py-3.5">
-        <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-zeiq-dark/95 backdrop-blur-md border-b border-zeiq-charcoal px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5">
+        <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Título */}
-          <div className="flex items-center gap-3">
-            <Link href="/revendedor" className="flex items-center gap-2">
-              <div className="relative h-7 w-24 brightness-0 invert flex items-center">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+            <Link href="/revendedor" className="flex items-center gap-2 shrink-0">
+              <div className="relative h-6 sm:h-7 w-20 sm:w-24 brightness-0 invert flex items-center">
                 <Image
                   src="/images/logo-zeiq.png"
                   alt="Zeiq Sports"
@@ -333,9 +333,9 @@ export default function ResellerDashboardPage() {
               </div>
             </Link>
 
-            <span className="hidden sm:inline-block w-px h-5 bg-white/10" />
+            <span className="hidden md:inline-block w-px h-5 bg-white/10" />
 
-            <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               <span className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-zeiq-orange bg-zeiq-orange/10 border border-zeiq-orange/20 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <Briefcase className="w-3 h-3" />
                 Painel do Revendedor
@@ -343,14 +343,14 @@ export default function ResellerDashboardPage() {
             </div>
           </div>
 
-          {/* Ações da Direita (Alinhadas em Linha Perfeita com Altura Padronizada de 40px) */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Ações da Direita (Alinhadas em Linha Perfeita e Compactas no Mobile) */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Seletor de Avatar SVG com Símbolos Esportivos Minimalistas */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsAvatarPickerOpen(!isAvatarPickerOpen)}
-                className="h-10 px-3 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 hover:border-zeiq-orange/40 transition-all cursor-pointer flex items-center gap-2.5 active:scale-95 group shadow-xs shrink-0"
+                className="h-9 sm:h-10 px-2 sm:px-3 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 hover:border-zeiq-orange/40 transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2.5 active:scale-95 group shadow-xs shrink-0"
                 title="Clique para escolher seu símbolo esportivo Zeiq"
               >
                 <div className="relative shrink-0 flex items-center justify-center">
@@ -361,16 +361,16 @@ export default function ResellerDashboardPage() {
                   <span className="text-xs font-extrabold text-white truncate max-w-[120px] hidden sm:inline">
                     {reseller?.name?.split(' ')[0] || user?.email?.split('@')[0]}
                   </span>
-                  <span className="text-[10px] font-mono font-extrabold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-1.5 py-0.5 rounded leading-none">
+                  <span className="text-[9px] sm:text-[10px] font-mono font-extrabold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-1.5 py-0.5 rounded leading-none">
                     REV
                   </span>
                 </div>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${isAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
               </button>
 
-              {/* Popover Seletor de Avatares Estilo Apple */}
+              {/* Popover Seletor de Avatares Estilo Apple (Responsivo com margens seguras no Mobile) */}
               {isAvatarPickerOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 sm:w-84 bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 text-white">
+                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-84 max-w-sm mx-auto sm:mx-0 bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 text-white">
                   <div className="flex items-center justify-between pb-3 border-b border-white/10">
                     <div>
                       <h4 className="text-sm font-black text-white tracking-tight">Escolha seu Avatar</h4>
@@ -436,7 +436,7 @@ export default function ResellerDashboardPage() {
               type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="h-10 px-3 sm:px-3.5 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0"
+              className="h-9 sm:h-10 w-9 sm:w-auto px-0 sm:px-3.5 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0"
               title="Atualizar dados da carteira"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-zeiq-orange' : ''}`} />
@@ -446,7 +446,7 @@ export default function ResellerDashboardPage() {
             <Link
               href="/"
               target="_blank"
-              className="h-10 px-3 sm:px-3.5 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 active:scale-95"
+              className="h-9 sm:h-10 w-9 sm:w-auto px-0 sm:px-3.5 rounded-xl bg-zeiq-charcoal/80 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95"
               title="Ver Catálogo Público de Produtos"
             >
               <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
@@ -456,7 +456,7 @@ export default function ResellerDashboardPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="h-10 px-3 sm:px-3.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95"
+              className="h-9 sm:h-10 w-9 sm:w-auto px-0 sm:px-3.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95"
               title="Sair do painel"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -466,21 +466,24 @@ export default function ResellerDashboardPage() {
         </div>
       </header>
 
-      {/* 2. Barra de Navegação por Abas */}
-      <nav className="border-b border-white/5 bg-zeiq-black px-4 sm:px-6 lg:px-8 py-3">
-        <div className="max-w-[1720px] mx-auto flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-none">
+      {/* 2. Barra de Navegação por Abas (Segmented Control fluido em 2 colunas no Mobile) */}
+      <nav className="border-b border-white/5 bg-zeiq-black px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3">
+        <div className="max-w-[1720px] mx-auto grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => setActiveTab('orders')}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`w-full sm:w-auto px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
               activeTab === 'orders'
                 ? 'bg-zeiq-orange text-zeiq-black shadow-lg shadow-zeiq-orange/20'
                 : 'bg-zeiq-dark text-slate-300 hover:text-white hover:bg-zeiq-charcoal'
             }`}
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Pedidos da Minha Carteira</span>
-            <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono ${
+            <ShoppingBag className="w-4 h-4 shrink-0" />
+            <span className="truncate">
+              <span className="sm:hidden">Pedidos</span>
+              <span className="hidden sm:inline">Pedidos da Carteira</span>
+            </span>
+            <span className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-mono shrink-0 ${
               activeTab === 'orders' ? 'bg-black/20 text-zeiq-black' : 'bg-white/10 text-slate-400'
             }`}>
               {orders.length}
@@ -490,20 +493,23 @@ export default function ResellerDashboardPage() {
           <button
             type="button"
             onClick={() => setActiveTab('customers')}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            className={`w-full sm:w-auto px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ${
               activeTab === 'customers'
                 ? 'bg-zeiq-orange text-zeiq-black shadow-lg shadow-zeiq-orange/20'
                 : 'bg-zeiq-dark text-slate-300 hover:text-white hover:bg-zeiq-charcoal'
             }`}
           >
-            <Users className="w-4 h-4" />
-            <span>Meus Lojistas Vinculados</span>
+            <Users className="w-4 h-4 shrink-0" />
+            <span className="truncate">
+              <span className="sm:hidden">Lojistas</span>
+              <span className="hidden sm:inline">Meus Lojistas Vinculados</span>
+            </span>
             {customers.filter((c) => !c.is_approved).length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
-                {customers.filter((c) => !c.is_approved).length} pendentes
+              <span className="px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-extrabold bg-amber-500 text-white animate-pulse shrink-0">
+                {customers.filter((c) => !c.is_approved).length}
               </span>
             )}
-            <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono ${
+            <span className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-mono shrink-0 ${
               activeTab === 'customers' ? 'bg-black/20 text-zeiq-black' : 'bg-white/10 text-slate-400'
             }`}>
               {customers.length}
