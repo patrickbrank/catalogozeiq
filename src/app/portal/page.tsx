@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,7 @@ import {
   Check,
   Search,
   RotateCcw,
+  RefreshCw,
   MessageCircle,
   Printer,
   ChevronDown,
@@ -93,6 +94,7 @@ export default function ResellerPortalPage() {
   const setIsOpenCart = useQuoteCart((state) => state.setIsOpen);
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -238,63 +240,149 @@ export default function ResellerPortalPage() {
       .catch(() => {});
   }, []);
 
-  // Carrega pedidos salvos localmente e via API
-  useEffect(() => {
-    async function loadAllOrders() {
-      const combinedOrders: Order[] = [];
+  // Carrega e sincroniza pedidos locais e da API
+  const loadAllOrders = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
 
+    try {
       // 1. Carrega pedidos salvos no localStorage deste dispositivo
+      const localOrders: Order[] = [];
       try {
-        const localData = localStorage.getItem('zeiq_recent_orders');
+        const localData = typeof window !== 'undefined' ? localStorage.getItem('zeiq_recent_orders') : null;
         if (localData) {
           const parsed = JSON.parse(localData);
           if (Array.isArray(parsed)) {
-            combinedOrders.push(...parsed);
+            localOrders.push(...parsed);
           }
         }
       } catch (e) {
         console.warn('Erro ao ler pedidos locais:', e);
       }
 
+      // Mapa indexado pelo order_number em MAIÚSCULAS para desduplicação
+      const ordersMap = new Map<string, Order>();
+
+      // Insere pedidos locais como base inicial
+      localOrders.forEach((lo) => {
+        if (lo?.order_number) {
+          ordersMap.set(lo.order_number.toUpperCase(), lo);
+        }
+      });
+
       // 2. Consulta API para buscar pedidos da conta autenticada
+      let isAuthenticated = false;
       try {
         const res = await fetch('/api/orders');
         const data = await res.json();
 
         if (data.authenticated && data.user) {
+          isAuthenticated = true;
           setUser(data.user);
           setProfile(data.user.profile || null);
 
           if (Array.isArray(data.orders)) {
+            // SOBERANIA DO BANCO: Dados vindos da API oficial sobrescrevem o cache local
             data.orders.forEach((apiOrder: Order) => {
-              // Evita duplicatas se o pedido já estiver no localStorage
-              if (!combinedOrders.some((o) => o.order_number === apiOrder.order_number)) {
-                combinedOrders.push(apiOrder);
+              if (apiOrder?.order_number) {
+                const key = apiOrder.order_number.toUpperCase();
+                const existingLocal = ordersMap.get(key);
+                ordersMap.set(key, {
+                  ...(existingLocal || {}),
+                  ...apiOrder,
+                });
               }
             });
           }
         }
       } catch (err) {
-        console.warn('Aviso ao carregar dados online:', err);
+        console.warn('Aviso ao consultar pedidos autenticados:', err);
       }
 
-      // Ordena por data mais recente
+      // 3. Sincroniza pedidos que ainda restam do localStorage com o banco de dados
+      // (ex: lojistas não logados ou pedidos realizados antes do login)
+      const allNumbers = Array.from(ordersMap.keys());
+      if (allNumbers.length > 0) {
+        const numbersToSync = allNumbers.filter((key) => {
+          const ord = ordersMap.get(key);
+          return !isAuthenticated || ord?.id?.startsWith('local-');
+        });
+
+        if (numbersToSync.length > 0) {
+          try {
+            const syncRes = await fetch(`/api/orders?order_numbers=${encodeURIComponent(numbersToSync.join(','))}`);
+            const syncData = await syncRes.json();
+            if (syncData.success && Array.isArray(syncData.orders)) {
+              syncData.orders.forEach((serverOrder: Order) => {
+                if (serverOrder?.order_number) {
+                  const key = serverOrder.order_number.toUpperCase();
+                  const existing = ordersMap.get(key);
+                  ordersMap.set(key, {
+                    ...(existing || {}),
+                    ...serverOrder,
+                  });
+                }
+              });
+            }
+          } catch (syncErr) {
+            console.warn('Aviso ao sincronizar status de pedidos locais com a API:', syncErr);
+          }
+        }
+      }
+
+      // 4. Monta lista consolidada e ordenada
+      const combinedOrders = Array.from(ordersMap.values());
       combinedOrders.sort((a, b) => {
         const dateA = new Date(a.created_at || 0).getTime();
         const dateB = new Date(b.created_at || 0).getTime();
         return dateB - dateA;
       });
 
+      // Atualiza o localStorage com os status frescos para manter o cache local saudável
+      try {
+        if (typeof window !== 'undefined' && combinedOrders.length > 0) {
+          localStorage.setItem('zeiq_recent_orders', JSON.stringify(combinedOrders.slice(0, 30)));
+        }
+      } catch {}
+
       setOrders(combinedOrders);
-      if (combinedOrders.length > 0) {
-        setExpandedOrderId(combinedOrders[0].id);
-      }
-
+      setExpandedOrderId((prev) => prev || (combinedOrders.length > 0 ? combinedOrders[0].id : null));
+    } catch (err) {
+      console.warn('Erro geral ao carregar pedidos:', err);
+    } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-
-    loadAllOrders();
   }, []);
+
+  // Carregamento inicial de pedidos
+  useEffect(() => {
+    loadAllOrders(false);
+  }, [loadAllOrders]);
+
+  // Polling periódico em segundo plano (25s) e revalidação ao alternar para a aba do navegador
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAllOrders(true);
+      }
+    }, 25000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAllOrders(true);
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [loadAllOrders]);
 
   const handleLogout = async () => {
     try {
@@ -309,7 +397,7 @@ export default function ResellerPortalPage() {
     }
   };
 
-  // Consulta Rápida por Código do Pedido (com verificação local + online)
+  // Consulta Rápida por Código do Pedido (com consulta à API online em tempo real)
   const handleQuickTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = quickOrderNumber.trim().toUpperCase();
@@ -319,34 +407,52 @@ export default function ResellerPortalPage() {
     setQuickError(null);
     setQuickResult(null);
 
-    // Primeiro verifica nos pedidos locais
-    const localMatch = orders.find((o) => o.order_number.toUpperCase() === query);
-    if (localMatch) {
-      setQuickResult(localMatch);
-      setQuickLoading(false);
-      return;
-    }
-
     if (query === 'ZEIQ-1048') {
       setQuickResult(DEMO_ORDER);
       setQuickLoading(false);
       return;
     }
 
-    // Se não encontrou localmente, consulta na API
+    // Consulta sempre a API primeiro para trazer o status atualizado em tempo real do banco
     try {
       const res = await fetch(`/api/orders?order_number=${encodeURIComponent(query)}`);
       const data = await res.json();
 
       if (data.success && data.order) {
         setQuickResult(data.order);
+
+        // Atualiza também na lista de pedidos em exibição e no localStorage
+        setOrders((prev) => {
+          const index = prev.findIndex((o) => o.order_number.toUpperCase() === query);
+          let updatedList: Order[];
+          if (index >= 0) {
+            updatedList = prev.map((o) => (o.order_number.toUpperCase() === query ? { ...o, ...data.order } : o));
+          } else {
+            updatedList = [data.order, ...prev];
+          }
+          try {
+            localStorage.setItem('zeiq_recent_orders', JSON.stringify(updatedList.slice(0, 30)));
+          } catch {}
+          return updatedList;
+        });
       } else {
-        setQuickError(
-          data.error || `Nenhum pedido encontrado com o código "${query}". Verifique se o código foi digitado corretamente.`
-        );
+        // Fallback local se a API não encontrou ou estiver offline
+        const localMatch = orders.find((o) => o.order_number.toUpperCase() === query);
+        if (localMatch) {
+          setQuickResult(localMatch);
+        } else {
+          setQuickError(
+            data.error || `Nenhum pedido encontrado com o código "${query}". Verifique se o código foi digitado corretamente.`
+          );
+        }
       }
     } catch (err) {
-      setQuickError('Não foi possível verificar no momento. Tente novamente em instantes.');
+      const localMatch = orders.find((o) => o.order_number.toUpperCase() === query);
+      if (localMatch) {
+        setQuickResult(localMatch);
+      } else {
+        setQuickError('Não foi possível verificar no momento. Tente novamente em instantes.');
+      }
     } finally {
       setQuickLoading(false);
     }
@@ -998,26 +1104,39 @@ export default function ResellerPortalPage() {
               </div>
             </div>
 
-            {/* Campo de Busca Rápida Integrado */}
-            <div className="relative w-full md:w-72 shrink-0">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filtrar por código ou produto..."
-                className="w-full h-9 pl-9 pr-8 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black cursor-pointer p-0.5"
-                  title="Limpar busca"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+            {/* Campo de Busca Rápida Integrado e Botão de Atualização */}
+            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+              <div className="relative flex-1 md:w-64 shrink-0">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filtrar por código ou produto..."
+                  className="w-full h-9 pl-9 pr-8 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black cursor-pointer p-0.5"
+                    title="Limpar busca"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => loadAllOrders(false)}
+                disabled={refreshing || loading}
+                className="h-9 px-3 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-zeiq-black transition-all shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 shadow-2xs"
+                title="Sincronizar status dos pedidos em tempo real"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-zeiq-orange ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Atualizar</span>
+              </button>
             </div>
           </div>
 

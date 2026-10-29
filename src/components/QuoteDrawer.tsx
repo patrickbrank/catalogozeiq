@@ -135,7 +135,7 @@ export function QuoteDrawer() {
       try {
         const existingStr = typeof window !== 'undefined' ? localStorage.getItem('zeiq_recent_orders') : null;
         const existing: any[] = existingStr ? JSON.parse(existingStr) : [];
-        const newOrder = {
+        const newOrder = data.order || {
           id: `local-${Date.now()}`,
           order_number: confirmedNumber,
           buyer_name: buyerName?.trim() || 'Lojista Zeiq',

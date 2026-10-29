@@ -8,13 +8,78 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const orderNumber = searchParams.get('order_number')?.trim();
+    const orderNumbersParam = searchParams.get('order_numbers')?.trim();
     const phone = searchParams.get('phone')?.trim();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
     const adminSupabase = serviceRoleKey ? createAdminClient(supabaseUrl, serviceRoleKey) : null;
 
-    // Caso 1: Consulta Rápida por Número de Pedido (com ou sem telefone)
+    // Caso 1A: Consulta em Lote por Números de Pedido (para sincronizar pedidos recentes do cliente)
+    if (orderNumbersParam) {
+      const numbers = orderNumbersParam
+        .split(',')
+        .map((n) => n.trim().toUpperCase())
+        .filter(Boolean)
+        .slice(0, 50);
+
+      if (numbers.length > 0) {
+        const client = adminSupabase || (await createServerClient());
+        const { data, error } = await client
+          .from('orders')
+          .select('*')
+          .in('order_number', numbers)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          return NextResponse.json({ success: false, error: error.message, orders: [] });
+        }
+
+        const serverSupabase = await createServerClient();
+        const { data: { user: currentUser } } = await serverSupabase.auth.getUser();
+
+        // Proteção Anti-IDOR se for visitante anônimo
+        const safeOrders = (data || []).map((order: any) => {
+          const isOwner =
+            currentUser &&
+            (currentUser.id === order.user_id ||
+              currentUser.id === order.customer_id ||
+              currentUser.email?.toLowerCase() === order.buyer_email?.toLowerCase());
+          const isMasterAdmin =
+            currentUser &&
+            (currentUser.email?.toLowerCase() === 'marketing@zeiq.com.br' ||
+              currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com');
+
+          if (isOwner || isMasterAdmin) {
+            return order;
+          }
+
+          const maskedPhone =
+            order.buyer_phone && order.buyer_phone.length >= 8
+              ? order.buyer_phone.replace(/(\d{2})(\d{4,5})(\d{4})/, '($1) •••••-$3')
+              : order.buyer_phone
+              ? '••••••••'
+              : 'Não informado';
+          const maskedEmail = order.buyer_email
+            ? order.buyer_email.replace(/^(.{2})(.*)(@.*)$/, '$1••••$3')
+            : null;
+
+          return {
+            ...order,
+            buyer_phone: maskedPhone,
+            buyer_email: maskedEmail,
+            commercial_notes: null,
+          };
+        });
+
+        return NextResponse.json({
+          success: true,
+          orders: safeOrders,
+        });
+      }
+    }
+
+    // Caso 1B: Consulta Rápida por Número de Pedido Único (com ou sem telefone)
     if (orderNumber) {
       const client = adminSupabase || (await createServerClient());
 
@@ -50,8 +115,15 @@ export async function GET(request: NextRequest) {
       // Checa se o usuário atual é dono do pedido ou admin
       const serverSupabase = await createServerClient();
       const { data: { user: currentUser } } = await serverSupabase.auth.getUser();
-      const isOwner = currentUser && (currentUser.id === order.user_id || currentUser.email === order.buyer_email);
-      const isMasterAdmin = currentUser && (currentUser.email?.toLowerCase() === 'marketing@zeiq.com.br' || currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com');
+      const isOwner =
+        currentUser &&
+        (currentUser.id === order.user_id ||
+          currentUser.id === order.customer_id ||
+          currentUser.email?.toLowerCase() === order.buyer_email?.toLowerCase());
+      const isMasterAdmin =
+        currentUser &&
+        (currentUser.email?.toLowerCase() === 'marketing@zeiq.com.br' ||
+          currentUser.email?.toLowerCase() === 'patrickbrank@outlook.com');
 
       // Validação de telefone para visualização completa
       let phoneMatched = false;
@@ -130,27 +202,53 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Busca pedidos vinculados ao user_id OU ao e-mail cadastrado
-    const { data, error } = await adminSupabase
-      .from('orders')
-      .select('*')
-      .or(`user_id.eq.${user.id},buyer_email.eq.${user.email}`)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return NextResponse.json({
-        success: true,
-        authenticated: true,
-        orders: [],
-      });
-    }
-
-    // Busca dados do perfil do revendedor se existir
+    // Busca dados do perfil do lojista se existir
     const { data: profile } = await adminSupabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
+
+    // Monta filtros abrangentes para encontrar pedidos do cliente
+    const orFilters: string[] = [
+      `user_id.eq.${user.id}`,
+      `customer_id.eq.${user.id}`,
+    ];
+    if (user.email) {
+      orFilters.push(`buyer_email.ilike.${user.email}`);
+    }
+    if (profile?.phone) {
+      const cleanPhone = profile.phone.replace(/\D/g, '');
+      if (cleanPhone.length >= 8) {
+        orFilters.push(`buyer_phone.ilike.%${cleanPhone.slice(-8)}%`);
+      }
+    }
+
+    const { data, error } = await adminSupabase
+      .from('orders')
+      .select('*')
+      .or(orFilters.join(','))
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      // Fallback para consulta básica se colunas opcionais variarem
+      const { data: fallbackData } = await adminSupabase
+        .from('orders')
+        .select('*')
+        .or(`user_id.eq.${user.id},buyer_email.eq.${user.email}`)
+        .order('created_at', { ascending: false });
+
+      return NextResponse.json({
+        success: true,
+        authenticated: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          profile: profile || null,
+        },
+        orders: fallbackData || [],
+      });
+    }
 
     return NextResponse.json({
       success: true,

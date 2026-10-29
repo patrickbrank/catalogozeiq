@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, status, commercial_notes, customer_notes } = body;
+    const { id, status, commercial_notes, customer_notes, tracking_code, tracking_url } = body;
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID do pedido é obrigatório.' }, { status: 400 });
@@ -197,6 +197,12 @@ export async function PATCH(request: NextRequest) {
     }
     if (customer_notes !== undefined) {
       updates.customer_notes = customer_notes?.trim() || null;
+    }
+    if (tracking_code !== undefined) {
+      updates.tracking_code = tracking_code?.trim() || null;
+    }
+    if (tracking_url !== undefined) {
+      updates.tracking_url = tracking_url?.trim() || null;
     }
 
     const { data: updatedOrder, error: updateErr } = await adminSupabase
