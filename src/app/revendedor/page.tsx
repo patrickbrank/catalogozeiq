@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { AvatarIcon, ADMIN_AVATARS, formatPhoneBR } from '@/lib/constants/avatars';
 import { PanelFooter } from '@/components/PanelFooter';
+import { PanelLoadingScreen } from '@/components/PanelLoadingScreen';
 
 const ORDER_STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; text: string; border: string }> = {
   pending: { label: 'Pendente', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
@@ -297,10 +298,10 @@ export default function ResellerDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zeiq-black text-white flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 text-zeiq-orange animate-spin" />
-        <span className="text-xs font-semibold text-slate-400">Carregando painel do revendedor...</span>
-      </div>
+      <PanelLoadingScreen
+        title="PAINEL DO REVENDEDOR"
+        subtitle="Sincronizando carteira comercial e pedidos..."
+      />
     );
   }
 
@@ -519,8 +520,8 @@ export default function ResellerDashboardPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div className="relative shrink-0">
-                <AvatarIcon avatarId={selectedAvatarId} className="w-12 h-12 sm:w-14 sm:h-14" />
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zeiq-dark animate-pulse" />
+                <AvatarIcon avatarId={selectedAvatarId} className="w-14 h-14 sm:w-16 sm:h-16" emojiClassName="text-3xl sm:text-4xl" />
+                <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-zeiq-dark animate-pulse" />
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">

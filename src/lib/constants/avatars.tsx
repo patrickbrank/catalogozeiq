@@ -116,13 +116,26 @@ const LEGACY_AVATAR_MAP: Record<string, string> = {
   'avatar-fire': 'avatar-fire',
 };
 
+// Calcula o tamanho ideal do emoji proporcional ao diâmetro do círculo estilo Apple (~60% da área)
+function getAutoEmojiSize(className: string): string {
+  if (className.includes('w-16') || className.includes('h-16')) return 'text-4xl';
+  if (className.includes('w-14') || className.includes('h-14')) return 'text-3xl';
+  if (className.includes('w-12') || className.includes('h-12')) return 'text-2xl';
+  if (className.includes('w-11') || className.includes('h-11')) return 'text-2xl';
+  if (className.includes('w-10') || className.includes('h-10')) return 'text-xl';
+  if (className.includes('w-8') || className.includes('h-8')) return 'text-lg';
+  if (className.includes('w-7') || className.includes('h-7')) return 'text-base';
+  if (className.includes('w-6') || className.includes('h-6')) return 'text-sm';
+  return 'text-xl';
+}
+
 /**
- * Renderiza o avatar estilo Apple com fundo pastel suave e emoji centralizado
+ * Renderiza o avatar estilo Apple com fundo pastel suave e emoji centralizado e destacado
  */
 export function AvatarIcon({
   avatarId,
   className = 'w-9 h-9',
-  emojiClassName = 'text-base',
+  emojiClassName,
 }: {
   avatarId?: string;
   className?: string;
@@ -130,6 +143,7 @@ export function AvatarIcon({
 }) {
   const resolvedId = avatarId && LEGACY_AVATAR_MAP[avatarId] ? LEGACY_AVATAR_MAP[avatarId] : avatarId;
   const current = ADMIN_AVATARS.find((a) => a.id === resolvedId) || ADMIN_AVATARS[0];
+  const autoSize = emojiClassName || getAutoEmojiSize(className);
 
   return (
     <div
@@ -140,7 +154,7 @@ export function AvatarIcon({
       }}
       title={`${current.name} (${current.theme})`}
     >
-      <span className={emojiClassName} style={{ lineHeight: 1 }}>
+      <span className={`${autoSize} flex items-center justify-center select-none leading-none`} style={{ lineHeight: 1 }}>
         {current.emoji}
       </span>
     </div>

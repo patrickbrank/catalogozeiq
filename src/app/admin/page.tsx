@@ -65,6 +65,7 @@ import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/Orde
 import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPicker';
 import { AvatarIcon, ADMIN_AVATARS } from '@/lib/constants/avatars';
 import { PanelFooter } from '@/components/PanelFooter';
+import { PanelLoadingScreen } from '@/components/PanelLoadingScreen';
 
 const ITEMS_PER_PAGE = 25;
 
@@ -1480,6 +1481,16 @@ export default function AdminDashboardPage() {
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">{status}</span>;
     }
   };
+
+  // Tela de carregamento de alta performance Zeiq com GSAP
+  if (loading) {
+    return (
+      <PanelLoadingScreen
+        title="PAINEL ADMINISTRATIVO"
+        subtitle="Carregando catálogo e dados gerenciais..."
+      />
+    );
+  }
 
   // Se não estiver logado, exibe tela de login direto de alta performance Zeiq
   if (!loading && !user) {

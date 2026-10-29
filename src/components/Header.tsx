@@ -324,7 +324,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                           {userAvatarUrl ? (
                             <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                           ) : (isMasterOrAdmin || isResellerUser) ? (
-                            <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" />
+                            <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" emojiClassName="text-base sm:text-lg" />
                           ) : (
                             userInitial
                           )}
@@ -347,7 +347,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                               {userAvatarUrl ? (
                                 <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
                               ) : (isMasterOrAdmin || isResellerUser) ? (
-                                <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" />
+                                <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" emojiClassName="text-2xl" />
                               ) : (
                                 userInitial
                               )}
