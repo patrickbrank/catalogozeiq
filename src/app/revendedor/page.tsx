@@ -627,8 +627,8 @@ export default function ResellerDashboardPage() {
                 />
               </div>
 
-              {/* Filtro por Status */}
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 md:pb-0">
+              {/* Filtro por Status dos Pedidos (Sem barra de scroll visível) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none touch-pan-x py-0.5">
                 <button
                   type="button"
                   onClick={() => setOrderStatusFilter('all')}

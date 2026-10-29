@@ -103,17 +103,12 @@ export default function ResellerPortalPage() {
   // Filtros da página
   const [activeTab, setActiveTab] = useState<'all' | 'ongoing' | 'delivered' | 'cancelled'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlineSearching, setOnlineSearching] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   // Modal de Impressão / Espelho do Pedido
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
-
-  // Modo Rastreio Rápido Avulso
-  const [quickOrderNumber, setQuickOrderNumber] = useState('');
-  const [quickLoading, setQuickLoading] = useState(false);
-  const [quickResult, setQuickResult] = useState<Order | null>(null);
-  const [quickError, setQuickError] = useState<string | null>(null);
 
   // Toast de repetição de pedido
   const [reorderSuccessMsg, setReorderSuccessMsg] = useState<string | null>(null);
@@ -397,66 +392,40 @@ export default function ResellerPortalPage() {
     }
   };
 
-  // Consulta Rápida por Código do Pedido (com consulta à API online em tempo real)
-  const handleQuickTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = quickOrderNumber.trim().toUpperCase();
-    if (!query) return;
-
-    setQuickLoading(true);
-    setQuickError(null);
-    setQuickResult(null);
-
-    if (query === 'ZEIQ-1048') {
-      setQuickResult(DEMO_ORDER);
-      setQuickLoading(false);
-      return;
-    }
-
-    // Consulta sempre a API primeiro para trazer o status atualizado em tempo real do banco
-    try {
-      const res = await fetch(`/api/orders?order_number=${encodeURIComponent(query)}`);
-      const data = await res.json();
-
-      if (data.success && data.order) {
-        setQuickResult(data.order);
-
-        // Atualiza também na lista de pedidos em exibição e no localStorage
-        setOrders((prev) => {
-          const index = prev.findIndex((o) => o.order_number.toUpperCase() === query);
-          let updatedList: Order[];
-          if (index >= 0) {
-            updatedList = prev.map((o) => (o.order_number.toUpperCase() === query ? { ...o, ...data.order } : o));
-          } else {
-            updatedList = [data.order, ...prev];
-          }
-          try {
-            localStorage.setItem('zeiq_recent_orders', JSON.stringify(updatedList.slice(0, 30)));
-          } catch {}
-          return updatedList;
-        });
-      } else {
-        // Fallback local se a API não encontrou ou estiver offline
-        const localMatch = orders.find((o) => o.order_number.toUpperCase() === query);
-        if (localMatch) {
-          setQuickResult(localMatch);
-        } else {
-          setQuickError(
-            data.error || `Nenhum pedido encontrado com o código "${query}". Verifique se o código foi digitado corretamente.`
-          );
+  // Busca online automática no banco se o lojista digitar/colar um código ZEIQ- que não estava no navegador
+  useEffect(() => {
+    const q = searchQuery.trim().toUpperCase();
+    if (q.startsWith('ZEIQ-') && q.length >= 8) {
+      const localFound = orders.some((o) => o.order_number.toUpperCase() === q);
+      if (!localFound) {
+        if (q === 'ZEIQ-1048') {
+          setShowDemo(true);
+          return;
         }
+        setOnlineSearching(true);
+        const timer = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/orders?order_number=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            if (data.success && data.order) {
+              setOrders((prev) => {
+                if (prev.some((o) => o.order_number === data.order.order_number)) return prev;
+                const updated = [data.order, ...prev];
+                try {
+                  localStorage.setItem('zeiq_recent_orders', JSON.stringify(updated.slice(0, 30)));
+                } catch {}
+                return updated;
+              });
+            }
+          } catch {
+          } finally {
+            setOnlineSearching(false);
+          }
+        }, 350);
+        return () => clearTimeout(timer);
       }
-    } catch (err) {
-      const localMatch = orders.find((o) => o.order_number.toUpperCase() === query);
-      if (localMatch) {
-        setQuickResult(localMatch);
-      } else {
-        setQuickError('Não foi possível verificar no momento. Tente novamente em instantes.');
-      }
-    } finally {
-      setQuickLoading(false);
     }
-  };
+  }, [searchQuery, orders]);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -749,180 +718,7 @@ export default function ResellerPortalPage() {
       {/* Conteúdo Principal */}
       <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 space-y-6">
         
-        {/* 3. Seção de Rastreio Rápido por Código */}
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-7 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-orange-500/10 text-zeiq-orange flex items-center justify-center shrink-0 border border-orange-500/20">
-                <Search className="w-4 h-4 sm:w-5 sm:h-5 text-zeiq-orange" />
-              </div>
-              <div>
-                <h2 className="text-xs sm:text-sm font-black text-zeiq-black uppercase tracking-wider">
-                  Rastrear Pedido por Código
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Digite o código da cotação recebido no WhatsApp (ex: <strong>ZEIQ-1048</strong>).
-                </p>
-              </div>
-            </div>
-
-            {orders.length === 0 && !showDemo && (
-              <button
-                type="button"
-                onClick={() => setShowDemo(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors border border-emerald-200 self-start sm:self-auto cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Ver Demonstração</span>
-              </button>
-            )}
-          </div>
-
-          <form onSubmit={handleQuickTrack} className="flex flex-col sm:flex-row gap-2.5 max-w-2xl">
-            <div className="relative flex-1">
-              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none font-mono text-xs font-bold">
-                #
-              </div>
-              <input
-                type="text"
-                required
-                value={quickOrderNumber}
-                onChange={(e) => setQuickOrderNumber(e.target.value.toUpperCase())}
-                placeholder="Ex: ZEIQ-1048"
-                className="w-full pl-8 pr-9 h-11 bg-[#f8f9fa] hover:bg-slate-100/70 focus:bg-white border border-slate-200 focus:border-zeiq-black focus:ring-1 focus:ring-zeiq-black rounded-xl text-sm font-mono font-bold text-zeiq-black placeholder:text-slate-400 uppercase transition-all"
-              />
-              {quickOrderNumber && (
-                <button
-                  type="button"
-                  onClick={() => setQuickOrderNumber('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-zeiq-black cursor-pointer p-0.5"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={quickLoading || !quickOrderNumber.trim()}
-              className="h-11 px-6 bg-zeiq-black hover:bg-zeiq-charcoal disabled:opacity-50 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
-            >
-              {quickLoading ? (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Search className="w-3.5 h-3.5 text-zeiq-orange" />
-                  <span>Localizar Pedido</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Feedback de erro no rastreio rápido */}
-          {quickError && (
-            <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-              <span>{quickError}</span>
-            </div>
-          )}
-
-          {/* Resultado da Busca Rápida */}
-          {quickResult && (
-            <div className="mt-4 p-4 sm:p-5 bg-slate-50/90 border border-slate-200 rounded-xl space-y-3 animate-in fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 text-zeiq-black flex items-center justify-center font-bold">
-                    <Package className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-zeiq-black flex items-center gap-2 font-mono">
-                      #{quickResult.order_number}
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(quickResult.order_number, 'quick-num')}
-                        className="text-slate-400 hover:text-zeiq-black"
-                        title="Copiar código"
-                      >
-                        {copiedCode === 'quick-num' ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Realizado em {formatDate(quickResult.created_at)} • {quickResult.buyer_company || quickResult.buyer_name}
-                    </p>
-                  </div>
-                </div>
-
-                <div>{renderStatusBadge(quickResult.status)}</div>
-              </div>
-
-              {/* Rastreamento Logístico */}
-              {quickResult.tracking_code && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-bold text-purple-800 uppercase block">
-                      Código de Rastreamento:
-                    </span>
-                    <span className="text-xs font-mono font-bold text-purple-900">
-                      {quickResult.tracking_code}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleCopy(quickResult.tracking_code!, 'quick-tr')}
-                      className="px-2.5 py-1 bg-white border border-purple-200 text-purple-900 hover:bg-purple-100 rounded text-xs font-semibold"
-                    >
-                      {copiedCode === 'quick-tr' ? 'Copiado!' : 'Copiar'}
-                    </button>
-                    {quickResult.tracking_url && (
-                      <a
-                        href={quickResult.tracking_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded text-xs font-semibold flex items-center gap-1"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        Acompanhar Envio
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Ações do resultado */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
-                <span className="text-slate-500">
-                  Total: <strong className="text-zeiq-black">{quickResult.total_pieces} peças</strong> ({quickResult.items?.length || 0} modelos)
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleReorder(quickResult)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-zeiq-black rounded-lg font-bold text-xs"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-slate-700" />
-                    Repetir Pedido
-                  </button>
-
-                  <a
-                    href={getWhatsAppOrderLink(quickResult)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    Falar no WhatsApp
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 4. Cards de Métricas em Tempo Real */}
+        {/* 3. Cards de Métricas em Tempo Real */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           <div className="bg-white border border-slate-200/90 rounded-2xl p-3.5 sm:p-5 shadow-xs hover:border-slate-300 transition-all">
             <div className="flex items-center justify-between mb-1.5 sm:mb-2">
@@ -1113,18 +909,21 @@ export default function ResellerPortalPage() {
               </div>
             </div>
 
-            {/* Campo de Busca Rápida Integrado e Botão de Atualização */}
+            {/* Campo de Busca Unificada e Botão de Atualização */}
             <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-              <div className="relative flex-1 md:w-64 shrink-0">
+              <div className="relative flex-1 md:w-72 shrink-0">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filtrar por código ou produto..."
-                  className="w-full h-9 pl-9 pr-8 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black transition-all"
+                  placeholder="Buscar por código (ex: ZEIQ-1048) ou produto..."
+                  className="w-full h-10 pl-9 pr-9 text-xs bg-[#f8f9fa] hover:bg-slate-100/70 focus:bg-white border border-slate-200 focus:border-zeiq-black rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black transition-all font-medium"
                 />
-                {searchQuery && (
+                {onlineSearching && (
+                  <span className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 border-2 border-zeiq-orange border-t-transparent rounded-full animate-spin pointer-events-none" />
+                )}
+                {searchQuery && !onlineSearching && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
@@ -1140,7 +939,7 @@ export default function ResellerPortalPage() {
                 type="button"
                 onClick={() => loadAllOrders(false)}
                 disabled={refreshing || loading}
-                className="h-9 px-3 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-zeiq-black transition-all shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 shadow-2xs"
+                className="h-10 px-3.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-zeiq-black transition-all shrink-0 flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 shadow-2xs"
                 title="Sincronizar status dos pedidos em tempo real"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-zeiq-orange ${refreshing ? 'animate-spin' : ''}`} />
