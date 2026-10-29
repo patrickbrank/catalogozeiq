@@ -248,38 +248,46 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
-    // 2. Busca dados completos do revendedor vinculado
+    // 2. Busca dados completos do revendedor vinculado e resolve chaves estrangeiras
     let resellerRecord: Reseller | null = null;
+    let resolvedResellerId: string | null = null;
+    let resolvedRepresentativeUserId: string | null = null;
+
     if (targetResellerId) {
       try {
-        // Tenta buscar na tabela 'resellers' por ID
+        // Tenta buscar na tabela 'resellers' por id ou por user_id
         const { data: resData } = await client
           .from('resellers')
           .select('*')
-          .eq('id', targetResellerId)
+          .or(`id.eq.${targetResellerId},user_id.eq.${targetResellerId}`)
           .maybeSingle();
 
         if (resData) {
           resellerRecord = resData as Reseller;
+          resolvedResellerId = resData.id;
+          resolvedRepresentativeUserId = resData.user_id;
         } else {
-          // Tenta buscar na tabela 'resellers' por user_id
-          const { data: resByUserId } = await client
-            .from('resellers')
+          // Fallback para perfis com role 'representative'
+          const { data: legacyRep } = await client
+            .from('profiles')
             .select('*')
-            .eq('user_id', targetResellerId)
+            .eq('id', targetResellerId)
             .maybeSingle();
 
-          if (resByUserId) {
-            resellerRecord = resByUserId as Reseller;
-          } else {
-            // Fallback para perfis legados com role 'representative'
-            const { data: legacyRep } = await client
-              .from('profiles')
+          if (legacyRep) {
+            resolvedRepresentativeUserId = legacyRep.id;
+
+            // Busca na tabela resellers pelo email ou user_id
+            const { data: resByProf } = await client
+              .from('resellers')
               .select('*')
-              .eq('id', targetResellerId)
+              .or(`user_id.eq.${legacyRep.id},email.eq.${legacyRep.email}`)
               .maybeSingle();
 
-            if (legacyRep) {
+            if (resByProf) {
+              resellerRecord = resByProf as Reseller;
+              resolvedResellerId = resByProf.id;
+            } else {
               resellerRecord = {
                 id: legacyRep.id,
                 name: legacyRep.contact_name || legacyRep.store_name || legacyRep.email,
@@ -303,13 +311,12 @@ export async function POST(request: NextRequest) {
       order_number: generatedNumber,
       customer_id: user?.id || null,
       user_id: user?.id || null,
-      reseller_id: resellerRecord?.id || targetResellerId || null,
+      reseller_id: resolvedResellerId,
       reseller_name: resellerRecord?.name || null,
       reseller_whatsapp: resellerRecord?.whatsapp || null,
       reseller_email: resellerRecord?.email || null,
-      representative_id: resellerRecord?.user_id || resellerRecord?.id || targetResellerId || null,
-      representative_name: resellerRecord?.name || null,
-      buyer_name: buyer_name?.trim() || userProf?.contact_name || 'Revendedor Zeiq',
+      representative_id: resolvedRepresentativeUserId,
+      buyer_name: buyer_name?.trim() || userProf?.contact_name || 'Lojista Zeiq',
       buyer_company: buyer_company?.trim() || userProf?.store_name || null,
       buyer_phone: buyer_phone?.trim() || userProf?.phone || '',
       buyer_email: buyer_email?.trim() || user?.email || null,
@@ -325,13 +332,14 @@ export async function POST(request: NextRequest) {
       .select('*')
       .single();
 
-    // Se as novas colunas ainda não tiverem sido migradas no banco, realiza retentativa compatível
+    // Se as novas colunas opcionais ainda não tiverem sido migradas no banco, realiza retentativa compatível
     if (error && (error.message?.includes('customer_id') || error.message?.includes('reseller_id') || error.message?.includes('reseller_name'))) {
       delete insertPayload.customer_id;
       delete insertPayload.reseller_id;
       delete insertPayload.reseller_name;
       delete insertPayload.reseller_whatsapp;
       delete insertPayload.reseller_email;
+      delete insertPayload.representative_id;
 
       const retry = await client
         .from('orders')
@@ -342,7 +350,19 @@ export async function POST(request: NextRequest) {
       error = retry.error;
     }
 
-    const finalOrder = data || insertPayload;
+    if (error || !data) {
+      console.error('❌ Falha ao salvar pedido no Supabase:', error);
+      return NextResponse.json(
+        {
+          success: false,
+          savedToDb: false,
+          error: error?.message || 'Falha ao gravar pedido no banco de dados.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const finalOrder = data;
 
     // 3. REGRA DE OURO: Notificação do pedido vai APENAS para o Revendedor dono daquele cliente
     // O envio do pedido NÃO vai para o Admin Master (Admin apenas visualiza se quiser).
@@ -394,7 +414,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      savedToDb: !error,
+      savedToDb: true,
       order: finalOrder,
       orderNumber: finalOrder.order_number,
       whatsappUrl: notificationResult?.whatsappLink || null,

@@ -126,6 +126,9 @@ export function QuoteDrawer() {
       });
 
       const data = await res.json();
+      if (!res.ok || !data.success || data.savedToDb === false) {
+        throw new Error(data.error || 'Falha ao registrar pedido no servidor. Seus itens continuam salvos no carrinho.');
+      }
       const confirmedNumber = data?.orderNumber || generatedNumber;
 
       // Salva imediatamente no histórico local do navegador para exibição rápida em Meus Pedidos
