@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
   // Estados Globais do Painel
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'banners' | 'settings' | 'users' | 'categories' | 'resellers'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'banners' | 'users' | 'categories' | 'resellers'>('products');
 
   // Estados para Gestão de Revendedores (Admin Master)
   const [adminResellers, setAdminResellers] = useState<any[]>([]);
@@ -1821,23 +1821,6 @@ export default function AdminDashboardPage() {
               }`}>
                 {banners.length}/5
               </span>
-            </button>
-          )}
-
-          {/* Aba Contato: Apenas Admin/Master */}
-          {isCurrentUserAdminOrMaster && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
-              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-                activeTab === 'settings'
-                  ? 'bg-zeiq-black text-white shadow-xs'
-                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-              <span className="sm:hidden">Contato</span>
-              <span className="hidden sm:inline">WhatsApp & Contato</span>
             </button>
           )}
 
@@ -4067,112 +4050,6 @@ export default function AdminDashboardPage() {
                 })}
               </div>
             )}
-          </div>
-        )}
-
-        {/* ======================================================== */}
-        {/* ABA 6: CONFIGURAÇÕES COMERCIAIS (WHATSAPP & E-MAIL)      */}
-        {/* ======================================================== */}
-        {activeTab === 'settings' && (
-          <div className="max-w-3xl space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
-              <h2 className="text-base sm:text-lg font-black text-zeiq-black tracking-tight flex items-center gap-2 mb-1">
-                <Settings className="w-5 h-5 text-zeiq-orange" />
-                <span>Configurações de Contato & Pedidos</span>
-              </h2>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Configure os canais diretos para onde as cotações, pedidos e dúvidas comerciais de revenda serão encaminhados.
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-6">
-              {/* WhatsApp Comercial */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-emerald-500" />
-                  <span>WhatsApp Comercial para Recebimento de Pedidos</span>
-                </label>
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <input
-                    type="text"
-                    required
-                    value={settings?.whatsappNumber || ''}
-                    onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
-                    placeholder="Ex: 5516991667020 ou (16) 99166-7020"
-                    className="flex-1 px-3.5 py-2.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl font-mono text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                  />
-                  {settings?.whatsappNumber && (
-                    <a
-                      href={`https://wa.me/${settings.whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Olá! Teste de canal comercial Zeiq.')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Testar WhatsApp</span>
-                    </a>
-                  )}
-                </div>
-                <p className="text-xs text-slate-400">
-                  Insira com código do país e DDD (ex: 5516991667020). Quando o cliente clicar em &quot;Enviar Pedido no WhatsApp&quot; na gaveta de cotação ou no rodapé, a mensagem será aberta para este número.
-                </p>
-              </div>
-
-              {/* E-mail Comercial */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-blue-500" />
-                  <span>E-mail Comercial de Atendimento</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={settings?.contactEmail || ''}
-                  onChange={(e) => setSettings({ ...settings, contactEmail: e.target.value })}
-                  placeholder="Ex: contato@zeiq.com.br"
-                  className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
-                <p className="text-xs text-slate-400">
-                  E-mail exibido no rodapé do catálogo e no portal do revendedor.
-                </p>
-              </div>
-
-              {/* Nome da Marca / Loja */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-zeiq-black flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-slate-500" />
-                  <span>Nome da Marca / Catálogo</span>
-                </label>
-                <input
-                  type="text"
-                  value={settings?.siteName || ''}
-                  onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
-                  placeholder="Zeiq Sports"
-                  className="w-full px-3.5 py-2.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
-              </div>
-
-              {/* Botão Salvar */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
-                <button
-                  type="submit"
-                  disabled={savingSettings}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95"
-                >
-                  {savingSettings ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Salvando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Salvar Configurações Comerciais</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
           </div>
         )}
 

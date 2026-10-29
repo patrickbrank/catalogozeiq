@@ -1,22 +1,35 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Package,
   Truck,
   MessageCircle,
-  Mail,
-  Clock,
   ShieldCheck,
-  ArrowRight,
   Layers,
   ArrowUp,
-  Sparkles,
-  PhoneCall,
+  ExternalLink,
 } from 'lucide-react';
 import { StoreSettings } from '@/types';
+
+function InstagramIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  );
+}
 
 interface FooterProps {
   settings?: StoreSettings;
@@ -24,45 +37,13 @@ interface FooterProps {
 
 export function Footer({ settings: initialSettings }: FooterProps) {
   const currentYear = new Date().getFullYear();
-  const [settings, setSettings] = useState<StoreSettings | null>(initialSettings || null);
-
-  useEffect(() => {
-    if (!initialSettings) {
-      fetch('/api/settings')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.settings) {
-            setSettings(data.settings);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [initialSettings]);
-
-  const rawPhone = settings?.whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020';
-  const cleanPhone = rawPhone.replace(/\D/g, '');
-  const contactEmail = settings?.contactEmail || process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br';
-
-  const formatDisplayPhone = (digits: string) => {
-    const nums = digits.replace(/\D/g, '');
-    if (nums.length === 13 && nums.startsWith('55')) {
-      const ddd = nums.slice(2, 4);
-      const part1 = nums.slice(4, 9);
-      const part2 = nums.slice(9);
-      return `(${ddd}) ${part1}-${part2}`;
-    }
-    if (nums.length === 11) {
-      return `(${nums.slice(0, 2)}) ${nums.slice(2, 7)}-${nums.slice(7)}`;
-    }
-    return rawPhone;
-  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <footer className="bg-zeiq-black text-slate-400 font-sans border-t border-zeiq-charcoal relative overflow-hidden">
+    <footer className="bg-black text-slate-400 font-sans border-t border-white/10 relative overflow-hidden">
       
       {/* 1. FAIXA SUPERIOR: 4 PILARES B2B COM ACABAMENTO MODERNO */}
       <div className="border-b border-white/[0.08] bg-white/[0.015]">
@@ -104,8 +85,8 @@ export function Footer({ settings: initialSettings }: FooterProps) {
                 <MessageCircle className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Cotação Rápida</h4>
-                <p className="text-xs text-slate-400 leading-snug mt-0.5">Atendimento comercial consultivo direto no WhatsApp.</p>
+                <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Atendimento Dedicado</h4>
+                <p className="text-xs text-slate-400 leading-snug mt-0.5">Negociação direta com o revendedor oficial da sua região.</p>
               </div>
             </div>
 
@@ -115,10 +96,10 @@ export function Footer({ settings: initialSettings }: FooterProps) {
 
       {/* 2. CORPO PRINCIPAL DO FOOTER */}
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-10 py-10 sm:py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12">
           
-          {/* COLUNA 1: MARCA & INSTITUCIONAL (4 Colunas no Desktop) */}
-          <div className="lg:col-span-4 space-y-4">
+          {/* COLUNA 1: MARCA & INSTITUCIONAL (5 Colunas no Desktop) */}
+          <div className="lg:col-span-5 space-y-4">
             <Link href="/" className="inline-block transition-opacity hover:opacity-85">
               <div className="relative h-8 w-32 brightness-0 invert flex items-center">
                 <Image
@@ -131,8 +112,8 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               </div>
             </Link>
 
-            <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
-              Marca oficial especializada em Beach Tennis, vestuário técnico de alta performance e equipamentos premium para lojistas e revendedores autorizados.
+            <p className="text-xs text-slate-400 leading-relaxed max-w-md">
+              Marca oficial especializada em Beach Tennis, vestuário técnico de alta performance e equipamentos esportivos para lojistas e arenas credenciadas em todo o Brasil.
             </p>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -141,56 +122,56 @@ export function Footer({ settings: initialSettings }: FooterProps) {
                 Catálogo B2B 2026
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-bold text-slate-300">
-                Marca Oficial
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-bold text-slate-300">
                 Venda PJ
               </span>
             </div>
+
+            <div className="pt-2">
+              <a
+                href="https://www.instagram.com/zeiq.bt"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/20 text-xs text-slate-300 hover:text-white transition-all group"
+              >
+                <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shrink-0">
+                  <InstagramIcon className="w-3.5 h-3.5" />
+                </div>
+                <span>Instagram Oficial: <strong className="text-white font-mono">@zeiq.bt</strong></span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors ml-0.5" />
+              </a>
+            </div>
           </div>
 
-          {/* COLUNA 2: NAVEGAÇÃO DE LINHAS (2 Colunas no Desktop) */}
-          <div className="lg:col-span-2 space-y-3.5">
+          {/* COLUNA 2: NAVEGAÇÃO DE LINHAS (4 Colunas no Desktop) */}
+          <div className="lg:col-span-4 space-y-3.5">
             <h4 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-0.5 bg-zeiq-orange rounded-full inline-block" />
               <span>Coleções Zeiq</span>
             </h4>
-            <ul className="space-y-2.5 text-xs">
-              <li>
-                <Link href="/" className="text-slate-400 hover:text-white transition-colors block">
-                  Catálogo Completo
-                </Link>
-              </li>
-              <li>
-                <Link href="/?dept=vestuario-masculino" className="text-slate-400 hover:text-white transition-colors block">
-                  Linha Masculina
-                </Link>
-              </li>
-              <li>
-                <Link href="/?dept=vestuario-feminino" className="text-slate-400 hover:text-white transition-colors block">
-                  Linha Feminina
-                </Link>
-              </li>
-              <li>
-                <Link href="/?dept=equipamentos" className="text-slate-400 hover:text-white transition-colors block">
-                  Raquetes & Capas
-                </Link>
-              </li>
-              <li>
-                <Link href="/?dept=acessorios" className="text-slate-400 hover:text-white transition-colors block">
-                  Bolas & Acessórios
-                </Link>
-              </li>
-              <li>
-                <Link href="/?dept=lancamentos" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1">
-                  <span>🔥 Novidades 2026</span>
-                </Link>
-              </li>
-            </ul>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
+              <Link href="/" className="text-slate-400 hover:text-white transition-colors block">
+                Catálogo Completo
+              </Link>
+              <Link href="/?dept=vestuario-masculino" className="text-slate-400 hover:text-white transition-colors block">
+                Linha Masculina
+              </Link>
+              <Link href="/?dept=vestuario-feminino" className="text-slate-400 hover:text-white transition-colors block">
+                Linha Feminina
+              </Link>
+              <Link href="/?dept=equipamentos" className="text-slate-400 hover:text-white transition-colors block">
+                Raquetes & Capas
+              </Link>
+              <Link href="/?dept=acessorios" className="text-slate-400 hover:text-white transition-colors block">
+                Bolas & Acessórios
+              </Link>
+              <Link href="/?dept=lancamentos" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1">
+                <span>🔥 Novidades 2026</span>
+              </Link>
+            </div>
           </div>
 
-          {/* COLUNA 3: ÁREA DO LOJISTA & PEDIDOS (2 Colunas no Desktop) */}
-          <div className="lg:col-span-2 space-y-3.5">
+          {/* COLUNA 3: ÁREA DO LOJISTA & PEDIDOS (3 Colunas no Desktop) */}
+          <div className="lg:col-span-3 space-y-3.5">
             <h4 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-0.5 bg-sky-400 rounded-full inline-block" />
               <span>Área do Lojista</span>
@@ -203,78 +184,20 @@ export function Footer({ settings: initialSettings }: FooterProps) {
               </li>
               <li>
                 <Link href="/portal" className="text-slate-400 hover:text-white transition-colors block">
+                  Acompanhamento de Status
+                </Link>
+              </li>
+              <li>
+                <Link href="/portal" className="text-slate-400 hover:text-white transition-colors block">
                   Repetir Pedido Anterior
                 </Link>
               </li>
+              <li>
+                <Link href="/login" className="text-slate-400 hover:text-white transition-colors block">
+                  Acessar Conta B2B
+                </Link>
+              </li>
             </ul>
-          </div>
-
-          {/* COLUNA 4: CARD COMERCIAL WHATSAPP & CONTATO (4 Colunas no Desktop) */}
-          <div className="lg:col-span-4">
-            <div className="bg-gradient-to-b from-white/[0.07] to-white/[0.02] border border-white/10 rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden space-y-4">
-              
-              <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">Atendimento Comercial</span>
-                </div>
-                <span className="text-xs font-medium text-slate-400">Atacado B2B</span>
-              </div>
-
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Tire dúvidas com nossos consultores de revenda, solicite a tabela de faturamento ou envie sua lista personalizada.
-              </p>
-
-              {/* Botão de Destaque WhatsApp com Presença Visual Forte */}
-              <a
-                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent('Olá Zeiq Sports! Gostaria de informações comerciais para revenda.')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full h-11 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-emerald-950/50 hover:shadow-emerald-900/40 active:scale-98"
-              >
-                <MessageCircle className="w-4 h-4 fill-current text-white shrink-0" />
-                <span>Conversar no WhatsApp</span>
-              </a>
-
-              <div className="space-y-2 pt-1 text-xs">
-                <div className="flex items-center justify-between text-slate-400">
-                  <span className="flex items-center gap-1.5 text-slate-300">
-                    <PhoneCall className="w-3.5 h-3.5 text-slate-400" />
-                    <span>WhatsApp:</span>
-                  </span>
-                  <a
-                    href={`https://wa.me/${cleanPhone}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono font-semibold text-white hover:text-emerald-400 transition-colors"
-                  >
-                    {formatDisplayPhone(cleanPhone)}
-                  </a>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-400">
-                  <span className="flex items-center gap-1.5 text-slate-300">
-                    <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    <span>E-mail:</span>
-                  </span>
-                  <a
-                    href={`mailto:${contactEmail}`}
-                    className="font-medium text-slate-300 hover:text-white transition-colors truncate max-w-[190px]"
-                  >
-                    {contactEmail}
-                  </a>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-400 pt-1 border-t border-white/[0.06]">
-                  <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Horário Comercial:</span>
-                  </span>
-                  <span className="text-xs font-medium text-slate-300">08h às 18h (Seg - Sex)</span>
-                </div>
-              </div>
-
-            </div>
           </div>
 
         </div>
@@ -292,10 +215,11 @@ export function Footer({ settings: initialSettings }: FooterProps) {
             <Link href="/portal" className="text-slate-400 hover:text-white transition-colors whitespace-nowrap">
               Portal do Lojista
             </Link>
+            <span className="text-slate-700">•</span>
             <button
               type="button"
               onClick={scrollToTop}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-white/[0.08] active:scale-95 whitespace-nowrap ml-1 sm:ml-2"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/10 text-slate-300 hover:text-white transition-all border border-white/[0.08] active:scale-95 whitespace-nowrap ml-1 sm:ml-2 cursor-pointer"
               aria-label="Voltar ao início da página"
             >
               <span>Subir ao topo</span>

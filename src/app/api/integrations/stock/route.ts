@@ -113,7 +113,7 @@ function normalizeStockItem(item: any) {
     ''
   ).toString().trim();
 
-  // Grade completa de tamanhos
+  // Grade completa de tamanhos enviada como objeto
   const rawGrade = item.stock_by_size || item.grade || item.tamanhos || item.sizes;
   let stockBySize: Record<string, number> | null = null;
   if (rawGrade && typeof rawGrade === 'object' && !Array.isArray(rawGrade)) {
@@ -123,17 +123,42 @@ function normalizeStockItem(item: any) {
     }
   }
 
-  // Tamanho individual
+  // Tamanho individual informado explicitamente
   let size = (item.size || item.tamanho || item.tam || '').toString().trim() || null;
-
-  // Se SKU vier como "0214.013-M" e o tamanho não tiver sido informado
   let cleanSku = rawSku;
-  if (!size && cleanSku.includes('-')) {
-    const parts = cleanSku.split('-');
-    if (parts.length === 2 && parts[1].length <= 5) {
-      cleanSku = parts[0].trim();
-      size = parts[1].trim();
+
+  // Extração inteligente de tamanho embutido no SKU:
+  // 1. Delimitador '/' (Padrão principal do ERP Zeiq: 201.001/G ou 401.001/33/34 ou 311.003/P34/6)
+  if (!size && cleanSku.includes('/')) {
+    const firstSlash = cleanSku.indexOf('/');
+    size = cleanSku.slice(firstSlash + 1).trim();
+    cleanSku = cleanSku.slice(0, firstSlash).trim();
+  }
+  // 2. Delimitador '-' (ex: 0214.013-M)
+  else if (!size && cleanSku.includes('-')) {
+    const lastDash = cleanSku.lastIndexOf('-');
+    const potentialSize = cleanSku.slice(lastDash + 1).trim();
+    if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
+      size = potentialSize;
+      cleanSku = cleanSku.slice(0, lastDash).trim();
     }
+  }
+  // 3. Delimitador '_' (ex: 0214.013_M)
+  else if (!size && cleanSku.includes('_')) {
+    const lastUnderscore = cleanSku.lastIndexOf('_');
+    const potentialSize = cleanSku.slice(lastUnderscore + 1).trim();
+    if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
+      size = potentialSize;
+      cleanSku = cleanSku.slice(0, lastUnderscore).trim();
+    }
+  }
+
+  // Mapeamento de abreviações e variações conhecidas de calçados / sapatilhas do ERP
+  if (size) {
+    const upperSize = size.toUpperCase();
+    if (upperSize === 'P34/6' || upperSize === 'P33/6') size = 'P 33/36';
+    else if (upperSize === 'M37/9' || upperSize === 'M37/4') size = 'M 37/40';
+    else if (upperSize === 'G40/2' || upperSize === 'G40/4') size = 'G 40/44';
   }
 
   // Quantidade / Saldo
@@ -141,13 +166,53 @@ function normalizeStockItem(item: any) {
   const quantity = rawQty !== undefined && rawQty !== null ? Math.max(0, parseInt(String(rawQty), 10) || 0) : null;
 
   return {
-    rawSku: cleanSku,
+    cleanSku,
     originalSku: rawSku,
     rawEan,
     stockBySize,
     size,
     quantity,
   };
+}
+
+// Gera permutações inteligentes de SKU para encontrar produtos no banco
+function getSkuVariations(cleanSku: string): string[] {
+  const vars = new Set<string>();
+  const clean = cleanSku.trim();
+  if (!clean) return [];
+
+  vars.add(clean);
+
+  // 1. Variações do prefixo MG (bidirecional)
+  if (/^MG/i.test(clean)) {
+    const noMg = clean.slice(2);
+    vars.add(noMg);
+    if (noMg.startsWith('0')) vars.add(noMg.replace(/^0+/, ''));
+    else if (/^[0-9]/.test(noMg)) vars.add('0' + noMg);
+    if (noMg.includes('.')) vars.add(noMg.replace(/\./g, ''));
+  } else {
+    vars.add('MG' + clean);
+    if (clean.startsWith('0')) vars.add('MG' + clean.replace(/^0+/, ''));
+    else if (/^[0-9]/.test(clean)) vars.add('MG0' + clean);
+    if (clean.includes('.')) vars.add(('MG' + clean).replace(/\./g, ''));
+  }
+
+  // 2. Variações de zero à esquerda (ex: 0214.013 <-> 214.013 ou 401.019 <-> 0401.019)
+  if (clean.startsWith('0')) {
+    vars.add(clean.replace(/^0+/, ''));
+  } else if (/^[0-9]/.test(clean)) {
+    vars.add('0' + clean);
+  }
+
+  // 3. Variações com e sem ponto
+  if (clean.includes('.')) {
+    vars.add(clean.replace(/\./g, ''));
+  } else if (/^[0-9]{6,8}$/.test(clean)) {
+    if (clean.length === 6) vars.add(clean.slice(0, 3) + '.' + clean.slice(3));
+    else if (clean.length === 7) vars.add(clean.slice(0, 4) + '.' + clean.slice(4));
+  }
+
+  return Array.from(vars);
 }
 
 // Localiza o produto no catálogo com tolerância a variações de SKU
@@ -167,55 +232,26 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string)
 
   if (!cleanSku) return null;
 
-  // 2. Busca exata por code_sku
-  const { data: byExactSku } = await adminSupabase
+  // 2. Busca pelas permutações de SKU (exata, sem/com MG, sem/com zero inicial, sem/com ponto)
+  const variations = getSkuVariations(cleanSku);
+  const orClause = variations.map((v) => `code_sku.ilike.${v}`).join(',');
+
+  const { data: bySku } = await adminSupabase
     .from('products')
     .select('id, name, code_sku, stock_by_size, total_stock')
-    .ilike('code_sku', cleanSku)
-    .maybeSingle();
+    .or(orClause)
+    .limit(1);
 
-  if (byExactSku) return byExactSku;
+  if (bySku && bySku.length > 0) return bySku[0];
 
-  // 3. Variações comuns de SKU entre ERPs brasileiros:
-  const variations: string[] = [];
-
-  // a) Com ou sem zero inicial (ex: "0214.013" <-> "214.013")
-  if (cleanSku.startsWith('0')) {
-    variations.push(cleanSku.replace(/^0+/, ''));
-  } else if (/^[0-9]/.test(cleanSku)) {
-    variations.push(`0${cleanSku}`);
-  }
-
-  // b) Com ou sem ponto (ex: "0214.013" <-> "0214013" ou "401.019" <-> "401019")
-  if (cleanSku.includes('.')) {
-    variations.push(cleanSku.replace(/\./g, ''));
-  } else if (/^[0-9]{6,8}$/.test(cleanSku)) {
-    // Tenta formato padrão com ponto se tiver 7 dígitos (ex: 401019 -> 401.019)
-    if (cleanSku.length === 6) {
-      variations.push(`${cleanSku.slice(0, 3)}.${cleanSku.slice(3)}`);
-    } else if (cleanSku.length === 7) {
-      variations.push(`${cleanSku.slice(0, 4)}.${cleanSku.slice(4)}`);
-    }
-  }
-
-  for (const candidate of variations) {
-    const { data: byCand } = await adminSupabase
-      .from('products')
-      .select('id, name, code_sku, stock_by_size, total_stock')
-      .ilike('code_sku', candidate)
-      .maybeSingle();
-
-    if (byCand) return byCand;
-  }
-
-  // 4. Fallback pelo prefixo do nome do produto (ex: "401.019 - Chinelo...")
+  // 3. Fallback pelo prefixo do nome do produto no catálogo (ex: "401.019 - Chinelo...")
   const { data: byNamePrefix } = await adminSupabase
     .from('products')
     .select('id, name, code_sku, stock_by_size, total_stock')
-    .ilike('name', `${cleanSku}%`)
-    .maybeSingle();
+    .or(`name.ilike.${cleanSku} - %,name.ilike.${cleanSku}%`)
+    .limit(1);
 
-  if (byNamePrefix) return byNamePrefix;
+  if (byNamePrefix && byNamePrefix.length > 0) return byNamePrefix[0];
 
   return null;
 }
@@ -327,6 +363,82 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Agrupa e consolida as atualizações em memória por produto para garantir atomicidade e alta performance
+    interface ConsolidatedProductUpdate {
+      product: any;
+      stockBySize: Record<string, number>;
+      totalStock: number;
+      identifiers: string[];
+    }
+
+    const productUpdates = new Map<string, ConsolidatedProductUpdate>();
+    const notFoundItems: Array<{ identifier: string; message: string }> = [];
+    const invalidItems: Array<{ identifier: string; message: string }> = [];
+
+    for (const rawItem of rawItems) {
+      const { cleanSku, originalSku, rawEan, stockBySize, size, quantity } = normalizeStockItem(rawItem);
+      const identifier = rawEan || originalSku || cleanSku || 'não informado';
+
+      if (!cleanSku && !rawEan) {
+        invalidItems.push({
+          identifier,
+          message: 'É obrigatório informar ao menos uma chave: "sku", "codigo" ou "ean".',
+        });
+        continue;
+      }
+
+      try {
+        const product = await findProduct(adminSupabase, cleanSku, rawEan);
+
+        if (!product) {
+          notFoundItems.push({
+            identifier,
+            message: `Produto com identificador "${identifier}" não foi localizado no catálogo ativo.`,
+          });
+          continue;
+        }
+
+        // Obtém ou inicializa a consolidação deste produto
+        let entry = productUpdates.get(product.id);
+        if (!entry) {
+          entry = {
+            product,
+            stockBySize: { ...(product.stock_by_size || {}) },
+            totalStock: product.total_stock || 0,
+            identifiers: [],
+          };
+          productUpdates.set(product.id, entry);
+        }
+        if (!entry.identifiers.includes(identifier)) {
+          entry.identifiers.push(identifier);
+        }
+
+        // CASO A: Grade completa de tamanhos informada como objeto
+        if (stockBySize && Object.keys(stockBySize).length > 0) {
+          entry.stockBySize = { ...entry.stockBySize, ...stockBySize };
+        }
+        // CASO B: Atualização de tamanho pontual (ex: 201.001/G ou 401.001/33/34 ou item.size: "M")
+        else if (size) {
+          const cleanSize = size.trim();
+          entry.stockBySize[cleanSize] = quantity ?? 0;
+        }
+        // CASO C: Produto simples (sem tamanho / tamanho único)
+        else {
+          const targetQty = quantity ?? 0;
+          entry.stockBySize = { _padrao: targetQty };
+        }
+
+        // Recalcula o estoque total consolidado
+        entry.totalStock = Object.values(entry.stockBySize).reduce((acc, q) => acc + (Number(q) || 0), 0);
+      } catch (err: any) {
+        invalidItems.push({
+          identifier,
+          message: err.message || 'Erro inesperado ao processar item.',
+        });
+      }
+    }
+
+    // Grava no banco de dados de forma consolidada e atômica (1 UPDATE por produto)
     const results: Array<{
       identifier: string;
       product_name?: string;
@@ -339,96 +451,62 @@ export async function POST(request: NextRequest) {
     let updatedCount = 0;
     let errorsCount = 0;
 
-    for (const rawItem of rawItems) {
-      const { rawSku, originalSku, rawEan, stockBySize, size, quantity } = normalizeStockItem(rawItem);
-      const identifier = rawEan || originalSku || rawSku || 'não informado';
-
-      if (!rawSku && !rawEan) {
-        errorsCount++;
-        results.push({
-          identifier,
-          status: 'error',
-          message: 'É obrigatório informar ao menos uma chave: "sku", "codigo" ou "ean".',
-        });
-        continue;
-      }
-
+    for (const [prodId, data] of productUpdates.entries()) {
       try {
-        const product = await findProduct(adminSupabase, rawSku, rawEan);
-
-        if (!product) {
-          errorsCount++;
-          results.push({
-            identifier,
-            status: 'not_found',
-            message: `Produto com identificador "${identifier}" não foi localizado no catálogo.`,
-          });
-          continue;
-        }
-
-        let newStockBySize: Record<string, number> = {};
-        let newTotalStock = 0;
-
-        // CASO A: Grade completa de tamanhos informada
-        if (stockBySize && Object.keys(stockBySize).length > 0) {
-          newStockBySize = stockBySize;
-          newTotalStock = Object.values(newStockBySize).reduce((acc, q) => acc + q, 0);
-        }
-        // CASO B: Atualização de tamanho pontual
-        else if (size) {
-          const cleanSize = size.trim();
-          const targetQty = quantity ?? 0;
-
-          const currentStock: Record<string, number> = { ...(product.stock_by_size || {}) };
-          currentStock[cleanSize] = targetQty;
-
-          newStockBySize = currentStock;
-          newTotalStock = Object.values(newStockBySize).reduce((acc, q) => acc + (Number(q) || 0), 0);
-        }
-        // CASO C: Produto simples (sem tamanho / tamanho único)
-        else {
-          const targetQty = quantity ?? 0;
-          newTotalStock = targetQty;
-          newStockBySize = { _padrao: targetQty };
-        }
-
-        // Grava no banco de dados
         const { error: updateError } = await adminSupabase
           .from('products')
           .update({
-            stock_by_size: newStockBySize,
-            total_stock: newTotalStock,
+            stock_by_size: data.stockBySize,
+            total_stock: data.totalStock,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', product.id);
+          .eq('id', prodId);
 
         if (updateError) {
           errorsCount++;
           results.push({
-            identifier,
-            product_name: product.name,
+            identifier: data.identifiers[0] || data.product.code_sku,
+            product_name: data.product.name,
             status: 'error',
             message: `Erro ao salvar no banco: ${updateError.message}`,
           });
         } else {
           updatedCount++;
           results.push({
-            identifier,
-            product_name: product.name,
+            identifier: data.identifiers[0] || data.product.code_sku,
+            product_name: data.product.name,
             status: 'updated',
-            total_stock: newTotalStock,
-            stock_by_size: newStockBySize,
+            total_stock: data.totalStock,
+            stock_by_size: data.stockBySize,
           });
         }
-      } catch (err: any) {
+      } catch (saveErr: any) {
         errorsCount++;
         results.push({
-          identifier,
+          identifier: data.identifiers[0] || data.product.code_sku,
+          product_name: data.product.name,
           status: 'error',
-          message: err.message || 'Erro inesperado ao processar item.',
+          message: saveErr.message || 'Falha ao salvar produto.',
         });
       }
     }
+
+    // Registra no resultado itens não encontrados no catálogo ou inválidos
+    notFoundItems.forEach((nf) => {
+      results.push({
+        identifier: nf.identifier,
+        status: 'not_found',
+        message: nf.message,
+      });
+    });
+
+    invalidItems.forEach((inv) => {
+      results.push({
+        identifier: inv.identifier,
+        status: 'error',
+        message: inv.message,
+      });
+    });
 
     // Limpa cache em memória e revalida páginas estáticas Next.js para refletir imediatamente
     try {
@@ -441,11 +519,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      success: true,
+      success: errorsCount === 0 || updatedCount > 0,
       summary: {
         total_received: rawItems.length,
-        updated: updatedCount,
-        errors_count: errorsCount,
+        products_updated: updatedCount,
+        not_found_in_catalog: notFoundItems.length,
+        errors_count: errorsCount + invalidItems.length,
       },
       results,
     });

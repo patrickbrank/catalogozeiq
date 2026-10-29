@@ -9,6 +9,7 @@ import {
   Mail,
   ShieldCheck,
   ArrowUp,
+  Clock,
   Sparkles,
 } from 'lucide-react';
 
@@ -40,12 +41,15 @@ export function PanelFooter() {
   };
 
   return (
-    <footer className="mt-16 border-t border-white/5 bg-zeiq-dark/80 backdrop-blur-md text-slate-400 font-sans">
-      <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+    <footer className="mt-16 border-t border-white/10 bg-black text-slate-400 font-sans relative overflow-hidden">
+      {/* Luz ambiente de profundidade no topo */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
+      <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          {/* Coluna 1: Marca & Posicionamento Zeiq */}
-          <div className="lg:col-span-5 space-y-3.5">
+          {/* Coluna 1: Marca & Posicionamento Zeiq B2B */}
+          <div className="lg:col-span-7 space-y-4">
             <div className="flex items-center gap-3">
               <div className="relative h-7 w-28 brightness-0 invert flex items-center">
                 <Image
@@ -56,91 +60,56 @@ export function PanelFooter() {
                   className="h-full w-auto object-contain object-left"
                 />
               </div>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-zeiq-orange/10 text-zeiq-orange border border-zeiq-orange/30">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-zeiq-orange/15 text-zeiq-orange border border-zeiq-orange/30">
                 Oficial B2B
               </span>
             </div>
 
-            <p className="text-xs text-slate-400 leading-relaxed max-w-md">
-              Marca referência em Beach Tennis, vestuário esportivo técnico e equipamentos de alto rendimento. Atendimento dedicado a representantes e lojistas credenciados.
+            <p className="text-xs text-slate-400 leading-relaxed max-w-lg">
+              Marca referência em Beach Tennis, vestuário técnico de alta performance e equipamentos esportivos para arenas e lojistas credenciados em todo o território nacional.
             </p>
 
-            <div className="flex items-center gap-2 pt-1 text-xs text-slate-500">
-              <ShieldCheck className="w-4 h-4 text-zeiq-orange" />
-              <span>Ambiente comercial com isolamento seguro por carteira de revenda</span>
+            <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs text-slate-400">
+              <ShieldCheck className="w-4 h-4 text-zeiq-orange shrink-0" />
+              <span>Atendimento comercial exclusivo via carteira dedicada do seu revendedor</span>
             </div>
           </div>
 
-          {/* Coluna 2: Card Destaque Instagram Oficial (Intuitivo & Interativo) */}
-          <div className="lg:col-span-4">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/10 p-5 group hover:border-zeiq-orange/40 transition-all shadow-xl">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-lg shrink-0 group-hover:scale-105 transition-transform">
+          {/* Coluna 2: Card Instagram Oficial @zeiq.bt */}
+          <div className="lg:col-span-5">
+            <div className="rounded-2xl bg-[#0a0a0a] border border-white/10 p-5 group hover:border-white/20 transition-all shadow-2xl relative overflow-hidden">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-md shrink-0 group-hover:scale-105 transition-transform">
                     <InstagramIcon className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-zeiq-orange block">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block leading-tight">
                       Instagram Oficial
                     </span>
-                    <h4 className="text-sm font-extrabold text-white tracking-tight">
-                      @zeiqsports
+                    <h4 className="text-sm sm:text-base font-black text-white font-mono tracking-tight">
+                      @zeiq.bt
                     </h4>
                   </div>
                 </div>
 
-                <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500" />
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/[0.06] text-slate-300 border border-white/[0.08]">
+                  Oficial
                 </span>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                Acompanhe os lançamentos de novas coleções, atletas patrocinados, torneios e materiais para divulgação da sua loja.
+              <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                Acompanhe novidades da marca, lançamentos de Beach Tennis e conteúdos oficiais para divulgação da sua loja.
               </p>
 
               <a
-                href="https://www.instagram.com/zeiqsports"
+                href="https://www.instagram.com/zeiq.bt"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-pink-600 via-rose-600 to-amber-600 hover:opacity-90 active:scale-98 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                className="w-full py-2.5 px-4 bg-white hover:bg-slate-200 active:scale-98 text-zeiq-black font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
               >
-                <span>Seguir no Instagram</span>
+                <span>Acessar @zeiq.bt</span>
                 <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-
-          {/* Coluna 3: Suporte & Central Comercial Zeiq */}
-          <div className="lg:col-span-3 space-y-3">
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-              <span className="w-2 h-0.5 bg-zeiq-orange rounded-full inline-block" />
-              <span>Suporte da Matriz</span>
-            </h4>
-
-            <div className="space-y-2 text-xs">
-              <a
-                href="https://wa.me/5516991667020"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-slate-300 hover:text-emerald-400 transition-colors p-2 rounded-xl hover:bg-white/5"
-              >
-                <MessageCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-                <div>
-                  <span className="block text-[10px] text-slate-500">WhatsApp Comercial</span>
-                  <span className="font-bold text-white">(16) 9 9166-7020</span>
-                </div>
-              </a>
-
-              <a
-                href="mailto:contato@zeiq.com.br"
-                className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors p-2 rounded-xl hover:bg-white/5"
-              >
-                <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-                <div>
-                  <span className="block text-[10px] text-slate-500">E-mail Comercial</span>
-                  <span className="font-medium text-white truncate max-w-[190px]">contato@zeiq.com.br</span>
-                </div>
               </a>
             </div>
           </div>
@@ -148,9 +117,9 @@ export function PanelFooter() {
         </div>
 
         {/* Linha Final de Copyright */}
-        <div className="mt-8 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <div className="mt-10 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
-            <p>© {currentYear} Zeiq Sports. Todos os direitos reservados.</p>
+            <p className="font-medium text-slate-400">© {currentYear} Zeiq Sports. Todos os direitos reservados.</p>
             <p className="text-[11px] text-slate-600 mt-0.5">
               Catálogo de revenda e gestão B2B exclusivo para parceiros credenciados.
             </p>
@@ -165,10 +134,17 @@ export function PanelFooter() {
               Catálogo Público
             </Link>
             <span className="text-slate-700">•</span>
+            <Link
+              href="/portal"
+              className="text-slate-400 hover:text-white transition-colors text-xs font-semibold"
+            >
+              Meus Pedidos
+            </Link>
+            <span className="text-slate-700">•</span>
             <button
               type="button"
               onClick={scrollToTop}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zeiq-charcoal hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all border border-white/10 cursor-pointer active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 hover:text-white text-xs font-bold transition-all border border-white/10 cursor-pointer active:scale-95"
             >
               <span>Subir ao topo</span>
               <ArrowUp className="w-3.5 h-3.5" />
