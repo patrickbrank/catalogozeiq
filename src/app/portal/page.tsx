@@ -42,6 +42,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { createClient } from '@/lib/supabase/client';
 import { useQuoteCart } from '@/lib/store/quote-cart';
+import { AvatarIcon, ADMIN_AVATARS, resolveAvatarId } from '@/lib/constants/avatars';
 import { Order, OrderStatus, QuoteItem, StoreSettings } from '@/types';
 
 // Mapeamento dos 5 estágios de pedidos B2B
@@ -99,6 +100,7 @@ export default function ResellerPortalPage() {
   const [profile, setProfile] = useState<any>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [showDemo, setShowDemo] = useState(false);
+  const [avatarImgError, setAvatarImgError] = useState(false);
 
   // Filtros da página
   const [activeTab, setActiveTab] = useState<'all' | 'ongoing' | 'delivered' | 'cancelled'>('all');
@@ -126,9 +128,8 @@ export default function ResellerPortalPage() {
   const [editCep, setEditCep] = useState('');
   const [editCity, setEditCity] = useState('');
   const [editState, setEditState] = useState('');
-  const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string>('avatar-trophy');
   const [savingProfile, setSavingProfile] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -142,41 +143,10 @@ export default function ResellerPortalPage() {
     setEditCep(profile?.cep || meta.cep || '');
     setEditCity(profile?.city || meta.city || '');
     setEditState(profile?.state || meta.state || '');
-    setEditAvatarUrl(profile?.avatar_url || meta.avatar_url || null);
+    setEditAvatarUrl(resolveAvatarId(profile?.avatar_url || meta.avatar_url));
     setProfileMsg(null);
     setProfileError(null);
     setIsEditProfileOpen(true);
-  };
-
-  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingAvatar(true);
-    setProfileError(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch('/api/portal/profile', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (data.success && data.avatarUrl) {
-        setEditAvatarUrl(data.avatarUrl);
-        setProfile((prev: any) => ({ ...prev, avatar_url: data.avatarUrl }));
-        if (user) {
-          user.user_metadata = { ...user.user_metadata, avatar_url: data.avatarUrl };
-        }
-      } else {
-        setProfileError(data.error || 'Erro ao enviar foto.');
-      }
-    } catch {
-      setProfileError('Falha de conexão ao enviar imagem.');
-    } finally {
-      setUploadingAvatar(false);
-    }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -211,7 +181,10 @@ export default function ResellerPortalPage() {
             ...data.profile,
           };
         }
-        setProfileMsg('Dados da loja e endereço salvos com sucesso!');
+        if (typeof window !== 'undefined' && editAvatarUrl) {
+          localStorage.setItem('zeiq_admin_avatar', editAvatarUrl);
+        }
+        setProfileMsg('Dados da loja e emblema salvos com sucesso!');
         setTimeout(() => {
           setIsEditProfileOpen(false);
           setProfileMsg(null);
@@ -646,20 +619,31 @@ export default function ResellerPortalPage() {
             <div className="flex items-center w-full md:w-auto">
               {user ? (
                 <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-3 bg-slate-50 hover:bg-slate-100/70 p-2 sm:px-3.5 sm:py-2.5 rounded-2xl border border-slate-200 shadow-2xs transition-all">
-                  {/* Foto/Logo do Lojista */}
+                  {/* Foto/Logo do Lojista ou Avatar/Mood */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-zeiq-black text-white font-black flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden shadow-xs">
-                      {profile?.avatar_url || user?.user_metadata?.avatar_url ? (
-                        <img
-                          src={profile?.avatar_url || user?.user_metadata?.avatar_url}
-                          alt="Logo da loja"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xs uppercase font-mono">
-                          {(profile?.store_name?.[0] || profile?.contact_name?.[0] || user?.email?.[0] || 'Z')}
-                        </span>
-                      )}
+                      {(() => {
+                        const avatarVal = profile?.avatar_url || user?.user_metadata?.avatar_url;
+                        const isImageUrl = avatarVal && (avatarVal.startsWith('http://') || avatarVal.startsWith('https://') || avatarVal.startsWith('/'));
+                        if (isImageUrl && !avatarImgError) {
+                          return (
+                            <img
+                              src={avatarVal}
+                              alt=""
+                              onError={() => setAvatarImgError(true)}
+                              className="w-full h-full object-cover"
+                            />
+                          );
+                        }
+                        if (avatarVal && !isImageUrl) {
+                          return <AvatarIcon avatarId={avatarVal} className="w-full h-full" emojiClassName="text-2xl" />;
+                        }
+                        return (
+                          <span className="text-xs uppercase font-mono">
+                            {(profile?.store_name?.[0] || profile?.contact_name?.[0] || user?.email?.[0] || 'Z')}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     <div className="text-left min-w-0">
@@ -906,6 +890,9 @@ export default function ResellerPortalPage() {
                     {cancelledOrders.length}
                   </span>
                 </button>
+
+                {/* Respiro final para a margem de rolagem */}
+                <span className="w-3.5 sm:w-4 shrink-0 pointer-events-none" aria-hidden="true" />
               </div>
             </div>
 
@@ -1513,36 +1500,58 @@ export default function ResellerPortalPage() {
                 </div>
               )}
 
-              {/* Upload de Logo da Loja ou Foto */}
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center gap-4">
-                <div className="relative w-16 h-16 rounded-full bg-zeiq-black text-white font-black flex items-center justify-center shrink-0 border-2 border-white shadow-md overflow-hidden">
-                  {editAvatarUrl ? (
-                    <img src={editAvatarUrl} alt="Logo" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-xl uppercase">
-                      {editStoreName?.[0] || editContactName?.[0] || 'Z'}
-                    </span>
-                  )}
+              {/* Seletor de Emblema da Loja / Perfil (Estilo Apple com Emojis) */}
+              <div className="p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <AvatarIcon
+                      avatarId={resolveAvatarId(editAvatarUrl)}
+                      className="w-12 h-12 shrink-0 shadow-xs"
+                      emojiClassName="text-2xl"
+                    />
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-zeiq-black block leading-tight">
+                        Emblema da sua Loja & Perfil
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                        Identifica sua conta no catálogo, cabeçalho e pedidos.
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                    Ativo
+                  </span>
                 </div>
 
-                <div className="space-y-1.5 flex-1 min-w-0">
-                  <span className="text-xs font-bold text-zeiq-black block">
-                    Logo da Loja ou Foto de Perfil
+                {/* Grade de 12 Emblemas Esportivos */}
+                <div className="pt-2 border-t border-slate-200/60">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                    Selecione o emblema da sua arena:
                   </span>
-                  <p className="text-xs text-slate-500">
-                    Aparece no cabeçalho e identifica sua arena/loja.
-                  </p>
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-zeiq-black rounded-lg text-xs font-bold border border-slate-200 shadow-2xs cursor-pointer transition-colors">
-                    <Camera className="w-3.5 h-3.5 text-zeiq-orange" />
-                    <span>{uploadingAvatar ? 'Enviando...' : 'Escolher Imagem'}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarFileChange}
-                      disabled={uploadingAvatar}
-                      className="hidden"
-                    />
-                  </label>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    {ADMIN_AVATARS.map((av) => {
+                      const isSelected = resolveAvatarId(editAvatarUrl) === av.id;
+                      return (
+                        <button
+                          key={av.id}
+                          type="button"
+                          onClick={() => setEditAvatarUrl(av.id)}
+                          className={`p-1.5 rounded-xl flex flex-col items-center justify-center gap-1 transition-all cursor-pointer group active:scale-95 ${
+                            isSelected
+                              ? 'bg-white ring-2 ring-zeiq-black shadow-xs'
+                              : 'hover:bg-white/60'
+                          }`}
+                          title={`${av.name} (${av.theme})`}
+                        >
+                          <AvatarIcon avatarId={av.id} className="w-10 h-10 group-hover:scale-105 transition-transform" emojiClassName="text-lg" />
+                          <span className="text-[9px] font-bold text-slate-600 truncate max-w-[48px] block text-center leading-none">
+                            {av.name.split(' ')[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

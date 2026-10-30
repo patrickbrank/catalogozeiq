@@ -38,7 +38,7 @@ import {
   UserCheck,
   UserX,
 } from 'lucide-react';
-import { AvatarIcon, ADMIN_AVATARS, formatPhoneBR } from '@/lib/constants/avatars';
+import { AvatarIcon, ADMIN_AVATARS, formatPhoneBR, resolveAvatarId } from '@/lib/constants/avatars';
 import { PanelFooter } from '@/components/PanelFooter';
 import { PanelLoadingScreen } from '@/components/PanelLoadingScreen';
 
@@ -145,13 +145,21 @@ export default function ResellerDashboardPage() {
     }
   }, []);
 
-  const handleSelectAvatar = (avatarId: string) => {
+  const handleSelectAvatar = async (avatarId: string) => {
     setSelectedAvatarId(avatarId);
     if (typeof window !== 'undefined') {
       localStorage.setItem('zeiq_admin_avatar', avatarId);
     }
     setIsAvatarPickerOpen(false);
-    showToast('Avatar personalizado com sucesso!');
+    showToast('Energia e mood atualizados com sucesso!');
+
+    try {
+      await fetch('/api/portal/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: avatarId }),
+      });
+    } catch {}
   };
 
   const handleRefresh = () => {
@@ -368,13 +376,15 @@ export default function ResellerDashboardPage() {
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${isAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
               </button>
 
-              {/* Popover Seletor de Avatares Estilo Apple (Responsivo com margens seguras no Mobile) */}
+              {/* Popover Seletor de Emblemas Esportivos Zeiq (Amplo, elegante e responsivo) */}
               {isAvatarPickerOpen && (
-                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-84 max-w-sm mx-auto sm:mx-0 bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 text-white">
-                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[420px] max-w-md mx-auto sm:mx-0 bg-[#111111] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 animate-in fade-in zoom-in-95 text-white">
+                  <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
                     <div>
-                      <h4 className="text-sm font-black text-white tracking-tight">Escolha seu Avatar</h4>
-                      <p className="text-[11px] text-slate-400">Estilo Apple com emojis e tons suaves</p>
+                      <h4 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                        <span>Ritmo de Jogo Zeiq</span>
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Escolha seu emblema oficial para representar sua garra na equipe</p>
                     </div>
                     <button
                       type="button"
@@ -385,43 +395,43 @@ export default function ResellerDashboardPage() {
                     </button>
                   </div>
 
-                  {/* Prévia do Avatar Ativo */}
+                  {/* Prévia do Emblema Ativo (Perfeitamente sincronizado com a escolha real) */}
                   {(() => {
-                    const activeAv = ADMIN_AVATARS.find((a) => a.id === selectedAvatarId) || ADMIN_AVATARS[0];
+                    const activeAv = ADMIN_AVATARS.find((a) => a.id === resolveAvatarId(selectedAvatarId)) || ADMIN_AVATARS[0];
                     return (
-                      <div className="my-3.5 p-3 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
-                        <AvatarIcon avatarId={activeAv.id} className="w-12 h-12" emojiClassName="text-2xl" />
+                      <div className="my-4 p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center gap-3.5">
+                        <AvatarIcon avatarId={activeAv.id} className="w-14 h-14" emojiClassName="text-3xl" />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white">{activeAv.name}</span>
-                            <span className="text-[9px] font-mono font-bold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-1.5 py-0.5 rounded uppercase">
-                              Ativo
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-black text-white tracking-tight">{activeAv.name}</span>
+                            <span className="text-[10px] font-mono font-bold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-2 py-0.5 rounded-full uppercase">
+                              Emblema Ativo
                             </span>
                           </div>
-                          <span className="text-[11px] text-slate-400 block truncate mt-0.5">{activeAv.theme}</span>
+                          <span className="text-xs text-slate-400 block truncate mt-0.5 font-medium">{activeAv.theme}</span>
                         </div>
                       </div>
                     );
                   })()}
 
-                  {/* Grade de Avatares (4 colunas) */}
-                  <div className="grid grid-cols-4 gap-2.5 pt-1">
+                  {/* Grade de Emblemas (4 colunas com espaçamento confortável) */}
+                  <div className="grid grid-cols-4 gap-3 pt-1">
                     {ADMIN_AVATARS.map((av) => {
-                      const isSelected = selectedAvatarId === av.id;
+                      const isSelected = resolveAvatarId(selectedAvatarId) === av.id;
                       return (
                         <button
                           key={av.id}
                           type="button"
                           onClick={() => handleSelectAvatar(av.id)}
-                          className={`p-2 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group active:scale-95 ${
+                          className={`p-2.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group active:scale-95 ${
                             isSelected
                               ? 'bg-white/10 ring-2 ring-zeiq-orange ring-offset-2 ring-offset-[#111111] shadow-lg'
                               : 'hover:bg-white/5'
                           }`}
                           title={`${av.name} (${av.theme})`}
                         >
-                          <AvatarIcon avatarId={av.id} className="w-11 h-11 group-hover:scale-105 transition-transform" emojiClassName="text-xl" />
-                          <span className="text-[10px] font-bold text-slate-300 truncate max-w-[60px] block text-center leading-none">
+                          <AvatarIcon avatarId={av.id} className="w-12 h-12 group-hover:scale-105 transition-transform" emojiClassName="text-2xl" />
+                          <span className="text-[11px] font-bold text-slate-300 truncate max-w-[70px] block text-center leading-none">
                             {av.name.split(' ')[0]}
                           </span>
                         </button>
@@ -553,23 +563,32 @@ export default function ResellerDashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+            <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
               <button
                 type="button"
                 onClick={() => { setActiveTab('orders'); setOrderStatusFilter('pending'); }}
-                className="px-3.5 py-2.5 bg-amber-500 hover:bg-amber-600 text-zeiq-black font-extrabold text-xs rounded-xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-500 via-amber-400 to-orange-500 hover:brightness-110 active:scale-95 text-black font-black text-xs rounded-xl transition-all shadow-[0_4px_18px_rgba(245,158,11,0.35)] cursor-pointer flex items-center gap-2 group"
+                title="Filtrar pedidos pendentes para atendimento"
               >
-                <Clock className="w-3.5 h-3.5" />
-                <span>Pendentes ({orders.filter((o) => o.status === 'pending').length})</span>
+                <div className="w-5 h-5 rounded-lg bg-black/15 flex items-center justify-center shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-black" />
+                </div>
+                <span>Pendentes</span>
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-black text-amber-400 font-bold text-xs inline-flex items-center justify-center tabular-nums leading-none shadow-xs">
+                  {orders.filter((o) => o.status === 'pending').length}
+                </span>
               </button>
               {customers.filter((c) => !c.is_approved).length > 0 && (
                 <button
                   type="button"
                   onClick={() => { setActiveTab('customers'); setCustomerStatusFilter('pending'); }}
-                  className="px-3.5 py-2.5 bg-zeiq-orange hover:bg-orange-600 text-zeiq-black font-extrabold text-xs rounded-xl transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-white/10 hover:bg-white/15 border border-white/15 hover:border-zeiq-orange/40 active:scale-95 text-white font-black text-xs rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2"
                 >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Aprovar Lojistas ({customers.filter((c) => !c.is_approved).length})</span>
+                  <UserCheck className="w-4 h-4 text-zeiq-orange" />
+                  <span>Aprovar Lojistas</span>
+                  <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-black font-bold text-xs inline-flex items-center justify-center tabular-nums leading-none">
+                    {customers.filter((c) => !c.is_approved).length}
+                  </span>
                 </button>
               )}
             </div>
@@ -627,12 +646,12 @@ export default function ResellerDashboardPage() {
                 />
               </div>
 
-              {/* Filtro por Status dos Pedidos (Sem barra de scroll visível) */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none touch-pan-x py-0.5">
+              {/* Filtro por Status dos Pedidos (Sangrando até as extremidades no mobile e sem scrollbar) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none touch-pan-x -mx-4 px-4 md:mx-0 md:px-0 py-0.5">
                 <button
                   type="button"
                   onClick={() => setOrderStatusFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     orderStatusFilter === 'all'
                       ? 'bg-white text-zeiq-black shadow-xs'
                       : 'bg-zeiq-charcoal text-slate-400 hover:text-white'
@@ -645,7 +664,7 @@ export default function ResellerDashboardPage() {
                     key={st}
                     type="button"
                     onClick={() => setOrderStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       orderStatusFilter === st
                         ? 'bg-zeiq-orange text-zeiq-black shadow-xs'
                         : 'bg-zeiq-charcoal text-slate-400 hover:text-white'
@@ -654,6 +673,7 @@ export default function ResellerDashboardPage() {
                     {ORDER_STATUS_LABELS[st]?.label} ({orders.filter((o) => o.status === st).length})
                   </button>
                 ))}
+                <span className="w-2 shrink-0 md:hidden pointer-events-none" aria-hidden="true" />
               </div>
             </div>
 
@@ -1247,7 +1267,8 @@ export default function ResellerDashboardPage() {
                 value={editingNotes}
                 onChange={(e) => setEditingNotes(e.target.value)}
                 placeholder="Insira anotações comerciais sobre prazo, frete combinado ou condições negociadas com este lojista..."
-                className="w-full p-3 bg-zeiq-charcoal border border-white/10 rounded-xl text-white placeholder:text-slate-500 text-xs focus:outline-none focus:ring-1 focus:ring-zeiq-orange"
+                style={{ fontSize: '12px', lineHeight: '18px' }}
+                className="w-full p-3 bg-zeiq-charcoal border border-white/10 rounded-xl text-white placeholder:text-slate-500 text-xs focus:outline-none focus:ring-1 focus:ring-zeiq-orange resize-none"
               />
               <button
                 type="button"

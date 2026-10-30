@@ -32,17 +32,23 @@ export async function GET() {
       });
     }
 
-    // Busca contagem de clientes e pedidos vinculados a cada revendedor
+    // Busca contagem de clientes e pedidos vinculados a cada revendedor, e mapeia avatar/mood
     const { data: profiles } = await adminSupabase
       .from('profiles')
-      .select('id, reseller_id, representative_id');
+      .select('id, email, reseller_id, representative_id, avatar_url');
 
     const { data: orders } = await adminSupabase
       .from('orders')
       .select('id, reseller_id, representative_id');
 
+    const avatarMap: Record<string, string> = {};
     const clientCounts: Record<string, number> = {};
     (profiles || []).forEach((p: any) => {
+      if (p.avatar_url) {
+        if (p.id) avatarMap[p.id] = p.avatar_url;
+        if (p.email) avatarMap[p.email.toLowerCase().trim()] = p.avatar_url;
+      }
+
       const rid = p.reseller_id || p.representative_id;
       if (rid) {
         clientCounts[rid] = (clientCounts[rid] || 0) + 1;
@@ -59,6 +65,7 @@ export async function GET() {
 
     const formatted = (resellers || []).map((r) => ({
       ...r,
+      avatar_url: avatarMap[r.user_id] || (r.email ? avatarMap[r.email.toLowerCase().trim()] : null) || null,
       customers_count: clientCounts[r.id] || (r.user_id ? clientCounts[r.user_id] : 0) || 0,
       orders_count: orderCounts[r.id] || (r.user_id ? orderCounts[r.user_id] : 0) || 0,
     }));

@@ -6,9 +6,13 @@ import Link from 'next/link';
 import { X, Trash2, Send, Mail, ShoppingBag, Plus, Minus, ArrowRight, ArrowLeft, Layers, UserCheck, CheckCircle2, Check, Loader2 } from 'lucide-react';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { createClient } from '@/lib/supabase/client';
+import { ProductModal } from '@/components/ProductModal';
+import { Product } from '@/types';
 
 export function QuoteDrawer() {
   const [mounted, setMounted] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [loadingProduct, setLoadingProduct] = useState(false);
   const [buyerName, setBuyerName] = useState('');
   const [buyerCompany, setBuyerCompany] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
@@ -169,6 +173,48 @@ export function QuoteDrawer() {
     }
   };
 
+  // Abre o modal de detalhes completos do produto ao clicar sobre o item no carrinho
+  const handleOpenProductDetails = async (item: any) => {
+    setLoadingProduct(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('products')
+        .select('*, images:product_images(*)')
+        .eq('id', item.productId)
+        .maybeSingle();
+
+      if (data) {
+        setSelectedProduct({
+          ...data,
+          images: (data.images || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+        });
+      } else {
+        setSelectedProduct({
+          id: item.productId,
+          name: item.productName,
+          slug: item.productSlug,
+          code_sku: item.sku,
+          description: item.notes || '',
+          price: item.price,
+          images: item.coverImage ? [{ id: 'cov', product_id: item.productId, storage_path: item.coverImage, public_url: item.coverImage, is_cover: true }] : [],
+        } as Product);
+      }
+    } catch {
+      setSelectedProduct({
+        id: item.productId,
+        name: item.productName,
+        slug: item.productSlug,
+        code_sku: item.sku,
+        description: item.notes || '',
+        price: item.price,
+        images: item.coverImage ? [{ id: 'cov', product_id: item.productId, storage_path: item.coverImage, public_url: item.coverImage, is_cover: true }] : [],
+      } as Product);
+    } finally {
+      setLoadingProduct(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden font-sans">
       {/* Backdrop */}
@@ -286,25 +332,37 @@ export function QuoteDrawer() {
                 return (
                   <div key={item.productId} className="pt-3.5 first:pt-0 flex flex-col gap-2">
                     <div className="flex items-start gap-3">
-                      {/* Imagem do produto */}
-                      <div className="w-14 h-14 rounded-xl bg-[#f8f9fa] border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                      {/* Imagem do produto clicável para abrir detalhes completos */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenProductDetails(item)}
+                        className="w-14 h-14 rounded-xl bg-[#f8f9fa] border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center cursor-pointer hover:border-zeiq-orange/70 hover:opacity-90 active:scale-95 transition-all group/thumb relative"
+                        title="Clique para ver fotos e descrição deste produto"
+                      >
                         {item.coverImage ? (
                           <img
                             src={item.coverImage}
                             alt={cleanProductName}
-                            className="w-full h-full object-cover object-top"
+                            className="w-full h-full object-cover object-top group-hover/thumb:scale-105 transition-transform"
                           />
                         ) : (
                           <div className="text-xs text-slate-300 font-bold">ZEIQ</div>
                         )}
-                      </div>
+                      </button>
 
-                      {/* Informações Principais */}
+                      {/* Informações Principais com Título Clicável */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="text-xs sm:text-sm font-semibold text-zeiq-black leading-snug line-clamp-2">
-                            {cleanProductName}
-                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenProductDetails(item)}
+                            className="text-left cursor-pointer group/title flex-1 min-w-0"
+                            title="Clique para ver fotos e descrição deste produto"
+                          >
+                            <h4 className="text-xs sm:text-sm font-semibold text-zeiq-black leading-snug line-clamp-2 group-hover/title:text-zeiq-orange transition-colors">
+                              {cleanProductName}
+                            </h4>
+                          </button>
                           <button
                             type="button"
                             onClick={() => removeItem(item.productId)}
@@ -316,9 +374,13 @@ export function QuoteDrawer() {
                         </div>
                         
                         {item.sku && (
-                          <span className="text-xs font-mono text-slate-500 font-medium block mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenProductDetails(item)}
+                            className="text-xs font-mono text-slate-500 hover:text-zeiq-orange font-medium block mt-0.5 text-left cursor-pointer transition-colors"
+                          >
                             SKU: {item.sku}
-                          </span>
+                          </button>
                         )}
 
                         {item.price != null && item.price > 0 && (
@@ -566,6 +628,12 @@ export function QuoteDrawer() {
 
         </div>
       </div>
+
+      {/* Modal de Detalhes com Foto e Descrição quando o produto é clicado no carrinho */}
+      <ProductModal
+        product={selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+      />
     </div>
   );
 }

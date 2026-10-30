@@ -63,7 +63,7 @@ import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
 import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/OrderStatusPopover';
 import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPicker';
-import { AvatarIcon, ADMIN_AVATARS } from '@/lib/constants/avatars';
+import { AvatarIcon, ADMIN_AVATARS, resolveAvatarId } from '@/lib/constants/avatars';
 import { PanelFooter } from '@/components/PanelFooter';
 import { PanelLoadingScreen } from '@/components/PanelLoadingScreen';
 
@@ -100,6 +100,7 @@ export default function AdminDashboardPage() {
   // Estados para Avatar do Administrador (3 Estilos SVG)
   const [adminAvatarId, setAdminAvatarId] = useState<string>('avatar-fire');
   const [adminAvatarPickerOpen, setAdminAvatarPickerOpen] = useState(false);
+  const [isResellerFilterDropdownOpen, setIsResellerFilterDropdownOpen] = useState(false);
 
   // Estados para Acesso Direto ao Painel Administrativo
   const [authEmail, setAuthEmail] = useState('');
@@ -431,13 +432,29 @@ export default function AdminDashboardPage() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const handleSelectAdminAvatar = (avatarId: string) => {
+  const handleSelectAdminAvatar = async (avatarId: string) => {
     setAdminAvatarId(avatarId);
     if (typeof window !== 'undefined') {
       localStorage.setItem('zeiq_admin_avatar', avatarId);
     }
     setAdminAvatarPickerOpen(false);
-    showToast('Avatar personalizado com sucesso!');
+    showToast('Emblema e energia atualizados com sucesso!');
+
+    // Atualiza imediatamente o estado de clients no frontend para sincronização instantânea
+    setClients((prev) =>
+      prev.map((c) => {
+        const isSelf = c.id === user?.id || c.email?.toLowerCase().trim() === user?.email?.toLowerCase().trim();
+        return isSelf ? { ...c, avatar_url: avatarId } : c;
+      })
+    );
+
+    try {
+      await fetch('/api/portal/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: avatarId }),
+      });
+    } catch {}
   };
 
   const handleLogout = async () => {
@@ -1706,13 +1723,15 @@ export default function AdminDashboardPage() {
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform ${adminAvatarPickerOpen ? 'rotate-180 text-white' : ''}`} />
               </button>
 
-              {/* Popover Seletor de Avatares Estilo Apple (Responsivo com margens seguras no Mobile) */}
+              {/* Popover Seletor de Emblemas Esportivos Zeiq (Amplo, elegante e responsivo) */}
               {adminAvatarPickerOpen && (
-                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-84 max-w-sm mx-auto sm:mx-0 bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 text-white">
-                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[420px] max-w-md mx-auto sm:mx-0 bg-[#111111] border border-white/15 rounded-3xl p-5 sm:p-6 shadow-[0_24px_60px_rgba(0,0,0,0.95)] z-50 animate-in fade-in zoom-in-95 text-white">
+                  <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
                     <div>
-                      <h4 className="text-sm font-black text-white tracking-tight">Escolha seu Avatar</h4>
-                      <p className="text-[11px] text-slate-400">Estilo Apple com emojis e tons suaves</p>
+                      <h4 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                        <span>Ritmo de Jogo Zeiq</span>
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Escolha seu emblema oficial para representar sua garra na equipe</p>
                     </div>
                     <button
                       type="button"
@@ -1723,43 +1742,43 @@ export default function AdminDashboardPage() {
                     </button>
                   </div>
 
-                  {/* Prévia do Avatar Ativo */}
+                  {/* Prévia do Emblema Ativo (Perfeitamente sincronizado com a escolha real) */}
                   {(() => {
-                    const activeAv = ADMIN_AVATARS.find((a) => a.id === adminAvatarId) || ADMIN_AVATARS[0];
+                    const activeAv = ADMIN_AVATARS.find((a) => a.id === resolveAvatarId(adminAvatarId)) || ADMIN_AVATARS[0];
                     return (
-                      <div className="my-3.5 p-3 rounded-2xl bg-white/[0.04] border border-white/5 flex items-center gap-3">
-                        <AvatarIcon avatarId={activeAv.id} className="w-12 h-12" emojiClassName="text-2xl" />
+                      <div className="my-4 p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center gap-3.5">
+                        <AvatarIcon avatarId={activeAv.id} className="w-14 h-14" emojiClassName="text-3xl" />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white">{activeAv.name}</span>
-                            <span className="text-[9px] font-mono font-bold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-1.5 py-0.5 rounded uppercase">
-                              Ativo
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-black text-white tracking-tight">{activeAv.name}</span>
+                            <span className="text-[10px] font-mono font-bold text-zeiq-orange bg-zeiq-orange/15 border border-zeiq-orange/30 px-2 py-0.5 rounded-full uppercase">
+                              Emblema Ativo
                             </span>
                           </div>
-                          <span className="text-[11px] text-slate-400 block truncate mt-0.5">{activeAv.theme}</span>
+                          <span className="text-xs text-slate-400 block truncate mt-0.5 font-medium">{activeAv.theme}</span>
                         </div>
                       </div>
                     );
                   })()}
 
-                  {/* Grade de Avatares (4 colunas) */}
-                  <div className="grid grid-cols-4 gap-2.5 pt-1">
+                  {/* Grade de Emblemas (4 colunas com espaçamento confortável) */}
+                  <div className="grid grid-cols-4 gap-3 pt-1">
                     {ADMIN_AVATARS.map((av) => {
-                      const isSelected = adminAvatarId === av.id;
+                      const isSelected = resolveAvatarId(adminAvatarId) === av.id;
                       return (
                         <button
                           key={av.id}
                           type="button"
                           onClick={() => handleSelectAdminAvatar(av.id)}
-                          className={`p-2 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group active:scale-95 ${
+                          className={`p-2.5 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer group active:scale-95 ${
                             isSelected
                               ? 'bg-white/10 ring-2 ring-zeiq-orange ring-offset-2 ring-offset-[#111111] shadow-lg'
                               : 'hover:bg-white/5'
                           }`}
                           title={`${av.name} (${av.theme})`}
                         >
-                          <AvatarIcon avatarId={av.id} className="w-11 h-11 group-hover:scale-105 transition-transform" emojiClassName="text-xl" />
-                          <span className="text-[10px] font-bold text-slate-300 truncate max-w-[60px] block text-center leading-none">
+                          <AvatarIcon avatarId={av.id} className="w-12 h-12 group-hover:scale-105 transition-transform" emojiClassName="text-2xl" />
+                          <span className="text-[11px] font-bold text-slate-300 truncate max-w-[70px] block text-center leading-none">
                             {av.name.split(' ')[0]}
                           </span>
                         </button>
@@ -2749,16 +2768,55 @@ export default function AdminDashboardPage() {
             {/* Filtro de Pedidos por Revendedor Compacto & Intuitivo */}
             {isCurrentUserAdminOrMaster && (
               <div className="bg-white p-2.5 sm:p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-                {/* Seletor Compacto no Mobile (1 linha elegante) */}
-                <div className="block sm:hidden w-full">
-                  <div className="relative">
-                    <Briefcase className="w-4 h-4 text-zeiq-orange absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <select
-                      value={orderResellerFilter}
-                      onChange={(e) => setOrderResellerFilter(e.target.value)}
-                      className="w-full h-10 pl-10 pr-9 bg-[#f8f9fa] border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black appearance-none cursor-pointer"
-                    >
-                      <option value="all">Filtrar: Todos os Revendedores ({orders.length} pedidos)</option>
+                {/* Seletor Customizado e Elegante no Mobile (Elimina o menu azul nativo do Windows/Android) */}
+                <div className="block sm:hidden w-full relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsResellerFilterDropdownOpen(!isResellerFilterDropdownOpen)}
+                    className="w-full h-11 px-3.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black flex items-center justify-between transition-all active:scale-98 shadow-2xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Briefcase className="w-4 h-4 text-zeiq-orange shrink-0" />
+                      <span className="truncate">
+                        {orderResellerFilter === 'all'
+                          ? 'Todos os Revendedores'
+                          : orderResellerFilter === 'direct'
+                          ? 'Venda Direta / Matriz'
+                          : (adminResellers.find((r) => r.id === orderResellerFilter)?.name || 'Revendedor')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-extrabold bg-slate-200 text-slate-800">
+                        {orderResellerFilter === 'all'
+                          ? `${orders.length} peds`
+                          : orderResellerFilter === 'direct'
+                          ? `${orders.filter((o) => !o.reseller_id && !o.representative_id).length} peds`
+                          : `${orders.filter((o) => o.reseller_id === orderResellerFilter || o.representative_id === orderResellerFilter).length} peds`}
+                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isResellerFilterDropdownOpen ? 'rotate-180 text-zeiq-black' : ''}`} />
+                    </div>
+                  </button>
+
+                  {isResellerFilterDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl p-1.5 z-40 max-h-72 overflow-y-auto no-scrollbar scrollbar-none animate-in fade-in zoom-in-95">
+                      <button
+                        type="button"
+                        onClick={() => { setOrderResellerFilter('all'); setIsResellerFilterDropdownOpen(false); }}
+                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                          orderResellerFilter === 'all' ? 'bg-zeiq-black text-white shadow-xs' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Briefcase className={`w-3.5 h-3.5 ${orderResellerFilter === 'all' ? 'text-zeiq-orange' : 'text-slate-400'}`} />
+                          <span>Todos os Revendedores</span>
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono ${
+                          orderResellerFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {orders.length} pedidos
+                        </span>
+                      </button>
+
                       {adminResellers.map((r) => {
                         const count = orders.filter(
                           (o) =>
@@ -2767,18 +2825,49 @@ export default function AdminDashboardPage() {
                             o.representative_id === r.id ||
                             o.representative_id === r.user_id
                         ).length;
+                        const isSelected = orderResellerFilter === r.id;
+
                         return (
-                          <option key={r.id} value={r.id}>
-                            {r.name} ({count} pedidos)
-                          </option>
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => { setOrderResellerFilter(r.id); setIsResellerFilterDropdownOpen(false); }}
+                            className={`w-full px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-colors mt-0.5 cursor-pointer ${
+                              isSelected ? 'bg-zeiq-orange text-zeiq-black shadow-xs font-extrabold' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <AvatarIcon avatarId={r.avatar_url || 'avatar-lightning'} className="w-5 h-5 shrink-0" emojiClassName="text-[11px]" />
+                              <span className="truncate">{r.name}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono shrink-0 ${
+                              isSelected ? 'bg-black/20 text-black font-extrabold' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {count} pedidos
+                            </span>
+                          </button>
                         );
                       })}
-                      <option value="direct">
-                        Venda Direta / Matriz ({orders.filter((o) => !o.reseller_id && !o.representative_id).length} pedidos)
-                      </option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+
+                      <button
+                        type="button"
+                        onClick={() => { setOrderResellerFilter('direct'); setIsResellerFilterDropdownOpen(false); }}
+                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-colors mt-0.5 cursor-pointer ${
+                          orderResellerFilter === 'direct' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Building2 className={`w-3.5 h-3.5 ${orderResellerFilter === 'direct' ? 'text-white' : 'text-slate-400'}`} />
+                          <span>Venda Direta / Matriz</span>
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono ${
+                          orderResellerFilter === 'direct' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {orders.filter((o) => !o.reseller_id && !o.representative_id).length} pedidos
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Pílulas em Linha Única no Desktop/Tablet com rolagem suave e sem scrollbar */}
@@ -3403,27 +3492,32 @@ export default function AdminDashboardPage() {
                   filteredClients.map((client) => {
                     const cleanPhone = (client.phone || '').replace(/\D/g, '');
                     const isMaster = client.is_master || isMasterEmail(client.email);
+                    const isSelf = client.id === user?.id || client.email?.toLowerCase().trim() === user?.email?.toLowerCase().trim();
+                    const effectiveAvatar = isSelf ? resolveAvatarId(adminAvatarId) : resolveAvatarId(client.avatar_url);
 
                     return (
                       <div
                         key={`mob-client-${client.id}`}
                         className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <strong className="text-zeiq-black font-extrabold text-sm block truncate">
-                              {client.store_name}
-                            </strong>
-                            <div className="text-xs text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
-                              <span>{client.contact_name}</span>
-                              <span>•</span>
-                              <span className="font-mono text-[11px] truncate text-slate-400">{client.email}</span>
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <AvatarIcon avatarId={effectiveAvatar} className="w-9 h-9 shrink-0" emojiClassName="text-base" />
+                            <div className="min-w-0 flex-1">
+                              <strong className="text-zeiq-black font-extrabold text-sm block truncate">
+                                {client.store_name}
+                              </strong>
+                              <div className="text-xs text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
+                                <span>{client.contact_name}</span>
+                                <span>•</span>
+                                <span className="font-mono text-[11px] truncate text-slate-400">{client.email}</span>
+                              </div>
+                              {client.representative_name && (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-md font-bold mt-1.5">
+                                  <span>💼 Rep: {client.representative_name}</span>
+                                </span>
+                              )}
                             </div>
-                            {client.representative_name && (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-md font-bold mt-1.5">
-                                <span>💼 Rep: {client.representative_name}</span>
-                              </span>
-                            )}
                           </div>
 
                           <div className="shrink-0">
@@ -3532,6 +3626,8 @@ export default function AdminDashboardPage() {
                       filteredClients.map((client) => {
                         const cleanPhone = (client.phone || '').replace(/\D/g, '');
                         const isMaster = client.is_master || isMasterEmail(client.email);
+                        const isSelf = client.id === user?.id || client.email?.toLowerCase().trim() === user?.email?.toLowerCase().trim();
+                        const effectiveAvatar = isSelf ? resolveAvatarId(adminAvatarId) : resolveAvatarId(client.avatar_url);
 
                         return (
                           <tr key={client.id} className="hover:bg-slate-50/80 transition-colors">
@@ -3549,7 +3645,10 @@ export default function AdminDashboardPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-slate-700 font-medium">
-                              {client.contact_name}
+                              <div className="flex items-center gap-2.5">
+                                <AvatarIcon avatarId={effectiveAvatar} className="w-8 h-8 shrink-0" emojiClassName="text-base" />
+                                <span>{client.contact_name}</span>
+                              </div>
                             </td>
 
                             <td className="py-3.5 px-4">
@@ -4381,14 +4480,17 @@ export default function AdminDashboardPage() {
                         key={`mob-reseller-${r.id}`}
                         className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <strong className="text-zeiq-black font-extrabold text-sm block truncate">
-                              {r.name}
-                            </strong>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              ID: {r.id.slice(0, 8)}...
-                            </span>
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <AvatarIcon avatarId={r.avatar_url || 'avatar-lightning'} className="w-10 h-10 shrink-0" emojiClassName="text-xl" />
+                            <div className="min-w-0 flex-1">
+                              <strong className="text-zeiq-black font-extrabold text-sm block truncate">
+                                {r.name}
+                              </strong>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                ID: {r.id.slice(0, 8)}...
+                              </span>
+                            </div>
                           </div>
 
                           <button
@@ -4506,8 +4608,13 @@ export default function AdminDashboardPage() {
                         return (
                           <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4">
-                              <strong className="text-zeiq-black font-extrabold block text-sm">{r.name}</strong>
-                              <span className="text-[10px] text-slate-400 font-mono">ID: {r.id.slice(0, 8)}...</span>
+                              <div className="flex items-center gap-2.5">
+                                <AvatarIcon avatarId={r.avatar_url || 'avatar-lightning'} className="w-8 h-8 shrink-0" emojiClassName="text-base" />
+                                <div className="min-w-0">
+                                  <strong className="text-zeiq-black font-extrabold block text-sm">{r.name}</strong>
+                                  <span className="text-[10px] text-slate-400 font-mono">ID: {r.id.slice(0, 8)}...</span>
+                                </div>
+                              </div>
                             </td>
 
                             <td className="py-3.5 px-4 font-mono">
@@ -5577,12 +5684,12 @@ export default function AdminDashboardPage() {
       {/* MODAL: CADASTRO / EDIÇÃO DE REVENDEDOR (ADMIN MASTER)    */}
       {/* ======================================================== */}
       {resellerModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-4 sm:p-7 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <button
               type="button"
               onClick={() => setResellerModalOpen(false)}
-              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-xl transition-colors cursor-pointer"
+              className="absolute right-4 top-4 sm:right-5 sm:top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-xl transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -5692,45 +5799,50 @@ export default function AdminDashboardPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Preferência de Notificação de Pedidos
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   {[
-                    { key: 'both', label: 'Ambos (WhatsApp + E-mail)' },
-                    { key: 'whatsapp_only', label: 'Apenas WhatsApp' },
-                    { key: 'email_only', label: 'Apenas E-mail' },
+                    { key: 'both', label: 'Ambos', sub: 'Whats + Email' },
+                    { key: 'whatsapp_only', label: 'WhatsApp', sub: 'Apenas' },
+                    { key: 'email_only', label: 'E-mail', sub: 'Apenas' },
                   ].map((p) => (
                     <button
                       key={p.key}
                       type="button"
                       onClick={() => setResellerFormPref(p.key as any)}
-                      className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center cursor-pointer ${
+                      className={`py-2 px-1 sm:px-2 rounded-xl border transition-all text-center cursor-pointer flex flex-col items-center justify-center min-w-0 ${
                         resellerFormPref === p.key
                           ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
                           : 'bg-[#f8f9fa] text-slate-600 border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      {p.label}
+                      <span className="text-xs font-black truncate max-w-full">{p.label}</span>
+                      <span className={`text-[10px] truncate max-w-full leading-tight mt-0.5 ${resellerFormPref === p.key ? 'text-slate-300' : 'text-slate-400'}`}>
+                        {p.sub}
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>{editingReseller ? 'Redefinir Senha do Painel (Opcional)' : 'Senha de Acesso ao Painel *'}</span>
+                <div className="flex items-center justify-between mb-1 gap-2">
+                  <label className="text-xs font-semibold text-slate-700 truncate">
+                    {editingReseller ? 'Redefinir Senha (Opcional)' : 'Senha de Acesso ao Painel *'}
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
                       const randomPwd = 'Zeiq@' + Math.floor(1000 + Math.random() * 9000);
                       setResellerFormPassword(randomPwd);
                     }}
-                    className="text-xs text-zeiq-orange hover:underline font-bold cursor-pointer"
+                    className="text-xs text-zeiq-orange hover:underline font-extrabold cursor-pointer shrink-0"
                   >
                     Gerar Senha
                   </button>
-                </label>
+                </div>
                 <input
                   type="text"
                   required={!editingReseller}

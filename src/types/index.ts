@@ -76,6 +76,7 @@ export interface Reseller {
   status: ResellerStatus; // 'ativo' | 'inativo'
   notification_preference: NotificationPreference; // 'whatsapp_only' | 'email_only' | 'both'
   user_id?: string | null;
+  avatar_url?: string | null;
   customers_count?: number;
   orders_count?: number;
   created_at?: string;

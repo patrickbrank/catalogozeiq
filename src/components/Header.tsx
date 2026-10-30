@@ -28,6 +28,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userAvatarStyle, setUserAvatarStyle] = useState('avatar-fire');
+  const [avatarImgError, setAvatarImgError] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -321,13 +322,29 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                       >
                         {/* Avatar Circular com Inicial ou Imagem do Perfil */}
                         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zeiq-black text-white text-xs font-black flex items-center justify-center shrink-0 border border-white/20 shadow-xs ring-2 ring-black/5 overflow-hidden">
-                          {userAvatarUrl ? (
-                            <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (isMasterOrAdmin || isResellerUser) ? (
-                            <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" emojiClassName="text-base sm:text-lg" />
-                          ) : (
-                            userInitial
-                          )}
+                          {(() => {
+                            const isPhoto = userAvatarUrl && (userAvatarUrl.startsWith('http://') || userAvatarUrl.startsWith('https://') || userAvatarUrl.startsWith('/'));
+                            if (isPhoto && !avatarImgError) {
+                              return (
+                                <img
+                                  src={userAvatarUrl}
+                                  alt=""
+                                  onError={() => setAvatarImgError(true)}
+                                  className="w-full h-full object-cover"
+                                />
+                              );
+                            }
+                            if (isMasterOrAdmin || isResellerUser || userAvatarStyle || (userAvatarUrl && !isPhoto)) {
+                              return (
+                                <AvatarIcon
+                                  avatarId={userAvatarStyle || userAvatarUrl}
+                                  className="w-full h-full"
+                                  emojiClassName="text-base sm:text-lg"
+                                />
+                              );
+                            }
+                            return userInitial;
+                          })()}
                         </div>
 
                         {/* Nome do Usuário em Linha Única */}
@@ -344,13 +361,29 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                           {/* Cabeçalho do Card */}
                           <div className="flex items-start gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 mb-2">
                             <div className="w-10 h-10 rounded-full bg-zeiq-black text-white text-sm font-black flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
-                              {userAvatarUrl ? (
-                                <img src={userAvatarUrl} alt="" className="w-full h-full object-cover" />
-                              ) : (isMasterOrAdmin || isResellerUser) ? (
-                                <AvatarIcon avatarId={userAvatarStyle} className="w-full h-full" emojiClassName="text-2xl" />
-                              ) : (
-                                userInitial
-                              )}
+                              {(() => {
+                                const isPhoto = userAvatarUrl && (userAvatarUrl.startsWith('http://') || userAvatarUrl.startsWith('https://') || userAvatarUrl.startsWith('/'));
+                                if (isPhoto && !avatarImgError) {
+                                  return (
+                                    <img
+                                      src={userAvatarUrl}
+                                      alt=""
+                                      onError={() => setAvatarImgError(true)}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  );
+                                }
+                                if (isMasterOrAdmin || isResellerUser || userAvatarStyle || (userAvatarUrl && !isPhoto)) {
+                                  return (
+                                    <AvatarIcon
+                                      avatarId={userAvatarStyle || userAvatarUrl}
+                                      className="w-full h-full"
+                                      emojiClassName="text-2xl"
+                                    />
+                                  );
+                                }
+                                return userInitial;
+                              })()}
                             </div>
                             <div className="min-w-0 flex-1">
                               <h4 className="text-xs font-bold text-zeiq-black truncate">

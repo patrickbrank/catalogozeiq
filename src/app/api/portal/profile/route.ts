@@ -128,63 +128,75 @@ export async function PUT(request: NextRequest) {
 
     const admin = getAdminClient() || serverSupabase;
 
-    const payload: any = {
-      id: user.id,
-      email: user.email,
-      contact_name: contact_name?.trim() || null,
-      store_name: store_name?.trim() || null,
-      phone: phone?.trim() || null,
-      cnpj_cpf: cnpj_cpf?.trim() || null,
-      city: city?.trim() || null,
-      state: state?.trim() || null,
-      address: address?.trim() || null,
-      cep: cep?.trim() || null,
-      avatar_url: avatar_url || null,
+    // Monta payload parcial seguro atualizando apenas os campos informados
+    const updatePayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
+    if (contact_name !== undefined) updatePayload.contact_name = contact_name?.trim() || null;
+    if (store_name !== undefined) updatePayload.store_name = store_name?.trim() || null;
+    if (phone !== undefined) updatePayload.phone = phone?.trim() || null;
+    if (cnpj_cpf !== undefined) updatePayload.cnpj_cpf = cnpj_cpf?.trim() || null;
+    if (city !== undefined) updatePayload.city = city?.trim() || null;
+    if (state !== undefined) updatePayload.state = state?.trim() || null;
+    if (address !== undefined) updatePayload.address = address?.trim() || null;
+    if (cep !== undefined) updatePayload.cep = cep?.trim() || null;
+    if (avatar_url !== undefined) updatePayload.avatar_url = avatar_url || null;
 
-    // Tenta gravar na tabela profiles
+    // 1. Tenta atualizar perfil existente de forma atômica
+    let finalProfile: any = null;
     try {
-      await admin.from('profiles').upsert(payload);
-    } catch (e: any) {
-      // Se colunas address, cep ou avatar_url ainda não foram criadas no banco
-      if (e.message?.includes('address') || e.message?.includes('avatar_url') || e.message?.includes('cep')) {
-        delete payload.address;
-        delete payload.cep;
-        delete payload.avatar_url;
-        await admin.from('profiles').upsert(payload);
+      const { data: updatedProf, error: updateErr } = await admin
+        .from('profiles')
+        .update(updatePayload)
+        .eq('id', user.id)
+        .select('*')
+        .maybeSingle();
+
+      if (!updateErr && updatedProf) {
+        finalProfile = updatedProf;
+      } else {
+        // Se ainda não existir registro em profiles, faz upsert completo com email
+        const fullPayload = {
+          id: user.id,
+          email: user.email,
+          ...updatePayload,
+        };
+        const { data: upsertedProf } = await admin
+          .from('profiles')
+          .upsert(fullPayload)
+          .select('*')
+          .maybeSingle();
+        finalProfile = upsertedProf;
       }
+    } catch (e: any) {
+      console.warn('Aviso ao salvar profile:', e.message);
     }
 
-    // Sincroniza também nos metadados do Auth para disponibilidade instantânea em qualquer sessão
+    // 2. Sincroniza metadados do Auth para disponibilidade instantânea em qualquer sessão
     try {
-      const updateData: any = {
-        contact_name: contact_name?.trim(),
-        store_name: store_name?.trim(),
-        phone: phone?.trim(),
-        cnpj_cpf: cnpj_cpf?.trim(),
-        city: city?.trim(),
-        state: state?.trim(),
-        address: address?.trim(),
-        cep: cep?.trim(),
-      };
-      if (avatar_url) updateData.avatar_url = avatar_url;
+      const authUpdate: any = {};
+      if (contact_name !== undefined) authUpdate.contact_name = contact_name?.trim() || '';
+      if (store_name !== undefined) authUpdate.store_name = store_name?.trim() || '';
+      if (phone !== undefined) authUpdate.phone = phone?.trim() || '';
+      if (avatar_url !== undefined) authUpdate.avatar_url = avatar_url || '';
 
-      await serverSupabase.auth.updateUser({
-        data: updateData,
-      });
+      if (Object.keys(authUpdate).length > 0) {
+        await serverSupabase.auth.updateUser({
+          data: authUpdate,
+        });
+      }
     } catch (e) {
       console.warn('Aviso ao sincronizar user_metadata:', e);
     }
 
     return NextResponse.json({
       success: true,
-      profile: {
-        ...payload,
-        address: address?.trim() || null,
-        cep: cep?.trim() || null,
-        avatar_url: avatar_url || null,
+      profile: finalProfile || {
+        id: user.id,
+        email: user.email,
+        ...updatePayload,
       },
+      message: 'Perfil atualizado com sucesso.',
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

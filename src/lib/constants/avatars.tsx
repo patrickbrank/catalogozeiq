@@ -12,10 +12,18 @@ export interface AdminAvatar {
 
 export const ADMIN_AVATARS: AdminAvatar[] = [
   {
+    id: 'avatar-trophy',
+    name: 'Troféu Ouro',
+    emoji: '🏆',
+    theme: 'Liderança & Conquistas',
+    bgColor: '#FEF9C3',
+    borderColor: '#FEF08A',
+  },
+  {
     id: 'avatar-lightning',
     name: 'Raio Zeiq',
     emoji: '⚡',
-    theme: 'Potência & Energia',
+    theme: 'Potência Pura',
     bgColor: '#FEF3C7',
     borderColor: '#FDE68A',
   },
@@ -23,23 +31,15 @@ export const ADMIN_AVATARS: AdminAvatar[] = [
     id: 'avatar-tennis',
     name: 'Beach Tennis',
     emoji: '🎾',
-    theme: 'Esporte & Precisão',
+    theme: 'Precisão na Quadra',
     bgColor: '#DCFCE7',
     borderColor: '#BBF7D0',
   },
   {
-    id: 'avatar-trophy',
-    name: 'Troféu Campeão',
-    emoji: '🏆',
-    theme: 'Vitória & Conquistas',
-    bgColor: '#FEF9C3',
-    borderColor: '#FEF08A',
-  },
-  {
     id: 'avatar-fire',
-    name: 'Fogo & Foco',
+    name: 'Fogo & Raça',
     emoji: '🔥',
-    theme: 'Dedicação & Alta Intensidade',
+    theme: 'Intensidade Máxima',
     bgColor: '#FFEDD5',
     borderColor: '#FED7AA',
   },
@@ -47,7 +47,7 @@ export const ADMIN_AVATARS: AdminAvatar[] = [
     id: 'avatar-lion',
     name: 'Leão Zeiq',
     emoji: '🦁',
-    theme: 'Garra & Liderança',
+    theme: 'Força & Domínio',
     bgColor: '#FDF2F8',
     borderColor: '#FBCFE8',
   },
@@ -55,55 +55,55 @@ export const ADMIN_AVATARS: AdminAvatar[] = [
     id: 'avatar-sunglasses',
     name: 'Beach Vibes',
     emoji: '😎',
-    theme: 'Lifestyle & Praia',
+    theme: 'Estilo & Lifestyle',
     bgColor: '#E0F2FE',
     borderColor: '#BAE6FD',
   },
   {
     id: 'avatar-rocket',
-    name: 'Foguete',
+    name: 'Aceleração',
     emoji: '🚀',
-    theme: 'Crescimento & Velocidade',
+    theme: 'Velocidade & Metas',
     bgColor: '#E0E7FF',
     borderColor: '#C7D2FE',
   },
   {
     id: 'avatar-crown',
-    name: 'Coroa Master',
+    name: 'Master Zeiq',
     emoji: '👑',
-    theme: 'Gestão & Autoridade',
+    theme: 'Estratégia & Gestão',
     bgColor: '#F3E8FF',
     borderColor: '#E9D5FF',
   },
   {
     id: 'avatar-target',
-    name: 'Alvo & Metas',
+    name: 'Mira Certa',
     emoji: '🎯',
-    theme: 'Foco nos Resultados',
+    theme: 'Foco no Ponto',
     bgColor: '#FFE4E6',
     borderColor: '#FECDD3',
   },
   {
     id: 'avatar-palm',
-    name: 'Beach Life',
+    name: 'Arena Beach',
     emoji: '🌴',
-    theme: 'Arena & Verão',
+    theme: 'Clima de Verão',
     bgColor: '#CCFBF1',
     borderColor: '#99F6E4',
   },
   {
     id: 'avatar-medal',
-    name: 'Medalha 1º',
+    name: 'Campeão',
     emoji: '🥇',
-    theme: 'Top Performance',
+    theme: 'Top 1 em Vendas',
     bgColor: '#FFFBEB',
     borderColor: '#FDE68A',
   },
   {
     id: 'avatar-star',
-    name: 'Estrela',
+    name: 'Destaque',
     emoji: '⭐',
-    theme: 'Destaque & Brilho',
+    theme: 'Excelência B2B',
     bgColor: '#F8FAFC',
     borderColor: '#E2E8F0',
   },
@@ -115,6 +115,16 @@ const LEGACY_AVATAR_MAP: Record<string, string> = {
   'avatar-emerald': 'avatar-trophy',
   'avatar-fire': 'avatar-fire',
 };
+
+/**
+ * Resolve o identificador de avatar de forma segura garantindo compatibilidade com IDs legados
+ */
+export function resolveAvatarId(id?: string | null): string {
+  if (!id) return 'avatar-trophy';
+  if (LEGACY_AVATAR_MAP[id]) return LEGACY_AVATAR_MAP[id];
+  if (ADMIN_AVATARS.some((a) => a.id === id)) return id;
+  return 'avatar-trophy';
+}
 
 // Calcula o tamanho ideal do emoji proporcional ao diâmetro do círculo estilo Apple (~60% da área)
 function getAutoEmojiSize(className: string): string {

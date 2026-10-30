@@ -107,6 +107,7 @@ export async function GET(request: NextRequest) {
         cnpj_cpf: p.cnpj_cpf || meta.cnpj_cpf || '',
         city: p.city || meta.city || '',
         state: p.state || meta.state || '',
+        avatar_url: p.avatar_url || meta.avatar_url || null,
         role: userRole,
         is_master: isMaster,
         is_approved: p.is_approved ?? (appMeta.is_approved ?? meta.is_approved ?? true),

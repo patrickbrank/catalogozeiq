@@ -133,10 +133,10 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
                     <span
                       key={sz}
                       title={`Tamanho ${sz} indisponível`}
-                      className="h-5 min-w-[24px] px-1 rounded-md bg-slate-100/90 border border-dashed border-slate-300 text-slate-400 font-mono text-[10px] flex items-center justify-center gap-0.5 shrink-0 opacity-70 select-none"
+                      className="h-5 min-w-[22px] px-1.5 rounded-md bg-slate-100/90 border border-slate-200 text-slate-400 font-mono font-medium text-[10px] flex items-center justify-center gap-1 shrink-0 opacity-60 select-none"
                     >
-                      <span className="line-through">{sz}</span>
-                      <span className="text-[8px] font-black text-rose-500 leading-none">✕</span>
+                      <span>{sz}</span>
+                      <span className="text-[9px] font-bold text-rose-500 leading-none">✕</span>
                     </span>
                   );
                 }

@@ -307,7 +307,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                               className="h-10 sm:h-9 rounded-xl border border-dashed border-slate-300 bg-slate-100/80 flex items-center justify-between overflow-hidden opacity-65 cursor-not-allowed select-none px-2"
                               title={`Tamanho ${sz} indisponível no momento`}
                             >
-                              <span className="text-xs font-bold text-slate-400 line-through">
+                              <span className="text-xs font-bold text-slate-500">
                                 {sz}
                               </span>
                               <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
