@@ -810,8 +810,8 @@ export default function ResellerPortalPage() {
 
           {/* Barra de Filtros e Busca Integrada */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            {/* Abas em Pílulas Independentes no Padrão Zeiq */}
-            <div className="overflow-x-auto no-scrollbar -mx-2 px-2 sm:mx-0 sm:px-0 py-0.5">
+            {/* Abas em Pílulas que sangram perfeitamente até a extremidade do box no scroll */}
+            <div className="overflow-x-auto no-scrollbar scrollbar-none touch-pan-x -mx-5 px-5 sm:-mx-6 sm:px-6 py-0.5">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* 1. Todos */}
                 <button

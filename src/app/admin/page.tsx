@@ -2746,72 +2746,107 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Filtro de Pedidos por Revendedor (Regra de Carteira Comercial) */}
+            {/* Filtro de Pedidos por Revendedor Compacto & Intuitivo */}
             {isCurrentUserAdminOrMaster && (
-              <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-2">
-                <div className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5 mr-1 shrink-0">
-                  <Briefcase className="w-3.5 h-3.5 text-zeiq-orange" />
-                  <span>Filtrar por Revendedor:</span>
+              <div className="bg-white p-2.5 sm:p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+                {/* Seletor Compacto no Mobile (1 linha elegante) */}
+                <div className="block sm:hidden w-full">
+                  <div className="relative">
+                    <Briefcase className="w-4 h-4 text-zeiq-orange absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      value={orderResellerFilter}
+                      onChange={(e) => setOrderResellerFilter(e.target.value)}
+                      className="w-full h-10 pl-10 pr-9 bg-[#f8f9fa] border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black appearance-none cursor-pointer"
+                    >
+                      <option value="all">Filtrar: Todos os Revendedores ({orders.length} pedidos)</option>
+                      {adminResellers.map((r) => {
+                        const count = orders.filter(
+                          (o) =>
+                            o.reseller_id === r.id ||
+                            o.reseller_name === r.name ||
+                            o.representative_id === r.id ||
+                            o.representative_id === r.user_id
+                        ).length;
+                        return (
+                          <option key={r.id} value={r.id}>
+                            {r.name} ({count} pedidos)
+                          </option>
+                        );
+                      })}
+                      <option value="direct">
+                        Venda Direta / Matriz ({orders.filter((o) => !o.reseller_id && !o.representative_id).length} pedidos)
+                      </option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setOrderResellerFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    orderResellerFilter === 'all'
-                      ? 'bg-zeiq-black text-white shadow-xs'
-                      : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}
-                >
-                  Todos ({orders.length})
-                </button>
+                {/* Pílulas em Linha Única no Desktop/Tablet com rolagem suave e sem scrollbar */}
+                <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none touch-pan-x w-full py-0.5">
+                  <div className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5 mr-1.5 shrink-0">
+                    <Briefcase className="w-3.5 h-3.5 text-zeiq-orange" />
+                    <span>Revendedor:</span>
+                  </div>
 
-                {adminResellers.map((r) => {
-                  const count = orders.filter(
-                    (o) =>
-                      o.reseller_id === r.id ||
-                      o.reseller_name === r.name ||
-                      o.representative_id === r.id ||
-                      o.representative_id === r.user_id
-                  ).length;
+                  <button
+                    type="button"
+                    onClick={() => setOrderResellerFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      orderResellerFilter === 'all'
+                        ? 'bg-zeiq-black text-white shadow-xs'
+                        : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    Todos ({orders.length})
+                  </button>
 
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => setOrderResellerFilter(r.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        orderResellerFilter === r.id
-                          ? 'bg-zeiq-orange text-zeiq-black shadow-xs font-extrabold'
-                          : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}
-                    >
-                      <span>{r.name.split(' ')[0]} {r.name.split(' ')[1] || ''}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                        orderResellerFilter === r.id ? 'bg-black/20 text-black' : 'bg-slate-200 text-slate-700'
-                      }`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
+                  {adminResellers.map((r) => {
+                    const count = orders.filter(
+                      (o) =>
+                        o.reseller_id === r.id ||
+                        o.reseller_name === r.name ||
+                        o.representative_id === r.id ||
+                        o.representative_id === r.user_id
+                    ).length;
 
-                <button
-                  type="button"
-                  onClick={() => setOrderResellerFilter('direct')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    orderResellerFilter === 'direct'
-                      ? 'bg-indigo-600 text-white shadow-xs font-extrabold'
-                      : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
-                  }`}
-                >
-                  <span>Venda Direta / Matriz</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                    orderResellerFilter === 'direct' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    {orders.filter((o) => !o.reseller_id && !o.representative_id).length}
-                  </span>
-                </button>
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setOrderResellerFilter(r.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                          orderResellerFilter === r.id
+                            ? 'bg-zeiq-orange text-zeiq-black shadow-xs font-extrabold'
+                            : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}
+                      >
+                        <span>{r.name.split(' ')[0]} {r.name.split(' ')[1] || ''}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                          orderResellerFilter === r.id ? 'bg-black/20 text-black' : 'bg-slate-200 text-slate-700'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={() => setOrderResellerFilter('direct')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                      orderResellerFilter === 'direct'
+                        ? 'bg-indigo-600 text-white shadow-xs font-extrabold'
+                        : 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    <span>Venda Direta / Matriz</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                      orderResellerFilter === 'direct' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {orders.filter((o) => !o.reseller_id && !o.representative_id).length}
+                    </span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -3238,8 +3273,8 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                {/* Filtros em Abas/Pílulas */}
-                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl shrink-0 self-start sm:self-auto overflow-x-auto max-w-full">
+                {/* Filtros em Abas/Pílulas (Sem barra de scroll nativa) */}
+                <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl shrink-0 self-start sm:self-auto overflow-x-auto no-scrollbar scrollbar-none touch-pan-x max-w-full">
                   <button
                     type="button"
                     onClick={() => {
@@ -3330,15 +3365,15 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* Botões de Ação */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Botões de Ação (Ajustados em grid 2 colunas perfeitamente alinhado no mobile) */}
+              <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full lg:w-auto shrink-0">
                 <button
                   type="button"
                   onClick={() => handleOpenCreateUserModal('reseller')}
-                  className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-zeiq-black rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-zeiq-black rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
                   title="Cadastrar lojista parceiro para compras no atacado"
                 >
-                  <Plus className="w-4 h-4 text-emerald-600" />
+                  <Plus className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Novo Lojista</span>
                 </button>
 
@@ -3346,11 +3381,11 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenCreateUserModal('representative')}
-                    className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
                     title="Cadastrar novo representante comercial ou membro da equipe"
                   >
-                    <Briefcase className="w-4 h-4 text-zeiq-orange" />
-                    <span>Novo Membro / Equipe</span>
+                    <Briefcase className="w-4 h-4 text-zeiq-orange shrink-0" />
+                    <span>Novo Membro</span>
                   </button>
                 )}
               </div>
@@ -3358,7 +3393,121 @@ export default function AdminDashboardPage() {
 
             {/* Tabela de Clientes e Membros Administrativos */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Visualização em Cards Exclusiva para Mobile */}
+              <div className="block md:hidden p-3.5 space-y-3">
+                {filteredClients.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400">
+                    Nenhum usuário ou lojista localizado para o filtro selecionado.
+                  </div>
+                ) : (
+                  filteredClients.map((client) => {
+                    const cleanPhone = (client.phone || '').replace(/\D/g, '');
+                    const isMaster = client.is_master || isMasterEmail(client.email);
+
+                    return (
+                      <div
+                        key={`mob-client-${client.id}`}
+                        className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <strong className="text-zeiq-black font-extrabold text-sm block truncate">
+                              {client.store_name}
+                            </strong>
+                            <div className="text-xs text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
+                              <span>{client.contact_name}</span>
+                              <span>•</span>
+                              <span className="font-mono text-[11px] truncate text-slate-400">{client.email}</span>
+                            </div>
+                            {client.representative_name && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-md font-bold mt-1.5">
+                                <span>💼 Rep: {client.representative_name}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="shrink-0">
+                            {client.is_approved ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Ativo
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                                <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                <span>Pendente</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-200/80 pt-2.5">
+                          <span className="truncate max-w-[140px]">
+                            {client.city ? `${client.city}${client.state ? ` - ${client.state}` : ''}` : 'Local não informado'}
+                          </span>
+                          <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-white text-slate-700 border border-slate-200">
+                            {isMaster ? '👑 Master' : client.role === 'admin' ? '🛡️ Admin' : client.role === 'representative' ? '💼 Rep' : client.role === 'stock' ? '📦 Estoque' : '🏪 Lojista'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          {cleanPhone ? (
+                            <a
+                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                                `Olá ${client.contact_name}! Aqui é da Zeiq Sports.`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="h-10 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>WhatsApp</span>
+                            </a>
+                          ) : (
+                            <div className="h-10 bg-slate-100 text-slate-400 rounded-xl text-xs flex items-center justify-center">
+                              Sem WhatsApp
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-1.5 justify-end">
+                            {!client.is_approved && (
+                              <button
+                                type="button"
+                                onClick={() => handleQuickApproveClient(client)}
+                                className="h-10 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-xs active:scale-95"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Aprovar</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditUserModal(client)}
+                              className="h-10 flex-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors active:scale-95 cursor-pointer"
+                              title="Editar"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                              <span>Editar</span>
+                            </button>
+                            {!isMaster && !(isCurrentUserRepresentative && client.role !== 'reseller') && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClient(client)}
+                                className="h-10 w-10 bg-white hover:bg-rose-50 text-rose-500 border border-slate-200 rounded-xl flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Tabela Completa para Desktop/Tablet */}
+              <div className="overflow-x-auto hidden md:block">
                 <table className="w-full min-w-[760px] text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -3675,8 +3824,8 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
-              {/* Barra de Filtro Rápido por Linha Esportiva */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {/* Barra de Filtro Rápido por Linha Esportiva (Sem barra de scroll) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scrollbar-none touch-pan-x py-0.5">
                 <button
                   type="button"
                   onClick={() => setSelectedDeptFilter('all')}
@@ -3714,9 +3863,80 @@ export default function AdminDashboardPage() {
                 })}
               </div>
 
-              {/* Tabela de Categorias Limpa e Elegante */}
-              <div className="border border-slate-200/80 rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
+              {/* Tabela de Categorias com Visualização em Cards para Mobile */}
+              <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white">
+                {/* Visualização em Cards Exclusiva para Mobile */}
+                <div className="block md:hidden p-3.5 space-y-2.5">
+                  {displayedCategories.length === 0 ? (
+                    <div className="py-10 text-center text-slate-400">
+                      Nenhuma categoria encontrada nesta linha esportiva.
+                    </div>
+                  ) : (
+                    displayedCategories.map((cat: any) => {
+                      const currentDept = findDepartmentForCategory(cat.name, departments);
+
+                      return (
+                        <div
+                          key={`mob-cat-${cat.id}`}
+                          className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-3.5 space-y-2.5 shadow-2xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="w-7 h-7 rounded-lg bg-white border border-slate-200 font-mono font-bold text-xs text-slate-500 flex items-center justify-center shrink-0">
+                                #{cat.display_order ?? 0}
+                              </span>
+                              <strong className="text-zeiq-black font-extrabold text-sm truncate">
+                                {cat.name}
+                              </strong>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenCategoryModal(cat)}
+                                className="p-2 text-slate-600 hover:text-zeiq-black hover:bg-white rounded-lg transition-colors cursor-pointer"
+                                title="Editar Categoria"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(cat)}
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Excluir Categoria"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs border-t border-slate-200/80 pt-2 gap-2">
+                            {currentDept ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white text-slate-700 border border-slate-200 truncate">
+                                <span className="w-1.5 h-1.5 rounded-full bg-zeiq-orange shrink-0" />
+                                <span className="truncate">{currentDept.name}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                Sem linha
+                              </span>
+                            )}
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="font-mono text-[11px] text-slate-400">/{cat.slug}</span>
+                              <span className="px-2 py-0.5 bg-slate-100 rounded-md font-bold text-[11px] text-slate-700 border border-slate-200/60">
+                                {cat.product_count ?? 0} prods
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Tabela Completa para Desktop/Tablet */}
+                <div className="overflow-x-auto hidden md:block">
                   <table className="w-full min-w-[650px] text-left border-collapse">
                     <thead>
                       <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -4143,9 +4363,119 @@ export default function AdminDashboardPage() {
               </button>
             </div>
 
-            {/* Tabela de Revendedores */}
+            {/* Tabela de Revendedores com Visualização em Cards para Mobile */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Visualização em Cards Exclusiva para Mobile */}
+              <div className="block md:hidden p-3.5 space-y-3">
+                {filteredResellers.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400">
+                    <Briefcase className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <p className="font-semibold text-slate-600">Nenhum revendedor cadastrado.</p>
+                  </div>
+                ) : (
+                  filteredResellers.map((r) => {
+                    const cleanWa = (r.whatsapp || '').replace(/\D/g, '');
+
+                    return (
+                      <div
+                        key={`mob-reseller-${r.id}`}
+                        className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <strong className="text-zeiq-black font-extrabold text-sm block truncate">
+                              {r.name}
+                            </strong>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ID: {r.id.slice(0, 8)}...
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleResellerStatus(r)}
+                            className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
+                              r.status === 'ativo'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-slate-200 text-slate-700 border border-slate-300'
+                            }`}
+                            title="Alternar status"
+                          >
+                            {r.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                          </button>
+                        </div>
+
+                        {/* Métricas da Carteira e Pedidos */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between">
+                            <span className="text-slate-500 font-medium">Carteira:</span>
+                            <span className="font-black text-zeiq-black font-mono">{r.customers_count || 0} lojistas</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between">
+                            <span className="text-slate-500 font-medium">Pedidos:</span>
+                            <span className="font-black text-zeiq-black font-mono">{r.orders_count || 0}</span>
+                          </div>
+                        </div>
+
+                        {/* Dados de Contato e Ações */}
+                        <div className="space-y-2 border-t border-slate-200/80 pt-2.5 text-xs">
+                          <div className="flex items-center justify-between text-slate-600">
+                            <span className="truncate text-[11px] font-medium">{r.email}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-slate-700 border border-slate-200 shrink-0">
+                              {r.notification_preference === 'whatsapp_only'
+                                ? 'WhatsApp'
+                                : r.notification_preference === 'email_only'
+                                ? 'E-mail'
+                                : 'Ambos'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            {cleanWa ? (
+                              <a
+                                href={`https://wa.me/55${cleanWa.startsWith('55') ? cleanWa.slice(2) : cleanWa}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="h-10 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span>WhatsApp</span>
+                              </a>
+                            ) : (
+                              <div className="h-10 bg-slate-100 text-slate-400 rounded-xl text-xs flex items-center justify-center">
+                                Sem WhatsApp
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditResellerModal(r)}
+                                className="h-10 flex-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors active:scale-95 cursor-pointer"
+                                title="Editar"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                                <span>Editar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteReseller(r)}
+                                className="h-10 w-10 bg-white hover:bg-rose-50 text-rose-500 border border-slate-200 rounded-xl flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Tabela Completa para Desktop/Tablet */}
+              <div className="overflow-x-auto hidden md:block">
                 <table className="w-full min-w-[800px] text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
