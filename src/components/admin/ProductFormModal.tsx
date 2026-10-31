@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, Boxes, AlertTriangle } from 'lucide-react';
 import { Product, Category, ProductImage, ProductHighlight } from '@/types';
 import { createClient } from '@/lib/supabase/client';
-import { COMMON_SIZES, parseProductSizes } from '@/lib/utils/sizes';
+import { COMMON_SIZES, parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 
@@ -71,7 +71,8 @@ export function ProductFormModal({
       const initialStock: Record<string, number> = product.stock_by_size || {};
       const populatedStock: Record<string, number> = {};
       activeSizes.forEach((sz) => {
-        populatedStock[sz] = typeof initialStock[sz] === 'number' ? initialStock[sz] : 0;
+        const stock = findStockForSize(initialStock, sz);
+        populatedStock[sz] = typeof stock === 'number' ? stock : 0;
       });
       setStockBySize(populatedStock);
       setDefaultStock(

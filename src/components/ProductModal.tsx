@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Check, ShoppingBag, Tag, Layers, SlidersHorizontal } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
-import { parseProductSizes, isProductOutOfStock as checkProductOutOfStock, isSizeOutOfStock as checkSizeOutOfStock } from '@/lib/utils/sizes';
+import { parseProductSizes, isProductOutOfStock as checkProductOutOfStock, isSizeOutOfStock as checkSizeOutOfStock, findStockForSize } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
 import { flyToCartAnimation } from '@/lib/utils/cart-animation';
 
@@ -89,7 +89,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
   const getAvailableStockForSize = (sz: string): number | undefined => {
     if (isSizeOutOfStock(sz)) return 0;
     if (!product?.stock_by_size) return undefined;
-    const stock = product.stock_by_size[sz];
+    const stock = findStockForSize(product.stock_by_size, sz);
     return typeof stock === 'number' ? stock : undefined;
   };
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { invalidateCatalogCache } from '@/lib/data/products';
+import { normalizeCanonicalSize } from '@/lib/utils/sizes';
 
 interface StockBySizeInput {
   [size: string]: number | string;
@@ -119,7 +120,8 @@ function normalizeStockItem(item: any) {
   if (rawGrade && typeof rawGrade === 'object' && !Array.isArray(rawGrade)) {
     stockBySize = {};
     for (const [k, v] of Object.entries(rawGrade)) {
-      stockBySize[k.trim()] = Math.max(0, parseInt(String(v), 10) || 0);
+      const canonicalKey = normalizeCanonicalSize(k.trim()) || k.trim();
+      stockBySize[canonicalKey] = Math.max(0, parseInt(String(v), 10) || 0);
     }
   }
 
@@ -127,38 +129,52 @@ function normalizeStockItem(item: any) {
   let size = (item.size || item.tamanho || item.tam || '').toString().trim() || null;
   let cleanSku = rawSku;
 
-  // Extração inteligente de tamanho embutido no SKU:
-  // 1. Delimitador '/' (Padrão principal do ERP Zeiq: 201.001/G ou 401.001/33/34 ou 311.003/P34/6)
-  if (!size && cleanSku.includes('/')) {
-    const firstSlash = cleanSku.indexOf('/');
-    size = cleanSku.slice(firstSlash + 1).trim();
-    cleanSku = cleanSku.slice(0, firstSlash).trim();
-  }
-  // 2. Delimitador '-' (ex: 0214.013-M)
-  else if (!size && cleanSku.includes('-')) {
-    const lastDash = cleanSku.lastIndexOf('-');
-    const potentialSize = cleanSku.slice(lastDash + 1).trim();
-    if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
-      size = potentialSize;
-      cleanSku = cleanSku.slice(0, lastDash).trim();
+  // Extração inteligente de tamanho embutido no SKU
+  if (!size && cleanSku) {
+    // 1. Calçados duplos / chinelos no final do SKU:
+    // Suporta delimitadores /, -, _, espaço (ex: 401.009/33/34, 401.009-33/34, 401.009-33-34, 401.009_33_34, 401.009/3334, 401.009-33, 401.009/34)
+    const shoeMatch = cleanSku.match(/[\/\-_\s](33[\/\-_]?34|35[\/\-_]?36|37[\/\-_]?38|39[\/\-_]?40|41[\/\-_]?42|43[\/\-_]?44|33|34|35|36|37|38|39|40|41|42|43|44)$/i);
+    if (shoeMatch) {
+      size = shoeMatch[1];
+      cleanSku = cleanSku.slice(0, shoeMatch.index).trim();
     }
-  }
-  // 3. Delimitador '_' (ex: 0214.013_M)
-  else if (!size && cleanSku.includes('_')) {
-    const lastUnderscore = cleanSku.lastIndexOf('_');
-    const potentialSize = cleanSku.slice(lastUnderscore + 1).trim();
-    if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
-      size = potentialSize;
-      cleanSku = cleanSku.slice(0, lastUnderscore).trim();
+    // 2. Sapatilhas e combinações alfanuméricas no final do SKU (ex: 311.003/P34/6, 311.003-P 33/36, 311.003/M 37/40)
+    else {
+      const sapatilhaMatch = cleanSku.match(/[\/\-_\s]([PMG]\s*[0-9]{2}[\/\-_][0-9]{1,2}|[PMG][0-9]{2,4})$/i);
+      if (sapatilhaMatch) {
+        size = sapatilhaMatch[1];
+        cleanSku = cleanSku.slice(0, sapatilhaMatch.index).trim();
+      }
+      // 3. Delimitador '/' padrão Zeiq para vestuário (ex: 201.011/G ou 0214.013/PP)
+      else if (cleanSku.includes('/')) {
+        const firstSlash = cleanSku.indexOf('/');
+        size = cleanSku.slice(firstSlash + 1).trim();
+        cleanSku = cleanSku.slice(0, firstSlash).trim();
+      }
+      // 4. Delimitador '-' padrão (ex: 0214.013-M)
+      else if (cleanSku.includes('-')) {
+        const lastDash = cleanSku.lastIndexOf('-');
+        const potentialSize = cleanSku.slice(lastDash + 1).trim();
+        if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
+          size = potentialSize;
+          cleanSku = cleanSku.slice(0, lastDash).trim();
+        }
+      }
+      // 5. Delimitador '_' padrão (ex: 0214.013_M)
+      else if (cleanSku.includes('_')) {
+        const lastUnderscore = cleanSku.lastIndexOf('_');
+        const potentialSize = cleanSku.slice(lastUnderscore + 1).trim();
+        if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
+          size = potentialSize;
+          cleanSku = cleanSku.slice(0, lastUnderscore).trim();
+        }
+      }
     }
   }
 
-  // Mapeamento de abreviações e variações conhecidas de calçados / sapatilhas do ERP
+  // Normalização canônica do tamanho (ex: 33-34 -> 33/34, P34/6 -> P 33/36, etc.)
   if (size) {
-    const upperSize = size.toUpperCase();
-    if (upperSize === 'P34/6' || upperSize === 'P33/6') size = 'P 33/36';
-    else if (upperSize === 'M37/9' || upperSize === 'M37/4') size = 'M 37/40';
-    else if (upperSize === 'G40/2' || upperSize === 'G40/4') size = 'G 40/44';
+    size = normalizeCanonicalSize(size) || size;
   }
 
   // Quantidade / Saldo
@@ -183,33 +199,45 @@ function getSkuVariations(cleanSku: string): string[] {
 
   vars.add(clean);
 
-  // 1. Variações do prefixo MG (bidirecional)
-  if (/^MG/i.test(clean)) {
-    const noMg = clean.slice(2);
-    vars.add(noMg);
-    if (noMg.startsWith('0')) vars.add(noMg.replace(/^0+/, ''));
-    else if (/^[0-9]/.test(noMg)) vars.add('0' + noMg);
-    if (noMg.includes('.')) vars.add(noMg.replace(/\./g, ''));
-  } else {
-    vars.add('MG' + clean);
-    if (clean.startsWith('0')) vars.add('MG' + clean.replace(/^0+/, ''));
-    else if (/^[0-9]/.test(clean)) vars.add('MG0' + clean);
-    if (clean.includes('.')) vars.add(('MG' + clean).replace(/\./g, ''));
-  }
+  // Normalização base: remove MG inicial e zeros à esquerda para ter o núcleo
+  const core = clean.replace(/^MG/i, '').trim();
+  const coreNoZero = core.replace(/^0+/, '');
+  const coreWithZero = coreNoZero ? '0' + coreNoZero : core;
 
-  // 2. Variações de zero à esquerda (ex: 0214.013 <-> 214.013 ou 401.019 <-> 0401.019)
-  if (clean.startsWith('0')) {
-    vars.add(clean.replace(/^0+/, ''));
-  } else if (/^[0-9]/.test(clean)) {
-    vars.add('0' + clean);
-  }
+  const coreCandidates = new Set([core, coreNoZero, coreWithZero]);
 
-  // 3. Variações com e sem ponto
-  if (clean.includes('.')) {
-    vars.add(clean.replace(/\./g, ''));
-  } else if (/^[0-9]{6,8}$/.test(clean)) {
-    if (clean.length === 6) vars.add(clean.slice(0, 3) + '.' + clean.slice(3));
-    else if (clean.length === 7) vars.add(clean.slice(0, 4) + '.' + clean.slice(4));
+  for (const c of Array.from(coreCandidates)) {
+    if (!c) continue;
+    vars.add(c);
+    vars.add('MG' + c);
+
+    if (c.includes('.')) {
+      const noDot = c.replace(/\./g, '');
+      vars.add(noDot);
+      vars.add('MG' + noDot);
+      const noDotNoZero = noDot.replace(/^0+/, '');
+      vars.add(noDotNoZero);
+      vars.add('MG' + noDotNoZero);
+    } else {
+      // Se tiver 6 dígitos numéricos (ex: 401009 -> 401.009)
+      if (c.length === 6) {
+        const dot6 = c.slice(0, 3) + '.' + c.slice(3);
+        vars.add(dot6);
+        vars.add('MG' + dot6);
+      }
+      // Se tiver 7 dígitos numéricos (ex: 0401009 -> 401.009 e 0401.009)
+      else if (c.length === 7) {
+        const dot7 = c.slice(0, 4) + '.' + c.slice(4);
+        vars.add(dot7);
+        vars.add('MG' + dot7);
+        if (c.startsWith('0')) {
+          const c6 = c.slice(1);
+          const dot6 = c6.slice(0, 3) + '.' + c6.slice(3);
+          vars.add(dot6);
+          vars.add('MG' + dot6);
+        }
+      }
+    }
   }
 
   return Array.from(vars);
@@ -419,7 +447,7 @@ export async function POST(request: NextRequest) {
         }
         // CASO B: Atualização de tamanho pontual (ex: 201.001/G ou 401.001/33/34 ou item.size: "M")
         else if (size) {
-          const cleanSize = size.trim();
+          const cleanSize = normalizeCanonicalSize(size) || size.trim();
           entry.stockBySize[cleanSize] = quantity ?? 0;
         }
         // CASO C: Produto simples (sem tamanho / tamanho único)

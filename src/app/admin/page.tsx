@@ -57,7 +57,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Product, Category, Order, OrderStatus, QuoteItem, BannerItem, StoreSettings } from '@/types';
-import { parseProductSizes } from '@/lib/utils/sizes';
+import { parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
@@ -675,7 +675,8 @@ export default function AdminDashboardPage() {
     const initialStock: Record<string, number> = product.stock_by_size || {};
     const populated: Record<string, number> = {};
     activeSizes.forEach((sz) => {
-      populated[sz] = typeof initialStock[sz] === 'number' ? initialStock[sz] : 0;
+      const stock = findStockForSize(initialStock, sz);
+      populated[sz] = typeof stock === 'number' ? stock : 0;
     });
     setQuickStockBySize(populated);
     setQuickDefaultStock(
