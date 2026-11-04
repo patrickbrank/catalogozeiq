@@ -109,8 +109,6 @@ export async function POST(request: NextRequest) {
       is_featured = false,
       display_order = 0,
       tags = [],
-      sizes = [],
-      highlights = [],
       stock_by_size = null,
       total_stock = null,
       category_ids = [],
@@ -121,12 +119,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Nome do produto é obrigatório.' }, { status: 400 });
     }
 
-    const finalSlug = (slug?.trim() || name.trim())
+    let finalSlug = (slug?.trim() || name.trim())
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || `produto-${Date.now()}`;
+
+    // Garante que o slug é único no banco
+    const { data: existingSlug } = await adminSupabase
+      .from('products')
+      .select('id')
+      .eq('slug', finalSlug)
+      .maybeSingle();
+
+    if (existingSlug) {
+      finalSlug = `${finalSlug}-${Date.now().toString().slice(-4)}`;
+    }
+
+    // Calcula total_stock automaticamente a partir de stock_by_size caso não tenha sido explicitado
+    let calculatedTotal = total_stock != null && !isNaN(Number(total_stock)) ? Number(total_stock) : null;
+    if (stock_by_size && typeof stock_by_size === 'object' && calculatedTotal === null) {
+      calculatedTotal = Object.values(stock_by_size as Record<string, any>).reduce(
+        (acc: number, val: any) => acc + (Math.max(0, parseInt(String(val), 10) || 0)),
+        0
+      );
+    }
 
     const insertPayload: any = {
       name: name.trim(),
@@ -140,10 +158,8 @@ export async function POST(request: NextRequest) {
       is_featured: !!is_featured,
       display_order: Number(display_order) || 0,
       tags: Array.isArray(tags) ? tags : [],
-      sizes: Array.isArray(sizes) ? sizes : [],
-      highlights: Array.isArray(highlights) ? highlights : [],
       stock_by_size: stock_by_size || null,
-      total_stock: total_stock != null ? Number(total_stock) : null,
+      total_stock: calculatedTotal,
     };
 
     let { data: newProd, error: insertErr } = await adminSupabase
@@ -152,12 +168,17 @@ export async function POST(request: NextRequest) {
       .select('*')
       .single();
 
-    // Fallback se colunas de preço ou estoque não existirem ainda
-    if (insertErr && (insertErr.message?.includes('price') || insertErr.message?.includes('stock'))) {
-      delete insertPayload.stock_by_size;
-      delete insertPayload.total_stock;
-      delete insertPayload.price;
-      delete insertPayload.original_price;
+    // Fallback se colunas opcionais não existirem no schema do banco
+    if (insertErr && (insertErr.message?.includes('price') || insertErr.message?.includes('stock') || insertErr.message?.includes('ean'))) {
+      if (insertErr.message?.includes('ean')) delete insertPayload.ean;
+      if (insertErr.message?.includes('price')) {
+        delete insertPayload.price;
+        delete insertPayload.original_price;
+      }
+      if (insertErr.message?.includes('stock')) {
+        delete insertPayload.stock_by_size;
+        delete insertPayload.total_stock;
+      }
 
       const retry = await adminSupabase
         .from('products')
@@ -240,6 +261,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'ID do produto é obrigatório.' }, { status: 400 });
     }
 
+    // Remove campos virtuais ou relacionamentos que não existem na tabela products
+    delete fields.sizes;
+    delete fields.highlights;
+    delete fields.categories;
+    delete fields.images;
+
     const updatePayload: any = {
       ...fields,
       updated_at: new Date().toISOString(),
@@ -253,6 +280,11 @@ export async function PUT(request: NextRequest) {
     }
     if (fields.total_stock !== undefined) {
       updatePayload.total_stock = fields.total_stock != null ? Number(fields.total_stock) : null;
+    } else if (fields.stock_by_size && typeof fields.stock_by_size === 'object') {
+      updatePayload.total_stock = Object.values(fields.stock_by_size as Record<string, any>).reduce(
+        (acc: number, val: any) => acc + (Math.max(0, parseInt(String(val), 10) || 0)),
+        0
+      );
     }
 
     let { data: updatedProd, error: updateErr } = await adminSupabase

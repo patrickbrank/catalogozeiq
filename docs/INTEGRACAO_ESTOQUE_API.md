@@ -249,6 +249,25 @@ curl -X PUT "https://seu-dominio.com.br/api/integrations/stock" \
   }'
 ```
 
+### Auto-Cadastro de Novos Produtos via Integração
+Caso o ERP envie SKUs que ainda não existem no catálogo e você deseje que eles sejam automaticamente cadastrados como **Rascunho** (com o estoque já atribuído, para que o time do catálogo só precise adicionar fotos e publicar), envie o parâmetro `"auto_create": true` no corpo da requisição ou como query param na URL (`?auto_create=true`):
+
+```json
+{
+  "auto_create": true,
+  "items": [
+    {
+      "sku": "401.035",
+      "name": "401.035 - Novo Chinelo Zeiq",
+      "stock_by_size": {
+        "35/36": 20,
+        "37/38": 30
+      }
+    }
+  ]
+}
+```
+
 ---
 
 ## 7. Estrutura de Retorno (Respostas da API)

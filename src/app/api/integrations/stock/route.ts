@@ -306,6 +306,7 @@ export async function GET(request: NextRequest) {
       'Tamanho individual: { "sku": "0214.013", "size": "M", "quantity": 15 }',
       'Produto simples / EAN: { "ean": "7891234567890", "quantity": 50 }',
       'Lote: [{ "sku": "0214.013", "quantity": 10 }, { "sku": "5001.003", "quantity": 25 }]',
+      'Auto-cadastro de novos SKUs: envie { "auto_create": true } no corpo ou ?auto_create=true na URL',
     ],
     timestamp: new Date().toISOString(),
   });
@@ -416,12 +417,54 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const product = await findProduct(adminSupabase, cleanSku, rawEan);
+        let product = await findProduct(adminSupabase, cleanSku, rawEan);
+
+        if (!product) {
+          const autoCreate = Boolean(
+            rawItem.auto_create ||
+            rawItem.criar_se_novo ||
+            body?.auto_create ||
+            body?.auto_create_products ||
+            request.nextUrl?.searchParams?.get('auto_create') === 'true'
+          );
+
+          if (autoCreate && cleanSku) {
+            const rawName = (rawItem.name || rawItem.nome || rawItem.descricao || `${cleanSku} - Novo Produto`).toString().trim();
+            const slugBase = (cleanSku + '-' + rawName)
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '') || `prod-${cleanSku}`;
+            const uniqueSlug = `${slugBase}-${Date.now().toString().slice(-4)}`;
+
+            const newProductPayload: any = {
+              name: rawName,
+              slug: uniqueSlug,
+              code_sku: cleanSku,
+              ean: rawEan || null,
+              is_published: false, // Cadastra como rascunho seguro para que o admin possa revisar fotos e publicar
+              tags: ['integracao-estoque'],
+              stock_by_size: {},
+              total_stock: 0,
+            };
+
+            const { data: createdProduct, error: createErr } = await adminSupabase
+              .from('products')
+              .insert(newProductPayload)
+              .select('id, name, code_sku, stock_by_size, total_stock')
+              .single();
+
+            if (!createErr && createdProduct) {
+              product = createdProduct;
+            }
+          }
+        }
 
         if (!product) {
           notFoundItems.push({
             identifier,
-            message: `Produto com identificador "${identifier}" não foi localizado no catálogo ativo.`,
+            message: `Produto com identificador "${identifier}" não foi localizado no catálogo ativo. Cadastre o produto previamente pelo painel admin ou envie "auto_create": true na integração.`,
           });
           continue;
         }
