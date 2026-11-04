@@ -5,7 +5,11 @@ export const COMMON_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'G1', 'G2', 'Únic
 // Normaliza qualquer representação de tamanho para o padrão canônico do catálogo Zeiq
 export function normalizeCanonicalSize(rawSize?: string | null): string {
   if (!rawSize) return '';
-  const clean = rawSize.trim().toUpperCase();
+  let clean = rawSize.trim().toUpperCase();
+
+  // Remove prefixos comuns gerados por planilhas, ERPs e Shopify:
+  // "tam: M", "tam. M", "tam M", "tamanho: M", "nr.M", "nr. M", "nº M", etc.
+  clean = clean.replace(/^(?:TAM(?:\.|\:|\s+|-|_)*|TAMANHO(?:\.|\:|\s+|-|_)*|NR(?:\.|\:|\s+|-|_)*|NUM(?:\.|\:|\s+|-|_)*|Nº(?:\.|\:|\s+|-|_)*)+/i, '').trim();
 
   // 1. Chinelos e calçados com numeração dupla (33/34, 35/36, 37/38, 39/40, 41/42, 43/44)
   // Aceita variações: 33/34, 33-34, 33_34, 33 34, 33 / 34, 3334
@@ -39,7 +43,12 @@ export function normalizeCanonicalSize(rawSize?: string | null): string {
   if (clean === 'G40/2' || clean === 'G40/4' || clean === 'G 40-44' || clean === 'G4044') return 'G 40/44';
 
   // 3. Tamanho único
-  if (clean === 'UNICO' || clean === 'ÚNICO' || clean === 'TAMANHO UNICO' || clean === 'TAMANHO ÚNICO') return 'Único';
+  if (clean === 'UNICO' || clean === 'ÚNICO' || clean === 'TAMANHO UNICO' || clean === 'TAMANHO ÚNICO' || clean === 'TU' || clean === 'U') return 'Único';
+
+  // 4. Vestuário canônico comum (PP, P, M, G, GG, XG, G1, G2, etc.)
+  if (COMMON_SIZES.includes(clean)) {
+    return clean;
+  }
 
   return clean;
 }

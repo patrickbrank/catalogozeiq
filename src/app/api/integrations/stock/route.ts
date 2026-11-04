@@ -125,8 +125,21 @@ function normalizeStockItem(item: any) {
     }
   }
 
-  // Tamanho individual informado explicitamente
-  let size = (item.size || item.tamanho || item.tam || '').toString().trim() || null;
+  // Tamanho individual informado explicitamente (suporta múltiplos padrões de ERPs e integradores)
+  let size = (
+    item.size ??
+    item.tamanho ??
+    item.tam ??
+    item.variation ??
+    item.variacao ??
+    item.variant ??
+    item.opcao ??
+    item.option ??
+    item.sku_tam ??
+    item.grade_item ??
+    item.tamanho_item ??
+    ''
+  ).toString().trim() || null;
   let cleanSku = rawSku;
 
   // Extração inteligente de tamanho embutido no SKU
