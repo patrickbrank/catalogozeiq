@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, Boxes, AlertTriangle } from 'lucide-react';
 import { Product, Category, ProductImage, ProductHighlight } from '@/types';
-import { createClient } from '@/lib/supabase/client';
 import { COMMON_SIZES, parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
@@ -206,28 +205,26 @@ export function ProductFormModal({
     setErrorMsg('');
 
     try {
-      const supabase = createClient();
       const newUploadedImages: typeof images = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-        const filePath = `admin-uploads/${fileName}`;
+        const formData = new FormData();
+        formData.append('file', file);
 
-        const { error: uploadError } = await supabase.storage
-          .from('produtos')
-          .upload(filePath, file);
+        const res = await fetch('/api/admin/upload-product-image', {
+          method: 'POST',
+          body: formData,
+        });
 
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('produtos')
-          .getPublicUrl(filePath);
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Falha ao processar upload da foto.');
+        }
 
         newUploadedImages.push({
-          public_url: publicUrlData.publicUrl,
-          storage_path: filePath,
+          public_url: data.publicUrl,
+          storage_path: data.storagePath,
           is_cover: images.length === 0 && i === 0,
           sort_order: images.length + i,
         });
@@ -238,6 +235,7 @@ export function ProductFormModal({
       setErrorMsg(`Erro ao fazer upload da imagem: ${err.message}`);
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -277,7 +275,6 @@ export function ProductFormModal({
     setErrorMsg('');
 
     try {
-      const supabase = createClient();
       const slug = name
         .toLowerCase()
         .normalize('NFD')
