@@ -512,7 +512,7 @@ export function BannerDestinationPicker({
           type="button"
           onClick={() => {
             setActiveType('custom');
-            onChange(customUrl || 'https://wa.me/5516991667020');
+            onChange(customUrl || '');
           }}
           className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
             activeType === 'custom'
@@ -898,7 +898,7 @@ export function BannerDestinationPicker({
                 type="text"
                 value={customUrl}
                 onChange={(e) => handleApplyCustomUrl(e.target.value)}
-                placeholder="Ex: https://wa.me/5516991667020 ou /portal"
+                placeholder="Ex: /portal ou https://..."
                 className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-zeiq-black font-mono focus:outline-none focus:ring-1 focus:ring-zeiq-black"
               />
             </div>
@@ -907,14 +907,6 @@ export function BannerDestinationPicker({
           <div>
             <span className="text-[11px] text-slate-400 block mb-1.5">Atalhos rápidos:</span>
             <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleApplyCustomUrl('https://wa.me/5516991667020')}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span>WhatsApp Comercial Zeiq</span>
-              </button>
               <button
                 type="button"
                 onClick={() => handleApplyCustomUrl('/portal')}

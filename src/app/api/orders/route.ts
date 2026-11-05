@@ -202,12 +202,56 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Busca dados do perfil do lojista se existir
+    // Busca dados do perfil do lojista se existir e enriquece com dados do revendedor
     const { data: profile } = await adminSupabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
+
+    let enrichedProfile = profile;
+    const targetResellerId = profile?.reseller_id || profile?.representative_id;
+    if (profile && targetResellerId) {
+      try {
+        const { data: resTable } = await adminSupabase
+          .from('resellers')
+          .select('id, name, email, phone, whatsapp, status, notification_preference')
+          .or(`id.eq.${targetResellerId},user_id.eq.${targetResellerId}`)
+          .maybeSingle();
+
+        if (resTable) {
+          enrichedProfile = {
+            ...profile,
+            reseller: {
+              id: resTable.id,
+              name: resTable.name,
+              email: resTable.email,
+              phone: resTable.phone || resTable.whatsapp,
+              whatsapp: resTable.whatsapp,
+            },
+          };
+        } else {
+          const { data: legacyRep } = await adminSupabase
+            .from('profiles')
+            .select('id, contact_name, store_name, phone, email')
+            .eq('id', targetResellerId)
+            .maybeSingle();
+
+          if (legacyRep) {
+            enrichedProfile = {
+              ...profile,
+              reseller: {
+                id: legacyRep.id,
+                name: legacyRep.contact_name || legacyRep.store_name || legacyRep.email,
+                email: legacyRep.email,
+                phone: legacyRep.phone,
+                whatsapp: (legacyRep.phone || '').replace(/\D/g, ''),
+              },
+            };
+          }
+        }
+      } catch {}
+    }
 
     // Monta filtros abrangentes para encontrar pedidos do cliente
     const orFilters: string[] = [
@@ -230,6 +274,15 @@ export async function GET(request: NextRequest) {
       .or(orFilters.join(','))
       .order('created_at', { ascending: false });
 
+    // Enriquecimento retrocompatível dos pedidos com dados do revendedor
+    const formatOrdersWithReseller = (ordersList: any[]) => {
+      return ordersList.map((o) => ({
+        ...o,
+        reseller_name: o.reseller_name || enrichedProfile?.reseller?.name || null,
+        reseller_whatsapp: o.reseller_whatsapp || enrichedProfile?.reseller?.whatsapp || enrichedProfile?.reseller?.phone || null,
+      }));
+    };
+
     if (error) {
       // Fallback para consulta básica se colunas opcionais variarem
       const { data: fallbackData } = await adminSupabase
@@ -244,9 +297,9 @@ export async function GET(request: NextRequest) {
         user: {
           id: user.id,
           email: user.email,
-          profile: profile || null,
+          profile: enrichedProfile || null,
         },
-        orders: fallbackData || [],
+        orders: formatOrdersWithReseller(fallbackData || []),
       });
     }
 
@@ -256,9 +309,9 @@ export async function GET(request: NextRequest) {
       user: {
         id: user.id,
         email: user.email,
-        profile: profile || null,
+        profile: enrichedProfile || null,
       },
-      orders: data || [],
+      orders: formatOrdersWithReseller(data || []),
     });
   } catch (err: any) {
     return NextResponse.json({

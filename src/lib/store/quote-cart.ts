@@ -233,11 +233,12 @@ export const useQuoteCart = create<QuoteCartState>()(
         return items.reduce((sum, item) => sum + item.quantity, 0);
       },
 
-      generateWhatsAppLink: (sellerPhone = '5516991667020', buyerName = '', buyerCompany = '', orderNumber = '', buyerPhone = '') => {
+      generateWhatsAppLink: (sellerPhone = '', buyerName = '', buyerCompany = '', orderNumber = '', buyerPhone = '') => {
         const { items } = get();
-        if (items.length === 0) return '';
+        if (items.length === 0 || !sellerPhone) return '';
 
         const cleanPhone = sellerPhone.replace(/\D/g, '');
+        if (!cleanPhone) return '';
         let message = `Olá! Gostaria de solicitar uma cotação para revenda de produtos Zeiq.\n\n`;
 
         if (orderNumber) {

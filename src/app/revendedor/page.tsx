@@ -27,6 +27,7 @@ import {
   Briefcase,
   Copy,
   Check,
+  Share2,
   ChevronDown,
   ExternalLink,
   ShieldCheck,
@@ -91,6 +92,24 @@ export default function ResellerDashboardPage() {
 
   // Toast / Mensagens de Notificação
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Link de Indicação para Clientes
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const referralUrl = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    const origin = window.location.origin;
+    const repId = reseller?.id || user?.id || '';
+    return repId ? `${origin}/?rep=${repId}` : `${origin}/`;
+  }, [reseller, user]);
+
+  const handleCopyReferralLink = () => {
+    if (!referralUrl) return;
+    navigator.clipboard.writeText(referralUrl);
+    setCopiedLink(true);
+    showToast('Link de indicação copiado com sucesso!');
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -592,6 +611,61 @@ export default function ResellerDashboardPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Card Exclusivo do Link de Indicação do Revendedor */}
+        <div className="bg-gradient-to-r from-zeiq-dark via-[#13171f] to-zeiq-dark border border-white/10 hover:border-emerald-500/30 rounded-3xl p-4 sm:p-5 shadow-xl transition-all flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0">
+              <Share2 className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs sm:text-sm font-black text-white">
+                  Seu Link Exclusivo de Indicação do Catálogo
+                </span>
+                <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  Carteira Direta
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Compartilhe com seus clientes: os lojistas que acessarem ou se cadastrarem serão vinculados à sua carteira e qualquer contato via WhatsApp irá direto para você.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+            <div className="hidden xl:flex items-center px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs font-mono text-slate-300 max-w-xs truncate select-all">
+              {referralUrl}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyReferralLink}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                copiedLink
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-white/10 hover:bg-white/20 text-white border border-white/15'
+              }`}
+              title="Copiar link para a área de transferência"
+            >
+              {copiedLink ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-zeiq-orange" />}
+              <span>{copiedLink ? 'Copiado!' : 'Copiar Link'}</span>
+            </button>
+
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `Olá! Acesse o nosso catálogo exclusivo de revenda e atacado Zeiq pelo meu link: ${referralUrl}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-md"
+              title="Enviar link no WhatsApp"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Divulgar no WhatsApp</span>
+            </a>
           </div>
         </div>
 

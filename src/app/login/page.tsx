@@ -56,6 +56,12 @@ export default function B2BLoginPage() {
       if (params.get('pending_approval') === '1') {
         setErrorMsg('Seu cadastro está aguardando aprovação pelo seu revendedor comercial. Nossa equipe analisará os dados antes de liberar seu acesso.');
       }
+
+      // Captura indicação de revendedor pela URL (?rep=, ?reseller=, ?r=)
+      const repParam = params.get('rep') || params.get('reseller') || params.get('r');
+      if (repParam) {
+        localStorage.setItem('zeiq_referral_reseller', repParam.trim());
+      }
     }
 
     // Carrega revendedores ativos para a vinculação obrigatória
@@ -65,6 +71,20 @@ export default function B2BLoginPage() {
       .then((data) => {
         if (data.success && Array.isArray(data.resellers)) {
           setResellers(data.resellers);
+
+          const storedRep = typeof window !== 'undefined' ? localStorage.getItem('zeiq_referral_reseller') : null;
+          if (storedRep) {
+            const matched = data.resellers.find(
+              (r: any) =>
+                r.id?.toLowerCase() === storedRep.toLowerCase() ||
+                r.email?.toLowerCase() === storedRep.toLowerCase()
+            );
+            if (matched) {
+              setRegResellerId(matched.id);
+              return;
+            }
+          }
+
           if (data.resellers.length === 1) {
             setRegResellerId(data.resellers[0].id);
           }
@@ -184,10 +204,17 @@ export default function B2BLoginPage() {
     }
   };
 
-  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020';
-  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-    'Olá equipe Zeiq! Gostaria de informações sobre a aprovação do meu cadastro de lojista no catálogo B2B.'
-  )}`;
+  const selectedReseller = resellers.find((r) => r.id === regResellerId);
+  const rawResellerPhone = selectedReseller?.whatsapp || selectedReseller?.phone;
+  let cleanResellerPhone = rawResellerPhone ? rawResellerPhone.replace(/\D/g, '') : '';
+  if (cleanResellerPhone && !cleanResellerPhone.startsWith('55') && (cleanResellerPhone.length === 10 || cleanResellerPhone.length === 11)) {
+    cleanResellerPhone = `55${cleanResellerPhone}`;
+  }
+  const registrationWhatsAppUrl = cleanResellerPhone
+    ? `https://wa.me/${cleanResellerPhone}?text=${encodeURIComponent(
+        `Olá ${selectedReseller?.name || 'Zeiq'}! Sou da loja ${regStoreName || 'parceira'} e acabei de solicitar meu cadastro no Catálogo Zeiq com você como meu revendedor. Poderia verificar a aprovação do meu acesso?`
+      )}`
+    : null;
 
   return (
     <div className="min-h-screen bg-zeiq-black text-white flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 font-sans selection:bg-zeiq-orange selection:text-zeiq-black">
@@ -306,15 +333,19 @@ export default function B2BLoginPage() {
                   Ir para a Tela de Login
                 </button>
 
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full h-10 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Falar com Atendimento no WhatsApp</span>
-                </a>
+                {registrationWhatsAppUrl && (
+                  <a
+                    href={registrationWhatsAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full h-10 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>
+                      Solicitar Aprovação com {selectedReseller?.name ? selectedReseller.name.split(' ')[0] : 'Revendedor'} no WhatsApp
+                    </span>
+                  </a>
+                )}
               </div>
             </div>
           ) : mode === 'login' ? (

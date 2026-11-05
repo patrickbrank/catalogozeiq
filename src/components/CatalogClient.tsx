@@ -82,6 +82,12 @@ export function CatalogClient({
         return () => clearTimeout(timer);
       }
 
+      // Captura indicação de revendedor pela URL (?rep=, ?reseller=, ?r=)
+      const repParam = params.get('rep') || params.get('reseller') || params.get('r');
+      if (repParam) {
+        localStorage.setItem('zeiq_referral_reseller', repParam.trim());
+      }
+
       let hasFilterFromUrl = false;
 
       // 1. Abre modal de produto se houver ?product=... ou ?produto=...

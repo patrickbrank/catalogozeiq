@@ -22,7 +22,7 @@ export const DEFAULT_BANNERS: BannerItem[] = [
 ];
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
-  whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020',
+  whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '',
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br',
   siteName: 'Zeiq Sports',
 };

@@ -416,14 +416,22 @@ export default function ResellerPortalPage() {
     }, 4500);
   };
 
-  // WhatsApp comercial direto sobre determinado pedido
+  // WhatsApp comercial direto com o revendedor responsável pelo pedido
   const getWhatsAppOrderLink = (order: Order) => {
-    const phone = storeSettings?.whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020';
-    const cleanPhone = phone.replace(/\D/g, '');
+    const rawPhone = order.reseller_whatsapp || profile?.reseller?.whatsapp || profile?.reseller?.phone;
+    if (!rawPhone) return null;
+    let cleanPhone = rawPhone.replace(/\D/g, '');
+    if (!cleanPhone) return null;
+    if (!cleanPhone.startsWith('55') && (cleanPhone.length === 10 || cleanPhone.length === 11)) {
+      cleanPhone = `55${cleanPhone}`;
+    }
+    const resellerGreeting = order.reseller_name || profile?.reseller?.name 
+      ? `Olá ${order.reseller_name || profile?.reseller?.name}!` 
+      : 'Olá equipe Zeiq!';
     const text = encodeURIComponent(
-      `Olá Zeiq Sports! Gostaria de falar sobre o andamento do meu pedido *#${order.order_number}* (Loja: ${
+      `${resellerGreeting} Gostaria de falar sobre o andamento do meu pedido *#${order.order_number}* (Loja: ${
         order.buyer_company || order.buyer_name
-      }). Poderiam me atualizar, por favor?`
+      }). Poderia me atualizar, por favor?`
     );
     return `https://wa.me/${cleanPhone}?text=${text}`;
   };
@@ -1273,15 +1281,24 @@ export default function ResellerPortalPage() {
                               Repetir este Pedido
                             </button>
 
-                            <a
-                              href={getWhatsAppOrderLink(order)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                              WhatsApp
-                            </a>
+                            {(() => {
+                              const waLink = getWhatsAppOrderLink(order);
+                              if (waLink) {
+                                return (
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
+                                    title={order.reseller_name ? `Falar com ${order.reseller_name} no WhatsApp` : 'Falar no WhatsApp'}
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    WhatsApp
+                                  </a>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -1300,23 +1317,43 @@ export default function ResellerPortalPage() {
               <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
                 <Phone className="w-4 h-4" />
               </div>
-              <h4 className="text-xs sm:text-sm font-bold text-zeiq-black">Suporte Comercial Direto</h4>
+              <h4 className="text-xs sm:text-sm font-bold text-zeiq-black">
+                {profile?.reseller?.name ? `Atendimento: ${profile.reseller.name}` : 'Suporte do seu Revendedor'}
+              </h4>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Fale com seu consultor Zeiq sobre faturamento, acréscimo de peças na remessa ou condições para torneios e arenas.
+                {profile?.reseller?.name
+                  ? `Fale diretamente com seu revendedor oficial Zeiq (${profile.reseller.name}) sobre faturamento, acréscimo de peças ou reposição.`
+                  : 'Fale com seu consultor comercial dedicado sobre reposição de estoque, acréscimo de peças ou faturamento.'}
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100">
-              <a
-                href={`https://wa.me/${(storeSettings?.whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '5516991667020').replace(/\D/g, '')}?text=${encodeURIComponent(
-                  'Olá Zeiq Sports! Gostaria de falar com meu consultor sobre reposição de estoque.'
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                Chamar no WhatsApp
-              </a>
+              {(() => {
+                const repPhone = profile?.reseller?.whatsapp || profile?.reseller?.phone;
+                let cleanRepPhone = repPhone ? repPhone.replace(/\D/g, '') : '';
+                if (cleanRepPhone && !cleanRepPhone.startsWith('55') && (cleanRepPhone.length === 10 || cleanRepPhone.length === 11)) {
+                  cleanRepPhone = `55${cleanRepPhone}`;
+                }
+                if (cleanRepPhone) {
+                  return (
+                    <a
+                      href={`https://wa.me/${cleanRepPhone}?text=${encodeURIComponent(
+                        `Olá ${profile?.reseller?.name || 'Zeiq'}! Sou lojista parceiro (${profile?.store_name || user?.email}) e gostaria de tirar dúvidas sobre reposição e pedidos.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Chamar {profile?.reseller?.name ? profile.reseller.name.split(' ')[0] : 'no WhatsApp'}
+                    </a>
+                  );
+                }
+                return (
+                  <div className="w-full py-2 px-3 rounded-xl bg-slate-100 text-slate-500 text-xs text-center font-medium">
+                    Revendedor comercial em alocação
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
