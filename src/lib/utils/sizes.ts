@@ -1,4 +1,4 @@
-import { Product } from '@/types';
+import type { Product } from '../../types';
 
 export const COMMON_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'G1', 'G2', 'Único'];
 
@@ -44,6 +44,9 @@ export function normalizeCanonicalSize(rawSize?: string | null): string {
 
   // 3. Tamanho único
   if (clean === 'UNICO' || clean === 'ÚNICO' || clean === 'TAMANHO UNICO' || clean === 'TAMANHO ÚNICO' || clean === 'TU' || clean === 'U') return 'Único';
+
+  // Ignora termos que indicam produto simples sem tamanho
+  if (clean === 'SIMPLES' || clean === 'SIMPLE' || clean === 'PADRAO' || clean === 'PADRÃO' || clean === 'DEFAULT' || clean === '-') return '';
 
   // 4. Vestuário canônico comum (PP, P, M, G, GG, XG, G1, G2, etc.)
   if (COMMON_SIZES.includes(clean)) {
@@ -181,19 +184,24 @@ export function parseProductSizes(
     if (!s) return;
     const upper = s.toUpperCase();
 
+    const canonical = normalizeCanonicalSize(s);
+
     if (upper === 'UNICO' || upper === 'ÚNICO') {
       extracted.push('Único');
     } else if (validStandard.has(upper)) {
       extracted.push(upper);
+    } else if (canonical && /^(?:33\/34|35\/36|37\/38|39\/40|41\/42|43\/44)$/.test(canonical)) {
+      // Calçados e Chinelos canônicos duplos: 33/34, 35/36, 37/38, 39/40, 41/42, 43/44
+      extracted.push(canonical);
     } else if (/^[0-9]{2}\/[0-9]{2}$/.test(s)) {
-      // Calçados e Chinelos: 33/34, 35/36, 37/38, 39/40, 41/42, 43/44
+      // Calçados e Chinelos com barra
       extracted.push(s);
     } else if (/^[0-9]{2}$/.test(s)) {
       // Numeração individual: 34, 36, 38, etc.
       extracted.push(s);
     } else if (/^[A-Za-z0-9\s\/\-\(\)]+$/.test(s) && s.length <= 12) {
       // Sapatilhas ou combinações alfanuméricas: P 33/36, M 37/40
-      extracted.push(s);
+      extracted.push(canonical || s);
     }
   });
 

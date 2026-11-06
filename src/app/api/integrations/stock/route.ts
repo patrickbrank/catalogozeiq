@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { invalidateCatalogCache } from '@/lib/data/products';
-import { normalizeCanonicalSize } from '@/lib/utils/sizes';
+import { normalizeCanonicalSize, parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 
 interface StockBySizeInput {
   [size: string]: number | string;
@@ -140,28 +140,43 @@ function normalizeStockItem(item: any) {
     item.tamanho_item ??
     ''
   ).toString().trim() || null;
+
+  // Se o valor for um indicativo de produto simples ou nulo, limpa para permitir detecção pelo SKU
+  if (
+    size &&
+    /^(?:simples|simple|padrao|padr[aã]o|default|único|unico|-|null|undefined)$/i.test(size)
+  ) {
+    size = null;
+  }
+
   let cleanSku = rawSku;
 
-  // Extração inteligente de tamanho embutido no SKU
-  if (!size && cleanSku) {
+  // Extração inteligente de tamanho embutido no SKU (executa sempre para limpar cleanSku e extrair size)
+  if (cleanSku) {
     // 1. Calçados duplos / chinelos no final do SKU:
     // Suporta delimitadores /, -, _, espaço (ex: 401.009/33/34, 401.009-33/34, 401.009-33-34, 401.009_33_34, 401.009/3334, 401.009-33, 401.009/34)
-    const shoeMatch = cleanSku.match(/[\/\-_\s](33[\/\-_]?34|35[\/\-_]?36|37[\/\-_]?38|39[\/\-_]?40|41[\/\-_]?42|43[\/\-_]?44|33|34|35|36|37|38|39|40|41|42|43|44)$/i);
+    const shoeMatch = cleanSku.match(/[\/\-_\s](33[\/\-_\s]*34|35[\/\-_\s]*36|37[\/\-_\s]*38|39[\/\-_\s]*40|41[\/\-_\s]*42|43[\/\-_\s]*44|33|34|35|36|37|38|39|40|41|42|43|44)$/i);
     if (shoeMatch) {
-      size = shoeMatch[1];
+      if (!size) {
+        size = shoeMatch[1];
+      }
       cleanSku = cleanSku.slice(0, shoeMatch.index).trim();
     }
     // 2. Sapatilhas e combinações alfanuméricas no final do SKU (ex: 311.003/P34/6, 311.003-P 33/36, 311.003/M 37/40)
     else {
       const sapatilhaMatch = cleanSku.match(/[\/\-_\s]([PMG]\s*[0-9]{2}[\/\-_][0-9]{1,2}|[PMG][0-9]{2,4})$/i);
       if (sapatilhaMatch) {
-        size = sapatilhaMatch[1];
+        if (!size) {
+          size = sapatilhaMatch[1];
+        }
         cleanSku = cleanSku.slice(0, sapatilhaMatch.index).trim();
       }
       // 3. Delimitador '/' padrão Zeiq para vestuário (ex: 201.011/G ou 0214.013/PP)
       else if (cleanSku.includes('/')) {
         const firstSlash = cleanSku.indexOf('/');
-        size = cleanSku.slice(firstSlash + 1).trim();
+        if (!size) {
+          size = cleanSku.slice(firstSlash + 1).trim();
+        }
         cleanSku = cleanSku.slice(0, firstSlash).trim();
       }
       // 4. Delimitador '-' padrão (ex: 0214.013-M)
@@ -169,7 +184,9 @@ function normalizeStockItem(item: any) {
         const lastDash = cleanSku.lastIndexOf('-');
         const potentialSize = cleanSku.slice(lastDash + 1).trim();
         if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
-          size = potentialSize;
+          if (!size) {
+            size = potentialSize;
+          }
           cleanSku = cleanSku.slice(0, lastDash).trim();
         }
       }
@@ -178,7 +195,9 @@ function normalizeStockItem(item: any) {
         const lastUnderscore = cleanSku.lastIndexOf('_');
         const potentialSize = cleanSku.slice(lastUnderscore + 1).trim();
         if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
-          size = potentialSize;
+          if (!size) {
+            size = potentialSize;
+          }
           cleanSku = cleanSku.slice(0, lastUnderscore).trim();
         }
       }
@@ -212,8 +231,19 @@ function getSkuVariations(cleanSku: string): string[] {
 
   vars.add(clean);
 
+  // Se o SKU ainda contiver delimitador '/' ou '-' com sufixo de tamanho (ex: 401.021/39/40), extrai a raiz
+  if (clean.includes('/')) {
+    const root = clean.split('/')[0].trim();
+    if (root) vars.add(root);
+  }
+  const matchShoe = clean.match(/^(.+?)[\/\-_\s](33[\/\-_\s]*34|35[\/\-_\s]*36|37[\/\-_\s]*38|39[\/\-_\s]*40|41[\/\-_\s]*42|43[\/\-_\s]*44|[0-9]{2})$/i);
+  if (matchShoe && matchShoe[1]) {
+    vars.add(matchShoe[1].trim());
+  }
+
   // Normalização base: remove MG inicial e zeros à esquerda para ter o núcleo
-  const core = clean.replace(/^MG/i, '').trim();
+  const cleanRoot = clean.includes('/') ? clean.split('/')[0].trim() : clean;
+  const core = cleanRoot.replace(/^MG/i, '').trim();
   const coreNoZero = core.replace(/^0+/, '');
   const coreWithZero = coreNoZero ? '0' + coreNoZero : core;
 
@@ -263,7 +293,7 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string)
     try {
       const { data: byEan, error: eanErr } = await adminSupabase
         .from('products')
-        .select('id, name, code_sku, stock_by_size, total_stock')
+        .select('id, name, code_sku, stock_by_size, total_stock, description')
         .eq('ean', rawEan)
         .maybeSingle();
 
@@ -279,17 +309,18 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string)
 
   const { data: bySku } = await adminSupabase
     .from('products')
-    .select('id, name, code_sku, stock_by_size, total_stock')
+    .select('id, name, code_sku, stock_by_size, total_stock, description')
     .or(orClause)
     .limit(1);
 
   if (bySku && bySku.length > 0) return bySku[0];
 
   // 3. Fallback pelo prefixo do nome do produto no catálogo (ex: "401.019 - Chinelo...")
+  const rootSku = cleanSku.includes('/') ? cleanSku.split('/')[0].trim() : cleanSku;
   const { data: byNamePrefix } = await adminSupabase
     .from('products')
-    .select('id, name, code_sku, stock_by_size, total_stock')
-    .or(`name.ilike.${cleanSku} - %,name.ilike.${cleanSku}%`)
+    .select('id, name, code_sku, stock_by_size, total_stock, description')
+    .or(`name.ilike.${rootSku} - %,name.ilike.${rootSku}%,code_sku.ilike.${rootSku}%`)
     .limit(1);
 
   if (byNamePrefix && byNamePrefix.length > 0) return byNamePrefix[0];
@@ -297,7 +328,7 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string)
   return null;
 }
 
-// GET: Verificação de status e conectividade (Health check para o ERP)
+// GET: Verificação de status e conectividade (Health check para o ERP) ou consulta de produtos
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json(
@@ -309,6 +340,125 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const { searchParams } = new URL(request.url);
+  const requestedSku = searchParams.get('sku')?.trim() || searchParams.get('code_sku')?.trim();
+  const listProducts = searchParams.get('products') === 'true' || searchParams.get('list') === 'true' || searchParams.get('all') === 'true';
+
+  const adminSupabase = getAdminClient();
+
+  // 1. Consulta de produto específico por SKU
+  if (requestedSku && adminSupabase) {
+    const { cleanSku, rawEan } = normalizeStockItem({ sku: requestedSku });
+    const product = await findProduct(adminSupabase, cleanSku, rawEan);
+    if (!product) {
+      return NextResponse.json(
+        { success: false, error: `Produto com SKU "${requestedSku}" não foi localizado no catálogo.` },
+        { status: 404 }
+      );
+    }
+
+    const parsedSizes = parseProductSizes(product.description, product.sizes, product.name);
+    const sizesList = parsedSizes.sizes || [];
+    const hasSizes = sizesList.length > 0;
+
+    const variants = hasSizes
+      ? sizesList.map((sz: string, vIdx: number) => {
+          const canonicalSz = normalizeCanonicalSize(sz) || sz;
+          const stockQty = findStockForSize(product.stock_by_size, canonicalSz) ?? 0;
+          return {
+            id: `${product.id}-${canonicalSz}`,
+            product_id: product.id,
+            sku: `${product.code_sku || ''}/${canonicalSz}`,
+            size: canonicalSz,
+            title: canonicalSz,
+            inventory_quantity: stockQty,
+            stock: stockQty,
+            position: vIdx + 1,
+          };
+        })
+      : [
+          {
+            id: `${product.id}-default`,
+            product_id: product.id,
+            sku: product.code_sku || '',
+            size: null,
+            title: 'Padrão',
+            inventory_quantity: product.total_stock ?? 0,
+            stock: product.total_stock ?? 0,
+            position: 1,
+          },
+        ];
+
+    return NextResponse.json({
+      success: true,
+      product: {
+        id: product.id,
+        name: product.name,
+        code_sku: product.code_sku,
+        total_stock: product.total_stock ?? 0,
+        stock_by_size: product.stock_by_size || {},
+        sizes: sizesList,
+        has_sizes: hasSizes,
+        variants,
+      },
+    });
+  }
+
+  // 2. Consulta de lista de produtos para sincronização
+  if (listProducts && adminSupabase) {
+    const { data: dbProducts } = await adminSupabase
+      .from('products')
+      .select('id, name, code_sku, ean, stock_by_size, total_stock, description')
+      .order('code_sku', { ascending: true });
+
+    const formatted = (dbProducts || []).map((p: any) => {
+      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name);
+      const sizesList = parsedSizes.sizes || [];
+      const hasSizes = sizesList.length > 0;
+      const variants = hasSizes
+        ? sizesList.map((sz: string, vIdx: number) => {
+            const canonicalSz = normalizeCanonicalSize(sz) || sz;
+            const stockQty = findStockForSize(p.stock_by_size, canonicalSz) ?? 0;
+            return {
+              id: `${p.id}-${canonicalSz}`,
+              sku: `${p.code_sku || ''}/${canonicalSz}`,
+              size: canonicalSz,
+              inventory_quantity: stockQty,
+              stock: stockQty,
+              position: vIdx + 1,
+            };
+          })
+        : [
+            {
+              id: `${p.id}-default`,
+              sku: p.code_sku || '',
+              size: null,
+              inventory_quantity: p.total_stock ?? 0,
+              stock: p.total_stock ?? 0,
+              position: 1,
+            },
+          ];
+
+      return {
+        id: p.id,
+        name: p.name,
+        code_sku: p.code_sku,
+        ean: p.ean,
+        total_stock: p.total_stock ?? 0,
+        stock_by_size: p.stock_by_size || {},
+        sizes: sizesList,
+        has_sizes: hasSizes,
+        variants,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      total: formatted.length,
+      products: formatted,
+    });
+  }
+
   return NextResponse.json({
     success: true,
     message: 'API de Integração de Estoque Zeiq ativa e operacional.',
@@ -317,8 +467,9 @@ export async function GET(request: NextRequest) {
     supported_formats: [
       'Grade completa: { "sku": "0214.013", "stock_by_size": { "P": 10, "M": 15, "G": 8 } }',
       'Tamanho individual: { "sku": "0214.013", "size": "M", "quantity": 15 }',
+      'Chinelo com barra no SKU: { "sku": "401.021/39/40", "quantity": 92 }',
       'Produto simples / EAN: { "ean": "7891234567890", "quantity": 50 }',
-      'Lote: [{ "sku": "0214.013", "quantity": 10 }, { "sku": "5001.003", "quantity": 25 }]',
+      'Lote: [{ "sku": "401.021/39/40", "quantity": 92 }, { "sku": "5001.003", "quantity": 25 }]',
       'Auto-cadastro de novos SKUs: envie { "auto_create": true } no corpo ou ?auto_create=true na URL',
     ],
     timestamp: new Date().toISOString(),
@@ -509,7 +660,13 @@ export async function POST(request: NextRequest) {
         // CASO C: Produto simples (sem tamanho / tamanho único)
         else {
           const targetQty = quantity ?? 0;
-          entry.stockBySize = { _padrao: targetQty };
+          const existingSizes = Object.keys(entry.stockBySize || {}).filter((k) => k !== '_padrao');
+          if (existingSizes.length > 0) {
+            // Se o produto já possui grade definida por tamanho, preserva as gavetas existentes
+            entry.totalStock = targetQty;
+          } else {
+            entry.stockBySize = { _padrao: targetQty };
+          }
         }
 
         // Recalcula o estoque total consolidado

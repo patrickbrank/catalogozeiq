@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Product, Category } from '@/types';
 import { Department, DEFAULT_DEPARTMENTS } from '@/lib/data/departments';
 import { getDepartments } from '@/lib/data/departments-server';
+import { parseProductSizes } from '@/lib/utils/sizes';
 
 function getPublicSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -51,7 +52,7 @@ function slugify(text: string) {
 export function cleanProductDescription(raw: string | null | undefined): string {
   if (!raw) return '';
   return raw
-    .replace(/<del>[^<]*<\/del>/gi, '')
+    .replace(/<\/?(?:del|s|strike)[^>]*>/gi, '')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/&nbsp;/gi, ' ')
     .replace(/<\/p>/gi, '\n\n')
@@ -164,6 +165,7 @@ export function getLocalCSVProducts(): { products: Product[]; categories: Catego
       }));
 
       const tags = (r[colTags] || '').split(',').map(t => t.trim()).filter(Boolean);
+      const parsedSizes = parseProductSizes(rawDesc, undefined, name);
 
       return {
         id: legacyId,
@@ -171,6 +173,7 @@ export function getLocalCSVProducts(): { products: Product[]; categories: Catego
         name: name,
         slug: `${slugify(name)}-${legacyId}`,
         code_sku: sku,
+        sizes: parsedSizes.sizes,
         description: desc,
         is_published: true,
         is_featured: (r[colFeatured] || '').trim() === '1',
@@ -228,16 +231,20 @@ export async function getCatalogData(): Promise<{ products: Product[]; categorie
 
     if (!catError && !prodError && dbProducts && dbProducts.length > 0) {
       const formattedProducts: Product[] = dbProducts
-        .map((p: any) => ({
-          ...p,
-          description: cleanProductDescription(p.description),
-          images: (p.images || []).sort((a: any, b: any) => {
-            if (a.is_cover && !b.is_cover) return -1;
-            if (!a.is_cover && b.is_cover) return 1;
-            return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-          }),
-          categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
-        }))
+        .map((p: any) => {
+          const parsedSizes = parseProductSizes(p.description, p.sizes, p.name);
+          return {
+            ...p,
+            sizes: parsedSizes.sizes,
+            description: cleanProductDescription(p.description),
+            images: (p.images || []).sort((a: any, b: any) => {
+              if (a.is_cover && !b.is_cover) return -1;
+              if (!a.is_cover && b.is_cover) return 1;
+              return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+            }),
+            categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
+          };
+        })
         .sort((a, b) => {
           // Lançamentos e destaques primeiro
           const aFeatured = a.is_featured ? 1 : 0;
