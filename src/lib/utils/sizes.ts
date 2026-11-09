@@ -119,7 +119,8 @@ export function getDescriptionOutOfStockSizes(description?: string | null): Set<
 export function parseProductSizes(
   description?: string | null,
   explicitSizes?: string[],
-  productName?: string
+  productName?: string,
+  stockBySize?: Record<string, any> | null
 ): {
   sizes: string[];
   outOfStockSizes: string[];
@@ -146,6 +147,20 @@ export function parseProductSizes(
     if (/tamanho\s*[uú]nico/i.test(fullText)) {
       return { sizes: ['Único'], outOfStockSizes: [], cleanDescription: '' };
     }
+    // Fallback: se não há descrição mas há grade em stock_by_size
+    if (stockBySize && typeof stockBySize === 'object') {
+      const fallbackSizes: string[] = [];
+      Object.keys(stockBySize).forEach((k) => {
+        const cleanK = k.trim();
+        if (cleanK && cleanK !== '_padrao') {
+          const canonical = normalizeCanonicalSize(cleanK) || cleanK;
+          if (canonical) fallbackSizes.push(canonical);
+        }
+      });
+      if (fallbackSizes.length > 0) {
+        return { sizes: Array.from(new Set(fallbackSizes)), outOfStockSizes: [], cleanDescription: '' };
+      }
+    }
     return { sizes: [], outOfStockSizes: [], cleanDescription: '' };
   }
 
@@ -154,6 +169,20 @@ export function parseProductSizes(
   if (!match) {
     if (/tamanho\s*[uú]nico/i.test(fullText)) {
       return { sizes: ['Único'], outOfStockSizes: [], cleanDescription: description };
+    }
+    // Fallback: se não encontrou padrão "Tamanhos:" mas há grade em stock_by_size
+    if (stockBySize && typeof stockBySize === 'object') {
+      const fallbackSizes: string[] = [];
+      Object.keys(stockBySize).forEach((k) => {
+        const cleanK = k.trim();
+        if (cleanK && cleanK !== '_padrao') {
+          const canonical = normalizeCanonicalSize(cleanK) || cleanK;
+          if (canonical) fallbackSizes.push(canonical);
+        }
+      });
+      if (fallbackSizes.length > 0) {
+        return { sizes: Array.from(new Set(fallbackSizes)), outOfStockSizes: [], cleanDescription: description };
+      }
     }
     return { sizes: [], outOfStockSizes: [], cleanDescription: description };
   }
@@ -268,4 +297,145 @@ export function isProductOutOfStock(product?: Product | null): boolean {
     if (product.stock_by_size && typeof product.stock_by_size['_padrao'] === 'number' && product.stock_by_size['_padrao'] <= 0) return true;
     return false;
   }
+}
+
+export interface CanonicalVariant {
+  id: string;
+  product_id: string;
+  sku: string;
+  sku_alt: string;
+  parent_sku: string;
+  product_sku: string;
+  code_sku: string;
+  sku_pai: string;
+  barcode: string | null;
+  ean: string | null;
+  size: string | null;
+  tamanho: string | null;
+  tam: string | null;
+  title: string;
+  name: string;
+  option1: string | null;
+  option1_alt: string | null;
+  option_value: string | null;
+  options: string[];
+  display_title: string;
+  shopify_title: string;
+  shopify_option1: string;
+  alt_size: string | null;
+  position: number;
+  inventory_quantity: number;
+  stock: number;
+  price: number | null;
+}
+
+export interface ProductOption {
+  id: string;
+  product_id: string;
+  name: string;
+  position: number;
+  values: string[];
+}
+
+export function buildProductVariants(product: {
+  id: string;
+  name?: string | null;
+  code_sku?: string | null;
+  ean?: string | null;
+  price?: number | null;
+  stock_by_size?: Record<string, any> | null;
+  total_stock?: number | null;
+  sizes?: string[] | null;
+}): {
+  variants: CanonicalVariant[];
+  hasSizes: boolean;
+  options: ProductOption[];
+} {
+  const sizesList = product.sizes || [];
+  const hasSizes = sizesList.length > 0;
+  const parentSku = (product.code_sku || '').trim();
+  const prodName = (product.name || '').trim();
+
+  if (hasSizes) {
+    const variants: CanonicalVariant[] = sizesList.map((sz: string, vIdx: number) => {
+      const canonicalSz = normalizeCanonicalSize(sz) || sz.trim();
+      const stockQty = findStockForSize(product.stock_by_size, canonicalSz) ?? 0;
+      const hyphenSz = canonicalSz.includes('/') ? canonicalSz.replace('/', '-') : canonicalSz;
+      const variantSku = parentSku ? `${parentSku}/${canonicalSz}` : canonicalSz;
+
+      return {
+        id: `${product.id}-${canonicalSz}`,
+        product_id: product.id,
+        sku: variantSku,
+        sku_alt: parentSku ? `${parentSku}/${hyphenSz}` : hyphenSz,
+        parent_sku: parentSku,
+        product_sku: parentSku,
+        code_sku: parentSku,
+        sku_pai: parentSku,
+        barcode: product.ean || null,
+        ean: product.ean || null,
+        size: canonicalSz,
+        tamanho: canonicalSz,
+        tam: canonicalSz,
+        title: canonicalSz,
+        name: `${prodName} - ${canonicalSz}`,
+        option1: canonicalSz,
+        option1_alt: hyphenSz,
+        option_value: canonicalSz,
+        options: [canonicalSz],
+        display_title: canonicalSz,
+        shopify_title: hyphenSz,
+        shopify_option1: hyphenSz,
+        alt_size: hyphenSz,
+        position: vIdx + 1,
+        inventory_quantity: stockQty,
+        stock: stockQty,
+        price: product.price ?? null,
+      };
+    });
+
+    const options: ProductOption[] = [
+      {
+        id: `opt-${product.id}-tamanho`,
+        product_id: product.id,
+        name: 'Tamanho',
+        position: 1,
+        values: sizesList,
+      },
+    ];
+
+    return { variants, hasSizes: true, options };
+  }
+
+  const defaultVariant: CanonicalVariant = {
+    id: `${product.id}-default`,
+    product_id: product.id,
+    sku: parentSku,
+    sku_alt: parentSku,
+    parent_sku: parentSku,
+    product_sku: parentSku,
+    code_sku: parentSku,
+    sku_pai: parentSku,
+    barcode: product.ean || null,
+    ean: product.ean || null,
+    size: null,
+    tamanho: null,
+    tam: null,
+    title: 'Padrão',
+    name: prodName,
+    option1: null,
+    option1_alt: null,
+    option_value: null,
+    options: [],
+    display_title: 'Padrão',
+    shopify_title: 'Default Title',
+    shopify_option1: 'Default Title',
+    alt_size: null,
+    position: 1,
+    inventory_quantity: product.total_stock ?? 0,
+    stock: product.total_stock ?? 0,
+    price: product.price ?? null,
+  };
+
+  return { variants: [defaultVariant], hasSizes: false, options: [] };
 }

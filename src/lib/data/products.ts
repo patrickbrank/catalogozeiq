@@ -232,7 +232,7 @@ export async function getCatalogData(): Promise<{ products: Product[]; categorie
     if (!catError && !prodError && dbProducts && dbProducts.length > 0) {
       const formattedProducts: Product[] = dbProducts
         .map((p: any) => {
-          const parsedSizes = parseProductSizes(p.description, p.sizes, p.name);
+          const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
           return {
             ...p,
             sizes: parsedSizes.sizes,

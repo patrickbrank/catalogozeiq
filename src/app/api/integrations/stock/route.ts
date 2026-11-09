@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { invalidateCatalogCache } from '@/lib/data/products';
-import { normalizeCanonicalSize, parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
+import { normalizeCanonicalSize, parseProductSizes, findStockForSize, buildProductVariants } from '@/lib/utils/sizes';
 
 interface StockBySizeInput {
   [size: string]: number | string;
@@ -293,7 +293,7 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string)
     try {
       const { data: byEan, error: eanErr } = await adminSupabase
         .from('products')
-        .select('id, name, code_sku, stock_by_size, total_stock, description')
+        .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
         .eq('ean', rawEan)
         .maybeSingle();
 
@@ -309,7 +309,7 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string)
 
   const { data: bySku } = await adminSupabase
     .from('products')
-    .select('id, name, code_sku, stock_by_size, total_stock, description')
+    .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
     .or(orClause)
     .limit(1);
 
@@ -319,7 +319,7 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string)
   const rootSku = cleanSku.includes('/') ? cleanSku.split('/')[0].trim() : cleanSku;
   const { data: byNamePrefix } = await adminSupabase
     .from('products')
-    .select('id, name, code_sku, stock_by_size, total_stock, description')
+    .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
     .or(`name.ilike.${rootSku} - %,name.ilike.${rootSku}%,code_sku.ilike.${rootSku}%`)
     .limit(1);
 
@@ -357,49 +357,49 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const parsedSizes = parseProductSizes(product.description, product.sizes, product.name);
+    const parsedSizes = parseProductSizes(product.description, product.sizes, product.name, product.stock_by_size);
     const sizesList = parsedSizes.sizes || [];
-    const hasSizes = sizesList.length > 0;
+    const { variants, hasSizes, options } = buildProductVariants({
+      id: product.id,
+      name: product.name,
+      code_sku: product.code_sku,
+      ean: product.ean,
+      price: product.price,
+      stock_by_size: product.stock_by_size,
+      total_stock: product.total_stock,
+      sizes: sizesList,
+    });
 
-    const variants = hasSizes
-      ? sizesList.map((sz: string, vIdx: number) => {
-          const canonicalSz = normalizeCanonicalSize(sz) || sz;
-          const stockQty = findStockForSize(product.stock_by_size, canonicalSz) ?? 0;
-          return {
-            id: `${product.id}-${canonicalSz}`,
-            product_id: product.id,
-            sku: `${product.code_sku || ''}/${canonicalSz}`,
-            size: canonicalSz,
-            title: canonicalSz,
-            inventory_quantity: stockQty,
-            stock: stockQty,
-            position: vIdx + 1,
-          };
-        })
-      : [
-          {
-            id: `${product.id}-default`,
-            product_id: product.id,
-            sku: product.code_sku || '',
-            size: null,
-            title: 'Padrão',
-            inventory_quantity: product.total_stock ?? 0,
-            stock: product.total_stock ?? 0,
-            position: 1,
-          },
-        ];
+    const parentSku = product.code_sku || '';
+    const normRequested = normalizeCanonicalSize(requestedSku);
+    const matchedVariant = variants.find(
+      (v) =>
+        v.sku === requestedSku ||
+        v.sku_alt === requestedSku ||
+        (normRequested && (v.size === normRequested || v.shopify_title === normRequested))
+    ) || null;
 
     return NextResponse.json({
       success: true,
       product: {
         id: product.id,
         name: product.name,
-        code_sku: product.code_sku,
+        code_sku: parentSku,
+        sku: parentSku,
+        parent_sku: parentSku,
+        product_sku: parentSku,
+        sku_pai: parentSku,
+        ean: product.ean,
+        price: product.price ?? null,
         total_stock: product.total_stock ?? 0,
         stock_by_size: product.stock_by_size || {},
         sizes: sizesList,
         has_sizes: hasSizes,
+        has_variants: hasSizes,
+        options,
         variants,
+        variations: variants,
+        matched_variant: matchedVariant,
       },
     });
   }
@@ -408,47 +408,43 @@ export async function GET(request: NextRequest) {
   if (listProducts && adminSupabase) {
     const { data: dbProducts } = await adminSupabase
       .from('products')
-      .select('id, name, code_sku, ean, stock_by_size, total_stock, description')
+      .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
       .order('code_sku', { ascending: true });
 
     const formatted = (dbProducts || []).map((p: any) => {
-      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name);
+      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
       const sizesList = parsedSizes.sizes || [];
-      const hasSizes = sizesList.length > 0;
-      const variants = hasSizes
-        ? sizesList.map((sz: string, vIdx: number) => {
-            const canonicalSz = normalizeCanonicalSize(sz) || sz;
-            const stockQty = findStockForSize(p.stock_by_size, canonicalSz) ?? 0;
-            return {
-              id: `${p.id}-${canonicalSz}`,
-              sku: `${p.code_sku || ''}/${canonicalSz}`,
-              size: canonicalSz,
-              inventory_quantity: stockQty,
-              stock: stockQty,
-              position: vIdx + 1,
-            };
-          })
-        : [
-            {
-              id: `${p.id}-default`,
-              sku: p.code_sku || '',
-              size: null,
-              inventory_quantity: p.total_stock ?? 0,
-              stock: p.total_stock ?? 0,
-              position: 1,
-            },
-          ];
-
-      return {
+      const { variants, hasSizes, options } = buildProductVariants({
         id: p.id,
         name: p.name,
         code_sku: p.code_sku,
         ean: p.ean,
+        price: p.price,
+        stock_by_size: p.stock_by_size,
+        total_stock: p.total_stock,
+        sizes: sizesList,
+      });
+
+      const parentSku = p.code_sku || '';
+
+      return {
+        id: p.id,
+        name: p.name,
+        code_sku: parentSku,
+        sku: parentSku,
+        parent_sku: parentSku,
+        product_sku: parentSku,
+        sku_pai: parentSku,
+        ean: p.ean,
+        price: p.price ?? null,
         total_stock: p.total_stock ?? 0,
         stock_by_size: p.stock_by_size || {},
         sizes: sizesList,
         has_sizes: hasSizes,
+        has_variants: hasSizes,
+        options,
         variants,
+        variations: variants,
       };
     });
 

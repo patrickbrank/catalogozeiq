@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getCatalogData, invalidateCatalogCache, cleanProductDescription } from '@/lib/data/products';
 import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
-import { parseProductSizes, findStockForSize, normalizeCanonicalSize } from '@/lib/utils/sizes';
+import { parseProductSizes, findStockForSize, normalizeCanonicalSize, buildProductVariants } from '@/lib/utils/sizes';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,49 +48,29 @@ export async function GET() {
     }
 
     const formattedProducts = (dbProducts || []).map((p: any) => {
-      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name);
+      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
       const sizesList = parsedSizes.sizes || [];
-      const hasSizes = sizesList.length > 0;
-
-      // Monta variantes canônicas compatíveis com integradores externos, Shopify e Stock Manager
-      const variants = hasSizes
-        ? sizesList.map((sz: string, vIdx: number) => {
-            const canonicalSz = normalizeCanonicalSize(sz) || sz;
-            const stockQty = findStockForSize(p.stock_by_size, canonicalSz) ?? 0;
-            return {
-              id: `${p.id}-${canonicalSz}`,
-              product_id: p.id,
-              sku: `${p.code_sku || ''}/${canonicalSz}`,
-              barcode: p.ean || null,
-              size: canonicalSz,
-              title: canonicalSz,
-              option1: canonicalSz,
-              position: vIdx + 1,
-              inventory_quantity: stockQty,
-              stock: stockQty,
-              price: p.price ?? null,
-            };
-          })
-        : [
-            {
-              id: `${p.id}-default`,
-              product_id: p.id,
-              sku: p.code_sku || '',
-              barcode: p.ean || null,
-              size: null,
-              title: 'Padrão',
-              option1: null,
-              position: 1,
-              inventory_quantity: p.total_stock ?? 0,
-              stock: p.total_stock ?? 0,
-              price: p.price ?? null,
-            },
-          ];
+      const { variants, hasSizes, options } = buildProductVariants({
+        id: p.id,
+        name: p.name,
+        code_sku: p.code_sku,
+        ean: p.ean,
+        price: p.price,
+        stock_by_size: p.stock_by_size,
+        total_stock: p.total_stock,
+        sizes: sizesList,
+      });
 
       return {
         ...p,
+        sku: p.code_sku || '',
+        parent_sku: p.code_sku || '',
+        product_sku: p.code_sku || '',
+        sku_pai: p.code_sku || '',
         sizes: sizesList,
         has_sizes: hasSizes,
+        has_variants: hasSizes,
+        options,
         variants,
         variations: variants,
         clean_description: parsedSizes.cleanDescription,
