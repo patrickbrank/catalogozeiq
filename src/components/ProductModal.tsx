@@ -243,12 +243,12 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
                   {pricing.isPromoActive ? (
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-2.5">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-950/90 backdrop-blur-md text-white border border-white/20 shadow-md">
-                          <span className="text-sm select-none leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
+                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-black bg-zinc-950/95 backdrop-blur-md text-white border border-white/25 shadow-md">
+                          <span className="text-base select-none leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
                           <span>{pricing.campaignName || 'Condição Especial de Campanha'}</span>
                         </span>
                         {pricing.discountPercentage != null && (
-                          <span className="text-xs font-bold text-slate-900 bg-slate-200/80 px-2.5 py-0.5 rounded-full border border-slate-300/60">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900 bg-slate-200/80 px-3 py-1 rounded-full border border-slate-300/60">
                             {pricing.discountPercentage}% OFF no atacado
                           </span>
                         )}
