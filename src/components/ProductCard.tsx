@@ -178,36 +178,30 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
         </div>
 
         {/* Rodapé do Card: Proposta 1 (2 Níveis de Alta Precisão e Alinhamento) */}
-        <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
+        <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col gap-1">
           {pricing.isPromoActive ? (
             <>
-              {/* Nível 1: Pill de Referência de Margem B2B (Grounded & Elegante) */}
-              <div className="flex items-center min-h-[22px]">
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-[10px] sm:text-[11px] text-slate-500 font-mono select-none max-w-full truncate">
-                  {pricing.originalPrice != null && (
-                    <span className="flex items-center gap-1 shrink-0">
-                      <span className="font-medium text-slate-400 font-sans">
-                        Varejo:
-                      </span>
-                      <span className="font-medium text-slate-500 tabular-nums">
-                        R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
+              {/* Nível 1: Linha de Referência de Margem B2B (Alinhada perfeitamente à esquerda) */}
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden select-none">
+                {pricing.originalPrice != null && (
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="font-sans text-slate-400 font-medium">Varejo:</span>
+                    <span className="font-medium text-slate-500 tabular-nums">
+                      R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                  )}
-                  {pricing.originalPrice != null && pricing.regularPrice != null && (
-                    <span className="text-slate-300 font-sans shrink-0">•</span>
-                  )}
-                  {pricing.regularPrice != null && (
-                    <span className="flex items-center gap-1 shrink-0">
-                      <span className="font-medium text-slate-400 font-sans">
-                        Revenda:
-                      </span>
-                      <span className="font-medium text-slate-400 line-through decoration-slate-300 tabular-nums" title="Preço normal de tabela">
-                        R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
+                  </span>
+                )}
+                {pricing.originalPrice != null && pricing.regularPrice != null && (
+                  <span className="text-slate-300 font-sans select-none shrink-0">•</span>
+                )}
+                {pricing.regularPrice != null && (
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="font-sans text-slate-400 font-medium">Revenda:</span>
+                    <span className="font-medium text-slate-400 line-through decoration-slate-300 tabular-nums" title="Preço normal de tabela">
+                      R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                  )}
-                </div>
+                  </span>
+                )}
               </div>
 
               {/* Nível 2: Preço Promocional Hero + Botão de Ação Alinhados */}
@@ -258,19 +252,17 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
             </>
           ) : (
             <>
-              {/* Nível 1: Pill de Referência Varejo Sugerido (se houver) */}
-              <div className="flex items-center min-h-[22px]">
+              {/* Nível 1: Linha de Referência Varejo Sugerido (se houver) */}
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden select-none">
                 {product.original_price != null && product.price != null && product.original_price > product.price ? (
-                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-[10px] sm:text-[11px] text-slate-500 font-mono select-none max-w-full truncate">
-                    <span className="font-medium text-slate-400 font-sans">
-                      Varejo sugerido:
-                    </span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="font-sans text-slate-400 font-medium">Varejo sugerido:</span>
                     <span className="font-medium text-slate-500 tabular-nums">
                       R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                  </div>
+                  </span>
                 ) : (
-                  <div className="h-[22px]" />
+                  <div className="h-4" />
                 )}
               </div>
 
