@@ -2085,16 +2085,23 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsCampaignModalOpen(true)}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
-                  title="Configurar campanha promocional e importar planilha de preços Black Friday"
-                >
-                  <span className="text-sm">🔥</span>
-                  <span className="hidden sm:inline">Campanha Black Friday</span>
-                  <span className="sm:hidden">Promoção</span>
-                </button>
+                {(() => {
+                  const activePromoProduct = products.find((p) => p.campaign_emoji || p.campaign_name);
+                  const activeCampaignEmoji = activePromoProduct?.campaign_emoji || '🔥';
+                  const activeCampaignName = activePromoProduct?.campaign_name || 'Campanha Black Friday';
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setIsCampaignModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
+                      title="Configurar campanha promocional e importar planilha de preços"
+                    >
+                      <span className="text-sm">{activeCampaignEmoji}</span>
+                      <span className="hidden sm:inline">{activeCampaignName}</span>
+                      <span className="sm:hidden">Campanha</span>
+                    </button>
+                  );
+                })()}
 
                 <button
                   type="button"
@@ -2348,9 +2355,9 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Imagem</th>
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
-                      <th className="py-3 px-4">Preço Atacado</th>
-                      <th className="py-3 px-4">Preço Promo</th>
-                      <th className="py-3 px-4">Preço Varejo</th>
+                      <th className="py-3 px-4 whitespace-nowrap">Preço Atacado</th>
+                      <th className="py-3 px-4 whitespace-nowrap">Preço Promo</th>
+                      <th className="py-3 px-4 whitespace-nowrap">Preço Varejo</th>
                       <th className="py-3 px-4 text-center">Estoque</th>
                       <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-center">Destaque</th>

@@ -242,9 +242,9 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                   {pricing.isPromoActive ? (
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-950 text-white border border-white/20 shadow-xs">
-                          <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
-                          <span>Condição Especial de Campanha</span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-zinc-950 via-zinc-900 to-black text-white border-2 border-amber-400 shadow-md">
+                          <span className="text-sm select-none leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
+                          <span>{pricing.campaignName || 'Condição Especial de Campanha'}</span>
                         </span>
                         {pricing.discountPercentage != null && (
                           <span className="text-xs font-bold text-emerald-800">
@@ -253,19 +253,28 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                         )}
                       </div>
                       <div className="flex flex-wrap items-baseline gap-2.5">
-                        <span className="text-xl sm:text-2xl font-black text-emerald-800 font-mono">
-                          R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-[11px] font-black text-emerald-950 uppercase tracking-wider">Promo:</span>
+                          <span className="text-xl sm:text-2xl font-black text-emerald-800 font-mono">
+                            R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
                         <span className="text-xs font-bold text-emerald-950">/ un. atacado</span>
                         {pricing.regularPrice != null && (
-                          <span className="text-xs text-slate-400 font-mono line-through">
-                            De R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
+                          <div className="flex items-baseline gap-1 text-slate-400 font-mono text-xs">
+                            <span className="text-[10px] uppercase font-semibold text-slate-400 font-sans">Revenda:</span>
+                            <span className="line-through">
+                              R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         )}
                         {pricing.originalPrice != null && (
-                          <span className="text-xs text-slate-500 font-medium ml-auto">
-                            Sugerido Varejo: R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
+                          <div className="flex items-baseline gap-1 text-slate-500 font-medium text-xs ml-auto">
+                            <span className="text-[10px] uppercase font-semibold text-slate-400 font-sans">Varejo:</span>
+                            <span className="font-mono">
+                              R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         )}
                       </div>
                       {(hasSizes ? totalGradePieces > 0 : simpleQuantity > 0) && (

@@ -82,34 +82,66 @@ export async function POST(request: NextRequest) {
 
     let finalItems: any[] = Array.isArray(items) ? items : [];
 
-    // Se solicitado o arquivo oficial ou sem itens fornecidos, extrai direto do docs/Revenda_Black.xlsx
-    if (finalItems.length === 0 && (use_official_file || !items)) {
-      const xlsxPath = path.join(process.cwd(), 'docs', 'Revenda_Black.xlsx');
-      if (fs.existsSync(xlsxPath)) {
-        try {
-          const csvOutput = execSync(`npx --yes xlsx-cli "${xlsxPath}"`, { encoding: 'utf8' });
-          const lines = csvOutput.split('\n').map((l) => l.trim()).filter(Boolean);
-          for (let i = 1; i < lines.length; i++) {
-            const parts = lines[i].split(',');
-            const rawSku = parts[0]?.trim();
-            const rawPrice = parts[parts.length - 1]?.trim();
-            if (!rawSku || !rawPrice) continue;
-            const cleanPriceStr = rawPrice.replace(/[^\d\.,]/g, '');
-            const num = cleanPriceStr.includes(',')
-              ? parseFloat(cleanPriceStr.replace(/\./g, '').replace(',', '.'))
-              : parseFloat(cleanPriceStr);
-            if (!isNaN(num) && num > 0) {
-              finalItems.push({ sku: rawSku, promotional_price: num });
-            }
-          }
-        } catch (e: any) {
-          console.warn('Erro ao processar Revenda_Black.xlsx:', e.message);
+    const promoMap = await getPromotionsMap();
+
+    // Se não foram enviados itens avulsos novos, atualiza a campanha existente ou carrega a base oficial
+    if (finalItems.length === 0) {
+      const existingKeys = Object.keys(promoMap).filter((k) => k !== '_meta');
+
+      // Se o mapa estiver vazio, tenta carregar do arquivo local dados/promotions-config.json
+      if (existingKeys.length === 0) {
+        const localConfigPath = path.join(process.cwd(), 'dados', 'promotions-config.json');
+        if (fs.existsSync(localConfigPath)) {
+          try {
+            const fileContent = fs.readFileSync(localConfigPath, 'utf8');
+            const parsed = JSON.parse(fileContent);
+            Object.assign(promoMap, parsed);
+          } catch {}
         }
       }
-    }
 
-    if (finalItems.length === 0) {
-      return NextResponse.json({ success: false, error: 'Nenhum item fornecido para a campanha promocional.' }, { status: 400 });
+      const activeKeys = Object.keys(promoMap).filter((k) => k !== '_meta');
+
+      if (activeKeys.length > 0) {
+        // Atualiza as datas e vigência em todos os itens existentes
+        for (const k of activeKeys) {
+          if (promoMap[k] && typeof promoMap[k] === 'object') {
+            promoMap[k].promo_start_at = promo_start_at || null;
+            promoMap[k].promo_end_at = promo_end_at || null;
+            promoMap[k].updated_at = new Date().toISOString();
+          }
+        }
+
+        promoMap['_meta'] = {
+          campaign_name,
+          campaign_emoji,
+          promo_start_at,
+          promo_end_at,
+          updated_at: new Date().toISOString(),
+        };
+
+        await savePromotionsMap(promoMap);
+        invalidateCatalogCache();
+        try {
+          revalidatePath('/');
+          revalidatePath('/admin');
+          revalidatePath('/catalogo');
+        } catch {}
+
+        return NextResponse.json({
+          success: true,
+          message: `Campanha "${campaign_name}" salva com sucesso para ${activeKeys.length} produtos!`,
+          summary: {
+            updated: activeKeys.length,
+            promo_start_at,
+            promo_end_at,
+            campaign_name,
+            campaign_emoji,
+          },
+        });
+      }
+
+      return NextResponse.json({ success: false, error: 'Nenhum item promocional encontrado para salvar.' }, { status: 400 });
     }
 
     // Busca todos os produtos do catálogo para cruzamento de SKU
@@ -137,7 +169,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    const promoMap = await getPromotionsMap();
     let updatedCount = 0;
     const matchedProducts: Array<{ id: string; sku: string; name: string; oldPrice: number; promoPrice: number }> = [];
 

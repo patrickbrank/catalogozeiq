@@ -550,7 +550,7 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
                 ) : (
                   <>
                     <Check className="w-4 h-4" />
-                    <span>Salvar Campanha ({matchedCount} Produtos)</span>
+                    <span>Salvar Campanha</span>
                   </>
                 )}
               </button>
