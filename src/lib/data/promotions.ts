@@ -132,8 +132,8 @@ export async function mergePromotionsIntoProducts(products: Product[]): Promise<
     const promo = byId || bySku;
 
     const promoPrice = promo?.promotional_price ?? p.promotional_price ?? null;
-    const startAt = promo?.promo_start_at ?? meta.promo_start_at ?? p.promo_start_at ?? null;
-    const endAt = promo?.promo_end_at ?? meta.promo_end_at ?? p.promo_end_at ?? null;
+    const startAt = promo?.promo_start_at ?? meta.promo_start_at ?? p.promo_start_at ?? '2026-11-13T03:00:00.000Z';
+    const endAt = promo?.promo_end_at ?? meta.promo_end_at ?? p.promo_end_at ?? '2026-12-01T02:59:59.000Z';
 
     const numPromo = promoPrice != null ? Number(promoPrice) : null;
     if (numPromo != null && !isNaN(numPromo) && numPromo > 0) {

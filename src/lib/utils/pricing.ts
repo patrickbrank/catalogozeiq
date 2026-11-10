@@ -81,19 +81,16 @@ export function getProductEffectivePrice(
   let promoStartDate: Date | null = null;
   let promoEndDate: Date | null = null;
 
-  // Checa se o modo de pré-visualização de administrador está ativado
+  // Checa se o modo de pré-visualização forçado foi explicitamente solicitado
   const isPreview =
-    forcePromoPreview ||
+    forcePromoPreview === true ||
     (typeof window !== 'undefined' &&
-      (window.localStorage?.getItem('zeiq_admin_promo_preview') === 'true' ||
-        new URLSearchParams(window.location.search).has('preview') ||
-        new URLSearchParams(window.location.search).get('promo') === 'preview' ||
-        new URLSearchParams(window.location.search).get('promo') === '1' ||
-        new URLSearchParams(window.location.search).get('admin') === '1'));
+      new URLSearchParams(window.location.search).get('preview') === 'promo');
 
   if (promotionalPrice != null && regularPrice != null && promotionalPrice < regularPrice) {
-    promoStartDate = parseISODateSafe(product.promo_start_at);
-    promoEndDate = parseISODateSafe(product.promo_end_at);
+    // Se não houver data de início específica definida no produto, adota a data oficial da campanha (13/11/2026 00:00:00 BRT)
+    promoStartDate = parseISODateSafe(product.promo_start_at) || new Date('2026-11-13T03:00:00.000Z');
+    promoEndDate = parseISODateSafe(product.promo_end_at) || new Date('2026-12-01T02:59:59.000Z');
 
     const nowTime = referenceDate.getTime();
 
@@ -101,12 +98,15 @@ export function getProductEffectivePrice(
       promoStatus = 'active';
       isPromoActive = true;
     } else if (promoStartDate && nowTime < promoStartDate.getTime()) {
+      // ANTES DA DATA DE INÍCIO (ex: antes do dia 13/11)
       promoStatus = 'scheduled';
       isPromoActive = false;
     } else if (promoEndDate && nowTime > promoEndDate.getTime()) {
+      // APÓS O TÉRMINO DA CAMPANHA
       promoStatus = 'ended';
       isPromoActive = false;
     } else {
+      // DENTRO DO PERÍODO VIGENTE DA PROMOÇÃO (a partir de 13/11)
       promoStatus = 'active';
       isPromoActive = true;
     }

@@ -138,38 +138,26 @@ export function CatalogClient({
         hasFilterFromUrl = true;
       }
 
-      // 6. Verificação de administrador para prévia exclusiva da campanha (vigente a partir de 13/11)
-      const hasPreviewParam =
-        params.has('preview') ||
-        params.get('preview') === 'promo' ||
-        params.get('preview') === '1' ||
-        params.get('promo') === 'preview' ||
-        params.get('promo') === '1' ||
-        params.get('admin') === '1';
+      // 6. Verificação de prévia exclusiva da campanha (vigente oficialmente a partir de 13/11)
+      const hasPreviewParam = params.get('preview') === 'promo' || params.get('promo') === 'preview';
 
       if (hasPreviewParam) {
         setIsAdmin(true);
         setAdminPromoPreview(true);
-        localStorage.setItem('zeiq_admin_promo_preview', 'true');
       } else {
-        const saved = localStorage.getItem('zeiq_admin_promo_preview');
-        if (saved === 'true') {
-          setIsAdmin(true);
-          setAdminPromoPreview(true);
-        }
+        setAdminPromoPreview(false);
       }
+
+      // Limpa qualquer flag residual no localStorage para não vazar preços promocionais antes da data
+      try {
+        localStorage.removeItem('zeiq_admin_promo_preview');
+      } catch {}
 
       fetch('/api/admin/verify')
         .then((r) => r.json())
         .then((d) => {
           if (d.success && d.isAdmin) {
             setIsAdmin(true);
-            const saved = localStorage.getItem('zeiq_admin_promo_preview');
-            // Se o admin nunca desligou explicitamente a prévia, mantém ativa para ele
-            if (saved !== 'false') {
-              setAdminPromoPreview(true);
-              localStorage.setItem('zeiq_admin_promo_preview', 'true');
-            }
           }
         })
         .catch(() => {});
