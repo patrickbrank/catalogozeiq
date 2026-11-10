@@ -26,6 +26,16 @@ export function parseISODateSafe(val?: string | null): Date | null {
   }
 }
 
+export function formatISODateToYMD(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function formatCurrencyBRL(val?: number | null): string {
   if (val == null || isNaN(val)) return 'R$ 0,00';
   return `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -38,7 +48,8 @@ export function cleanSkuKey(sku?: string | null): string {
 
 export function getProductEffectivePrice(
   product?: Product | null,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  forcePromoPreview: boolean = false
 ): ProductPricingInfo {
   if (!product) {
     return {
@@ -73,13 +84,26 @@ export function getProductEffectivePrice(
   let promoStartDate: Date | null = null;
   let promoEndDate: Date | null = null;
 
+  // Checa se o modo de pré-visualização de administrador está ativado
+  const isPreview =
+    forcePromoPreview ||
+    (typeof window !== 'undefined' &&
+      (window.localStorage?.getItem('zeiq_admin_promo_preview') === 'true' ||
+        new URLSearchParams(window.location.search).has('preview') ||
+        new URLSearchParams(window.location.search).get('promo') === 'preview' ||
+        new URLSearchParams(window.location.search).get('promo') === '1' ||
+        new URLSearchParams(window.location.search).get('admin') === '1'));
+
   if (promotionalPrice != null && regularPrice != null && promotionalPrice < regularPrice) {
     promoStartDate = parseISODateSafe(product.promo_start_at);
     promoEndDate = parseISODateSafe(product.promo_end_at);
 
     const nowTime = referenceDate.getTime();
 
-    if (promoStartDate && nowTime < promoStartDate.getTime()) {
+    if (isPreview) {
+      promoStatus = 'active';
+      isPromoActive = true;
+    } else if (promoStartDate && nowTime < promoStartDate.getTime()) {
       promoStatus = 'scheduled';
       isPromoActive = false;
     } else if (promoEndDate && nowTime > promoEndDate.getTime()) {

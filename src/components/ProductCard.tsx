@@ -12,6 +12,7 @@ import { flyToCartAnimation } from '@/lib/utils/cart-animation';
 interface ProductCardProps {
   product: Product;
   onOpenDetails: (product: Product) => void;
+  forcePromoPreview?: boolean;
 }
 
 // Remove prefixo de SKU duplicado no nome (ex: '0214.009 - Camiseta...' -> 'Camiseta...')
@@ -21,7 +22,7 @@ function getCleanTitle(name: string): string {
   return cleaned.trim() || name;
 }
 
-export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
+export function ProductCard({ product, onOpenDetails, forcePromoPreview }: ProductCardProps) {
   const [isAdded, setIsAdded] = useState(false);
   const addItem = useQuoteCart((state) => state.addItem);
 
@@ -37,7 +38,7 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   const displayTitle = getCleanTitle(product.name);
 
   const isOutOfStock = isProductOutOfStock(product);
-  const pricing = getProductEffectivePrice(product);
+  const pricing = getProductEffectivePrice(product, undefined, forcePromoPreview);
 
   const handleActionClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -63,7 +64,7 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   return (
     <div 
       onClick={() => onOpenDetails(product)}
-      className="group bg-white rounded-lg border border-slate-200 overflow-hidden hover:border-slate-400 hover:shadow-md transition-all duration-300 flex flex-col h-full cursor-pointer select-none"
+      className="group bg-white rounded-xl border border-slate-200/90 overflow-hidden hover:border-slate-300 hover:shadow-md transition-all duration-300 flex flex-col h-full cursor-pointer select-none"
     >
       {/* Quadro da Foto amplo em proporção vertical 3:4 com foco no topo (preserva cabeça do modelo) */}
       <div className="relative aspect-[3/4] w-full bg-[#f8f9fa] overflow-hidden flex items-center justify-center p-0">
@@ -100,13 +101,15 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
 
         {/* Badge de Esgotado ou Campanha Promocional */}
         {isOutOfStock ? (
-          <div className="absolute top-2 right-2 bg-rose-600 text-white text-[10px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-md z-20">
+          <div className="absolute top-2 right-2 bg-rose-600 text-white text-[10px] font-extrabold uppercase tracking-wide px-2.5 py-0.5 rounded-full shadow-md z-20">
             Esgotado
           </div>
         ) : pricing.isPromoActive ? (
-          <div className="absolute top-2 right-2 bg-gradient-to-r from-zinc-950 via-zinc-900 to-black text-white border-2 border-amber-400 shadow-md shadow-black/40 px-2.5 py-1 rounded-full text-xs font-black tracking-wide z-20 flex items-center gap-1.5 animate-in fade-in select-none">
+          <div className="absolute top-2 right-2 bg-zinc-950/90 backdrop-blur-md text-white border border-white/20 shadow-md shadow-black/30 px-2.5 py-0.5 rounded-full text-xs font-bold tracking-tight z-20 flex items-center gap-1 select-none animate-in fade-in">
             <span className="text-xs leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
-            <span className="text-white font-black text-[11px] tracking-tight">{pricing.discountPercentage ? `${pricing.discountPercentage}% OFF` : 'PROMO'}</span>
+            <span className="text-white font-extrabold text-[11px] tracking-tight">
+              {pricing.discountPercentage ? `${pricing.discountPercentage}% OFF` : 'PROMO'}
+            </span>
           </div>
         ) : null}
       </div>
@@ -173,56 +176,56 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
         </div>
 
         {/* Rodapé do Card: Preço e Botão travados no fundo na mesma linha horizontal */}
-        <div className="mt-auto pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
+        <div className="mt-auto pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
           {pricing.isPromoActive ? (
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 justify-center gap-0.5">
               {pricing.originalPrice != null && (
-                <div className="flex items-baseline gap-1 text-slate-400 font-mono leading-tight mb-0.5">
+                <div className="flex items-center gap-1.5 leading-none">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-sans">
                     Varejo:
                   </span>
-                  <span className="text-[11px] font-medium">
+                  <span className="text-[11px] font-medium text-slate-400 font-mono">
                     R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
               {pricing.regularPrice != null && (
-                <div className="flex items-baseline gap-1 text-slate-400 font-mono leading-tight mb-0.5">
+                <div className="flex items-center gap-1.5 leading-none">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-sans">
                     Revenda:
                   </span>
-                  <span className="text-[11px] line-through font-medium" title="Preço normal de revenda">
+                  <span className="text-[11px] font-medium text-slate-400 font-mono line-through decoration-slate-300" title="Preço normal de revenda">
                     R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
-              <div className="flex items-baseline gap-1 font-mono leading-tight">
-                <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider font-sans">
+              <div className="flex items-center gap-1.5 leading-none pt-0.5">
+                <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider font-sans">
                   Promo:
                 </span>
-                <span className="text-sm sm:text-base font-black text-emerald-700 tracking-tight">
+                <span className="text-sm sm:text-[15px] font-black text-zeiq-black font-mono tracking-tight">
                   R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
           ) : (
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 justify-center gap-0.5">
               {product.original_price != null && product.price != null && product.original_price > product.price && (
-                <div className="flex items-baseline gap-1 text-slate-400 font-mono leading-tight mb-0.5">
+                <div className="flex items-center gap-1.5 leading-none">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-sans">
                     Varejo:
                   </span>
-                  <span className="text-[11px] font-medium">
+                  <span className="text-[11px] font-medium text-slate-400 font-mono">
                     R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
               {product.price != null && product.price > 0 ? (
-                <div className="flex items-baseline gap-1.5 font-mono leading-tight">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
+                <div className="flex items-center gap-1.5 leading-none pt-0.5">
+                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider font-sans">
                     Revenda:
                   </span>
-                  <span className="text-sm font-black text-zeiq-black tracking-tight">
+                  <span className="text-sm sm:text-[15px] font-black text-zeiq-black font-mono tracking-tight">
                     R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -238,14 +241,14 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
             type="button"
             onClick={handleActionClick}
             disabled={isOutOfStock && !hasSizes}
-            className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer ${
+            className={`h-8 px-3 rounded-lg text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer inline-flex items-center justify-center gap-1.5 ${
               isAdded
                 ? 'bg-emerald-600 text-white'
                 : isOutOfStock && !hasSizes
                 ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                 : isOutOfStock && hasSizes
                 ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                : 'bg-zeiq-black hover:bg-zeiq-charcoal text-white'
+                : 'bg-zeiq-black hover:bg-zinc-800 text-white shadow-2xs'
             }`}
           >
             {isAdded ? (

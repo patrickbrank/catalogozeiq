@@ -30,6 +30,7 @@ interface CatalogClientProps {
   initialDepartments?: Department[];
   initialBanners?: BannerItem[];
   initialSettings?: StoreSettings;
+  initialPromoPreview?: boolean;
 }
 
 const ITEMS_PER_PAGE = 30; // Mais itens por página aproveitando o layout widescreen
@@ -40,6 +41,7 @@ export function CatalogClient({
   initialDepartments,
   initialBanners,
   initialSettings,
+  initialPromoPreview = false,
 }: CatalogClientProps) {
   const departments = initialDepartments && initialDepartments.length > 0 ? initialDepartments : DEPARTMENTS;
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +52,8 @@ export function CatalogClient({
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(initialPromoPreview);
+  const [adminPromoPreview, setAdminPromoPreview] = useState(initialPromoPreview);
   const setIsOpenCart = useQuoteCart((state) => state.setIsOpen);
 
   // Localização resiliente de produto por ID, Slug, SKU ou Nome
@@ -134,6 +138,42 @@ export function CatalogClient({
         hasFilterFromUrl = true;
       }
 
+      // 6. Verificação de administrador para prévia exclusiva da campanha (vigente a partir de 13/11)
+      const hasPreviewParam =
+        params.has('preview') ||
+        params.get('preview') === 'promo' ||
+        params.get('preview') === '1' ||
+        params.get('promo') === 'preview' ||
+        params.get('promo') === '1' ||
+        params.get('admin') === '1';
+
+      if (hasPreviewParam) {
+        setIsAdmin(true);
+        setAdminPromoPreview(true);
+        localStorage.setItem('zeiq_admin_promo_preview', 'true');
+      } else {
+        const saved = localStorage.getItem('zeiq_admin_promo_preview');
+        if (saved === 'true') {
+          setIsAdmin(true);
+          setAdminPromoPreview(true);
+        }
+      }
+
+      fetch('/api/admin/verify')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.isAdmin) {
+            setIsAdmin(true);
+            const saved = localStorage.getItem('zeiq_admin_promo_preview');
+            // Se o admin nunca desligou explicitamente a prévia, mantém ativa para ele
+            if (saved !== 'false') {
+              setAdminPromoPreview(true);
+              localStorage.setItem('zeiq_admin_promo_preview', 'true');
+            }
+          }
+        })
+        .catch(() => {});
+
       if (hasFilterFromUrl && !productParam) {
         setTimeout(() => {
           const gridElem = document.getElementById('catalog-products-grid');
@@ -144,6 +184,14 @@ export function CatalogClient({
       }
     }
   }, [findProductMatch]);
+
+  const toggleAdminPromoPreview = () => {
+    setAdminPromoPreview((prev) => {
+      const next = !prev;
+      localStorage.setItem('zeiq_admin_promo_preview', String(next));
+      return next;
+    });
+  };
 
   // Filtra produtos por busca de texto, departamento e subcategoria selecionada
   const filteredProducts = useMemo(() => {
@@ -519,6 +567,7 @@ export function CatalogClient({
                 key={product.id}
                 product={product}
                 onOpenDetails={setActiveProduct}
+                forcePromoPreview={adminPromoPreview}
               />
             ))}
           </div>
@@ -545,9 +594,48 @@ export function CatalogClient({
       <ProductModal
         product={activeProduct}
         onClose={() => setActiveProduct(null)}
+        forcePromoPreview={adminPromoPreview}
       />
 
-      {/* 7. Rodapé */}
+      {/* 7. Barra de Controle de Prévia Exclusiva para Administrador */}
+      {isAdmin && (
+        <aside
+          aria-label="Controle de Pré-visualização da Campanha"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-950/95 text-white pl-4 pr-2 py-2 rounded-full shadow-2xl border border-zinc-700/80 backdrop-blur-md flex items-center gap-3 text-xs select-none animate-in fade-in slide-in-from-bottom-2"
+        >
+          <div className="flex items-center gap-2 font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-zinc-300 hidden sm:inline">Modo Admin:</span>
+            <span className="text-zinc-200 font-bold">Vigência oficial dia 13/11</span>
+          </div>
+
+          <div className="h-4 w-px bg-zinc-700 mx-1 hidden sm:block" />
+
+          <button
+            type="button"
+            onClick={toggleAdminPromoPreview}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              adminPromoPreview
+                ? 'bg-emerald-500 text-zinc-950 shadow-md font-black hover:bg-emerald-400'
+                : 'bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700'
+            }`}
+          >
+            {adminPromoPreview ? (
+              <>
+                <span>🔥</span>
+                <span>Prévia Ativa (3 Preços)</span>
+              </>
+            ) : (
+              <>
+                <span>👁️</span>
+                <span>Visão do Cliente (Sem Promo)</span>
+              </>
+            )}
+          </button>
+        </aside>
+      )}
+
+      {/* 8. Rodapé */}
       <Footer settings={initialSettings} />
     </div>
   );

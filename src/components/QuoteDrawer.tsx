@@ -411,11 +411,11 @@ export function QuoteDrawer() {
 
                         {item.price != null && item.price > 0 && (
                           <div className="flex items-center gap-1.5 mt-1 text-xs">
-                            <span className="font-extrabold text-emerald-700 font-mono">
+                            <span className="font-extrabold text-zeiq-black font-mono">
                               R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             {item.isPromo && (
-                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] font-bold text-white bg-zinc-950 border border-zinc-800 px-2 py-0.5 rounded-full">
                                 🔥 Promoção
                               </span>
                             )}

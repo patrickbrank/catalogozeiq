@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, Upload, FileSpreadsheet, Check, AlertCircle, Trash2, ArrowRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Product } from '@/types';
-import { cleanSkuKey } from '@/lib/utils/pricing';
+import { cleanSkuKey, formatISODateToYMD } from '@/lib/utils/pricing';
 
 interface CampaignModalProps {
   isOpen: boolean;
@@ -22,8 +22,8 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
   const [campaignName, setCampaignName] = useState('Campanha Black Friday');
   const [campaignEmoji, setCampaignEmoji] = useState('🔥');
 
-  // Período oficial: 03/11/2026 até 30/11/2026
-  const [startDate, setStartDate] = useState('2026-11-03');
+  // Período oficial: 13/11/2026 até 30/11/2026
+  const [startDate, setStartDate] = useState('2026-11-13');
   const [endDate, setEndDate] = useState('2026-11-30');
 
   // Controle de visualização do calendário customizado
@@ -50,8 +50,8 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
           if (d.success) {
             if (d.campaign_name) setCampaignName(d.campaign_name);
             if (d.campaign_emoji) setCampaignEmoji(d.campaign_emoji);
-            if (d.startDate) setStartDate(d.startDate.slice(0, 10));
-            if (d.endDate) setEndDate(d.endDate.slice(0, 10));
+            if (d.startDate) setStartDate(formatISODateToYMD(d.startDate) || '2026-11-13');
+            if (d.endDate) setEndDate(formatISODateToYMD(d.endDate) || '2026-11-30');
           }
         })
         .catch(() => {});
@@ -429,14 +429,14 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
                 <button
                   type="button"
                   onClick={() => {
-                    setStartDate('2026-11-03');
+                    setStartDate('2026-11-13');
                     setEndDate('2026-11-30');
                     setViewMonth(10);
                     setViewYear(2026);
                   }}
                   className="font-bold text-emerald-700 hover:underline cursor-pointer"
                 >
-                  Restaurar 03/11 a 30/11
+                  Restaurar 13/11 a 30/11
                 </button>
               </div>
             </div>

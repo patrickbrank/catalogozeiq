@@ -111,8 +111,8 @@ export function getCampaignMetaFromMap(map: PromotionsMap): CampaignMeta {
   return {
     campaign_name: meta.campaign_name || 'Campanha Black Friday',
     campaign_emoji: meta.campaign_emoji || '🔥',
-    promo_start_at: meta.promo_start_at || '2026-11-03T00:00:00.000Z',
-    promo_end_at: meta.promo_end_at || '2026-11-30T23:59:59.000Z',
+    promo_start_at: meta.promo_start_at || '2026-11-13T03:00:00.000Z',
+    promo_end_at: meta.promo_end_at || '2026-12-01T02:59:59.000Z',
     updated_at: meta.updated_at,
   };
 }
@@ -131,9 +131,9 @@ export async function mergePromotionsIntoProducts(products: Product[]): Promise<
     const bySku = p.code_sku ? promoMap[cleanSkuKey(p.code_sku)] : null;
     const promo = byId || bySku;
 
-    const promoPrice = p.promotional_price ?? promo?.promotional_price ?? null;
-    const startAt = p.promo_start_at || promo?.promo_start_at || meta.promo_start_at || null;
-    const endAt = p.promo_end_at || promo?.promo_end_at || meta.promo_end_at || null;
+    const promoPrice = promo?.promotional_price ?? p.promotional_price ?? null;
+    const startAt = promo?.promo_start_at ?? meta.promo_start_at ?? p.promo_start_at ?? null;
+    const endAt = promo?.promo_end_at ?? meta.promo_end_at ?? p.promo_end_at ?? null;
 
     if (promoPrice != null && promoPrice > 0) {
       return {

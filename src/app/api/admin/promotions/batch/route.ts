@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       items,
-      promo_start_at = '2026-11-03T00:00:00.000Z',
-      promo_end_at = '2026-11-30T23:59:59.000Z',
+      promo_start_at = '2026-11-13T03:00:00.000Z',
+      promo_end_at = '2026-12-01T02:59:59.000Z',
       campaign_name = 'Campanha Black Friday',
       campaign_emoji = '🔥',
       use_official_file

@@ -5,6 +5,7 @@ import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, B
 import { Product, Category, ProductImage, ProductHighlight } from '@/types';
 import { COMMON_SIZES, parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
+import { formatISODateToYMD } from '@/lib/utils/pricing';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 
 interface ProductFormModalProps {
@@ -65,8 +66,8 @@ export function ProductFormModal({
       setPrice(product.price != null ? product.price.toString().replace('.', ',') : '');
       setOriginalPrice(product.original_price != null ? product.original_price.toString().replace('.', ',') : '');
       setPromotionalPrice(product.promotional_price != null ? product.promotional_price.toString().replace('.', ',') : '');
-      const sDate = product.promo_start_at ? product.promo_start_at.slice(0, 10) : '';
-      const eDate = product.promo_end_at ? product.promo_end_at.slice(0, 10) : '';
+      const sDate = formatISODateToYMD(product.promo_start_at);
+      const eDate = formatISODateToYMD(product.promo_end_at);
       setPromoStartAt(sDate);
       setPromoEndAt(eDate);
       setIsPromoScheduleEnabled(Boolean(sDate || eDate));
