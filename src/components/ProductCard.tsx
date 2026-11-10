@@ -6,6 +6,7 @@ import { Plus, Check, Layers } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { parseProductSizes, isProductOutOfStock, isSizeOutOfStock } from '@/lib/utils/sizes';
+import { getProductEffectivePrice } from '@/lib/utils/pricing';
 import { flyToCartAnimation } from '@/lib/utils/cart-animation';
 
 interface ProductCardProps {
@@ -36,6 +37,7 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
   const displayTitle = getCleanTitle(product.name);
 
   const isOutOfStock = isProductOutOfStock(product);
+  const pricing = getProductEffectivePrice(product);
 
   const handleActionClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -96,12 +98,17 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
           </div>
         )}
 
-        {/* Badge de Esgotado */}
-        {isOutOfStock && (
+        {/* Badge de Esgotado ou Campanha Promocional */}
+        {isOutOfStock ? (
           <div className="absolute top-2 right-2 bg-rose-600 text-white text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded shadow-xs z-20">
             Esgotado
           </div>
-        )}
+        ) : pricing.isPromoActive ? (
+          <div className="absolute top-2 right-2 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-sm z-20 flex items-center gap-1">
+            <span>🔥</span>
+            <span>{pricing.discountPercentage ? `${pricing.discountPercentage}% OFF` : 'Campanha'}</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Conteúdo do Card - Estrutura com flex-1 para alinhamento uniforme */}
@@ -167,22 +174,47 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
 
         {/* Rodapé do Card: Preço e Botão travados no fundo na mesma linha horizontal */}
         <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
-          <div className="flex flex-col">
-            {product.original_price != null && product.price != null && product.original_price > product.price && (
-              <span className="text-xs text-slate-400 font-mono">
-                R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            )}
-            {product.price != null && product.price > 0 ? (
-              <span className="text-sm font-black text-zeiq-black font-mono tracking-tight">
-                R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            ) : (
-              <span className="text-xs font-medium text-slate-500">
-                Sob consulta
-              </span>
-            )}
-          </div>
+          {pricing.isPromoActive ? (
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {pricing.regularPrice != null && (
+                  <span className="text-[11px] line-through text-slate-400 font-mono" title="Preço normal de atacado">
+                    De R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+                {pricing.originalPrice != null && (
+                  <span className="text-[10px] text-slate-400 font-medium font-mono" title="Preço sugerido para revenda no varejo">
+                    Sug. R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm sm:text-base font-black text-emerald-700 font-mono tracking-tight">
+                  R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-tight">
+                  atacado
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              {product.original_price != null && product.price != null && product.original_price > product.price && (
+                <span className="text-xs text-slate-400 font-mono">
+                  R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+              {product.price != null && product.price > 0 ? (
+                <span className="text-sm font-black text-zeiq-black font-mono tracking-tight">
+                  R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              ) : (
+                <span className="text-xs font-medium text-slate-500">
+                  Sob consulta
+                </span>
+              )}
+            </div>
+          )}
 
           <button
             type="button"

@@ -1,4 +1,5 @@
 import type { Product } from '../../types';
+import { getProductEffectivePrice } from './pricing';
 
 export const COMMON_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'G1', 'G2', 'Único'];
 
@@ -327,6 +328,9 @@ export interface CanonicalVariant {
   inventory_quantity: number;
   stock: number;
   price: number | null;
+  regular_price: number | null;
+  promotional_price: number | null;
+  is_promo: boolean;
 }
 
 export interface ProductOption {
@@ -343,6 +347,10 @@ export function buildProductVariants(product: {
   code_sku?: string | null;
   ean?: string | null;
   price?: number | null;
+  original_price?: number | null;
+  promotional_price?: number | null;
+  promo_start_at?: string | null;
+  promo_end_at?: string | null;
   stock_by_size?: Record<string, any> | null;
   total_stock?: number | null;
   sizes?: string[] | null;
@@ -355,6 +363,24 @@ export function buildProductVariants(product: {
   const hasSizes = sizesList.length > 0;
   const parentSku = (product.code_sku || '').trim();
   const prodName = (product.name || '').trim();
+
+  const pricing = getProductEffectivePrice({
+    id: product.id,
+    name: prodName,
+    slug: '',
+    code_sku: parentSku,
+    price: product.price ?? null,
+    original_price: product.original_price ?? null,
+    promotional_price: product.promotional_price ?? null,
+    promo_start_at: product.promo_start_at ?? null,
+    promo_end_at: product.promo_end_at ?? null,
+    is_published: true,
+    is_featured: false,
+    display_order: 0,
+    tags: [],
+  });
+
+  const effectivePrice = pricing.effectivePrice ?? product.price ?? null;
 
   if (hasSizes) {
     const variants: CanonicalVariant[] = sizesList.map((sz: string, vIdx: number) => {
@@ -390,7 +416,10 @@ export function buildProductVariants(product: {
         position: vIdx + 1,
         inventory_quantity: stockQty,
         stock: stockQty,
-        price: product.price ?? null,
+        price: effectivePrice,
+        regular_price: pricing.regularPrice ?? product.price ?? null,
+        promotional_price: pricing.promotionalPrice ?? null,
+        is_promo: pricing.isPromoActive,
       };
     });
 
@@ -434,7 +463,10 @@ export function buildProductVariants(product: {
     position: 1,
     inventory_quantity: product.total_stock ?? 0,
     stock: product.total_stock ?? 0,
-    price: product.price ?? null,
+    price: effectivePrice,
+    regular_price: pricing.regularPrice ?? product.price ?? null,
+    promotional_price: pricing.promotionalPrice ?? null,
+    is_promo: pricing.isPromoActive,
   };
 
   return { variants: [defaultVariant], hasSizes: false, options: [] };

@@ -61,6 +61,8 @@ import { parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
+import { CampaignModal } from '@/components/admin/CampaignModal';
+import { getProductEffectivePrice } from '@/lib/utils/pricing';
 import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/OrderStatusPopover';
 import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPicker';
 import { AvatarIcon, ADMIN_AVATARS, resolveAvatarId } from '@/lib/constants/avatars';
@@ -189,6 +191,7 @@ export default function AdminDashboardPage() {
   // Modais
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
 
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
   const [trackingModalOrder, setTrackingModalOrder] = useState<Order | null>(null);
@@ -2084,6 +2087,17 @@ export default function AdminDashboardPage() {
 
                 <button
                   type="button"
+                  onClick={() => setIsCampaignModalOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
+                  title="Configurar campanha promocional e importar planilha de preços Black Friday"
+                >
+                  <span className="text-sm">🔥</span>
+                  <span className="hidden sm:inline">Campanha Black Friday</span>
+                  <span className="sm:hidden">Promoção</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setEditingProduct(null);
                     setIsProductModalOpen(true);
@@ -2335,6 +2349,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
                       <th className="py-3 px-4">Preço Atacado</th>
+                      <th className="py-3 px-4">Preço Promo</th>
                       <th className="py-3 px-4">Preço Varejo</th>
                       <th className="py-3 px-4 text-center">Estoque</th>
                       <th className="py-3 px-4 text-center">Status</th>
@@ -2345,7 +2360,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {paginatedProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-12 text-center text-slate-400">
+                        <td colSpan={10} className="py-12 text-center text-slate-400">
                           Nenhum produto localizado com os filtros selecionados.
                         </td>
                       </tr>
@@ -2395,6 +2410,37 @@ export default function AdminDashboardPage() {
                               ) : (
                                 <span className="text-slate-400 font-normal italic text-xs">Sob consulta</span>
                               )}
+                            </td>
+
+                            <td className="py-3 px-4 font-mono whitespace-nowrap">
+                              {(() => {
+                                const pricing = getProductEffectivePrice(prod);
+                                if (pricing.promotionalPrice != null && pricing.promotionalPrice > 0) {
+                                  return (
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-emerald-800">
+                                        R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </span>
+                                      {pricing.promoStatus === 'active' ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                          🔥 Ativo {prod.promo_end_at ? `(até ${new Date(prod.promo_end_at).toLocaleDateString('pt-BR')})` : ''}
+                                        </span>
+                                      ) : pricing.promoStatus === 'scheduled' ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700">
+                                          <span>⏳</span>
+                                          Inicia {prod.promo_start_at ? new Date(prod.promo_start_at).toLocaleDateString('pt-BR') : ''}
+                                        </span>
+                                      ) : pricing.promoStatus === 'ended' ? (
+                                        <span className="text-[10px] font-medium text-slate-400">
+                                          Encerrado
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  );
+                                }
+                                return <span className="text-slate-300 font-normal text-xs">-</span>;
+                              })()}
                             </td>
 
                             <td className="py-3 px-4 font-mono text-slate-600 whitespace-nowrap">
@@ -4733,6 +4779,19 @@ export default function AdminDashboardPage() {
         departments={departments}
         onClose={() => setIsProductModalOpen(false)}
         onSaved={fetchDashboardData}
+      />
+
+      {/* ======================================================== */}
+      {/* MODAL: CAMPANHA PROMOCIONAL / BLACK FRIDAY               */}
+      {/* ======================================================== */}
+      <CampaignModal
+        isOpen={isCampaignModalOpen}
+        onClose={() => setIsCampaignModalOpen(false)}
+        products={products}
+        onSuccess={(msg) => {
+          showToast(msg || 'Campanha promocional atualizada com sucesso!');
+          fetchDashboardData();
+        }}
       />
 
       {/* ======================================================== */}

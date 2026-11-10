@@ -32,6 +32,9 @@ export interface Product {
   description?: string | null;
   price?: number | null;
   original_price?: number | null;
+  promotional_price?: number | null;
+  promo_start_at?: string | null;
+  promo_end_at?: string | null;
   is_published: boolean;
   is_featured: boolean;
   display_order: number;
@@ -54,6 +57,9 @@ export interface QuoteItem {
   coverImage?: string;
   quantity: number;
   price?: number | null;
+  regularPrice?: number | null;
+  originalPrice?: number | null;
+  isPromo?: boolean;
   selectedSize?: string;
   sizeBreakdown?: Record<string, number>; // Grade de atacado: { 'PP': 2, 'P': 4, 'M': 6, 'G': 4 }
   notes?: string;

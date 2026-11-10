@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, Boxes, AlertTriangle } from 'lucide-react';
+import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, Boxes, AlertTriangle, Tag, Calendar, Sparkles } from 'lucide-react';
 import { Product, Category, ProductImage, ProductHighlight } from '@/types';
 import { COMMON_SIZES, parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
@@ -29,6 +29,10 @@ export function ProductFormModal({
   const [sku, setSku] = useState('');
   const [price, setPrice] = useState('');
   const [originalPrice, setOriginalPrice] = useState('');
+  const [promotionalPrice, setPromotionalPrice] = useState('');
+  const [promoStartAt, setPromoStartAt] = useState('');
+  const [promoEndAt, setPromoEndAt] = useState('');
+  const [isPromoScheduleEnabled, setIsPromoScheduleEnabled] = useState(false);
   const [description, setDescription] = useState('');
   const [isPublished, setIsPublished] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
@@ -60,6 +64,12 @@ export function ProductFormModal({
       setSku(product.code_sku || '');
       setPrice(product.price != null ? product.price.toString().replace('.', ',') : '');
       setOriginalPrice(product.original_price != null ? product.original_price.toString().replace('.', ',') : '');
+      setPromotionalPrice(product.promotional_price != null ? product.promotional_price.toString().replace('.', ',') : '');
+      const sDate = product.promo_start_at ? product.promo_start_at.slice(0, 10) : '';
+      const eDate = product.promo_end_at ? product.promo_end_at.slice(0, 10) : '';
+      setPromoStartAt(sDate);
+      setPromoEndAt(eDate);
+      setIsPromoScheduleEnabled(Boolean(sDate || eDate));
       const parsedSpecs = parseProductSpecifications(product.description, product.highlights);
       const parsedSizes = parseProductSizes(parsedSpecs.cleanDescription, product.sizes);
       setDescription(parsedSizes.cleanDescription || '');
@@ -105,6 +115,10 @@ export function ProductFormModal({
       setSku('');
       setPrice('');
       setOriginalPrice('');
+      setPromotionalPrice('');
+      setPromoStartAt('');
+      setPromoEndAt('');
+      setIsPromoScheduleEnabled(false);
       setDescription('');
       setHighlights([
         { label: '', value: '' },
@@ -341,6 +355,17 @@ export function ProductFormModal({
         basePayload.original_price = null;
       }
 
+      const numPromoPrice = promotionalPrice.trim() ? parseFloat(promotionalPrice.replace(/\./g, '').replace(',', '.')) : null;
+      if (numPromoPrice != null && !isNaN(numPromoPrice) && numPromoPrice > 0) {
+        basePayload.promotional_price = numPromoPrice;
+        basePayload.promo_start_at = isPromoScheduleEnabled && promoStartAt ? new Date(`${promoStartAt}T00:00:00`).toISOString() : null;
+        basePayload.promo_end_at = isPromoScheduleEnabled && promoEndAt ? new Date(`${promoEndAt}T23:59:59`).toISOString() : null;
+      } else {
+        basePayload.promotional_price = null;
+        basePayload.promo_start_at = null;
+        basePayload.promo_end_at = null;
+      }
+
       // Envia para a API administrativa segura (com chave de serviço e validação de sessão)
       const isEditing = !!product;
       const apiPayload = {
@@ -434,44 +459,125 @@ export function ProductFormModal({
           </div>
 
           {/* Preços e Condições Comerciais B2B */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80">
-            <div>
-              <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
-                <span>Preço de Atacado / Revenda (R$)</span>
-                <span className="text-xs text-emerald-700 font-normal">Exibido aos lojistas</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-800">
-                  R$
-                </span>
-                <input
-                  type="text"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0,00"
-                  className="w-full pl-9 pr-3.5 py-2 text-sm font-bold bg-white border border-emerald-300 rounded-xl text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-300"
-                />
+          <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/90 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zeiq-black flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-zeiq-orange" />
+                Preços e Condições Comerciais B2B
+              </span>
+              <span className="text-[11px] text-slate-500 font-medium">
+                Atacado Regular, Campanha e Sugestão de Varejo
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* 1. Preço de Atacado Regular */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Preço Atacado (R$) *</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Custo regular</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">R$</span>
+                  <input
+                    type="text"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full pl-8 pr-3 py-1.5 text-sm font-bold bg-slate-50/50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-zeiq-black placeholder:text-slate-300"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Preço Promocional / Campanha */}
+              <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-300/80 shadow-2xs">
+                <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    🔥 Preço Promo (R$)
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-bold">Black Friday</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">R$</span>
+                  <input
+                    type="text"
+                    value={promotionalPrice}
+                    onChange={(e) => setPromotionalPrice(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full pl-8 pr-3 py-1.5 text-sm font-black bg-white border border-emerald-300 rounded-lg text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-300"
+                  />
+                </div>
+              </div>
+
+              {/* 3. Preço Sugerido Varejo */}
+              <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Sugerido Varejo (R$)</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">R$</span>
+                  <input
+                    type="text"
+                    value={originalPrice}
+                    onChange={(e) => setOriginalPrice(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50/50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-zeiq-black placeholder:text-slate-300"
+                  />
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                <span>Preço Sugerido Varejo (R$)</span>
-                <span className="text-xs text-slate-500 font-normal">Opcional</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">
-                  R$
-                </span>
-                <input
-                  type="text"
-                  value={originalPrice}
-                  onChange={(e) => setOriginalPrice(e.target.value)}
-                  placeholder="0,00"
-                  className="w-full pl-9 pr-3.5 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-zeiq-black placeholder:text-slate-300"
-                />
+            {/* Agendamento da Promoção */}
+            {promotionalPrice.trim() && (
+              <div className="pt-2 border-t border-slate-200/70 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isPromoScheduleEnabled}
+                      onChange={(e) => setIsPromoScheduleEnabled(e.target.checked)}
+                      className="rounded border-slate-300 text-zeiq-black focus:ring-zeiq-black w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-slate-700">
+                      Programar período da promoção (Data início e término)
+                    </span>
+                  </label>
+                  {!isPromoScheduleEnabled && (
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                      ● Ativa continuamente
+                    </span>
+                  )}
+                </div>
+
+                {isPromoScheduleEnabled && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white rounded-xl border border-slate-200">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Início da Promoção
+                      </label>
+                      <input
+                        type="date"
+                        value={promoStartAt}
+                        onChange={(e) => setPromoStartAt(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                        Término da Promoção
+                      </label>
+                      <input
+                        type="date"
+                        value={promoEndAt}
+                        onChange={(e) => setPromoEndAt(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Descrição */}

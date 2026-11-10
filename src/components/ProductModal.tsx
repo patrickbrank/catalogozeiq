@@ -5,6 +5,7 @@ import { X, Plus, Minus, Check, ShoppingBag, Tag, Layers, SlidersHorizontal } fr
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { parseProductSizes, isProductOutOfStock as checkProductOutOfStock, isSizeOutOfStock as checkSizeOutOfStock, findStockForSize } from '@/lib/utils/sizes';
+import { getProductEffectivePrice } from '@/lib/utils/pricing';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
 import { flyToCartAnimation } from '@/lib/utils/cart-animation';
 
@@ -38,6 +39,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
 
   const hasSizes = sizes && sizes.length > 0;
   const hasHighlights = highlights && highlights.length > 0;
+  const pricing = getProductEffectivePrice(product);
 
   useEffect(() => {
     setSelectedImageIndex(0);
@@ -236,8 +238,45 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                 </h2>
 
                 {/* Box Comercial Sóbrio com Preço B2B */}
-                <div className="p-3 bg-[#f8f9fa] rounded-xl border border-slate-200 mb-4">
-                  {product.price != null && product.price > 0 ? (
+                <div className={`p-3.5 rounded-xl border mb-4 ${pricing.isPromoActive ? 'bg-emerald-50/70 border-emerald-300' : 'bg-[#f8f9fa] border-slate-200'}`}>
+                  {pricing.isPromoActive ? (
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-2xs">
+                          🔥 Condição Especial de Campanha
+                        </span>
+                        {pricing.discountPercentage != null && (
+                          <span className="text-xs font-bold text-emerald-800">
+                            {pricing.discountPercentage}% OFF no atacado
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-baseline gap-2.5">
+                        <span className="text-xl sm:text-2xl font-black text-emerald-800 font-mono">
+                          R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-xs font-bold text-emerald-950">/ un. atacado</span>
+                        {pricing.regularPrice != null && (
+                          <span className="text-xs text-slate-400 font-mono line-through">
+                            De R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                        {pricing.originalPrice != null && (
+                          <span className="text-xs text-slate-500 font-medium ml-auto">
+                            Sugerido Varejo: R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                      {(hasSizes ? totalGradePieces > 0 : simpleQuantity > 0) && (
+                        <div className="mt-2.5 pt-2 border-t border-emerald-200/70 flex items-center justify-between text-xs font-bold text-emerald-950">
+                          <span>Subtotal deste item ({hasSizes ? `${totalGradePieces} un.` : `${simpleQuantity} un.`}):</span>
+                          <span className="text-sm font-mono font-black text-emerald-800">
+                            R$ {((hasSizes ? totalGradePieces : simpleQuantity) * (pricing.effectivePrice || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : product.price != null && product.price > 0 ? (
                     <div>
                       <div className="flex items-baseline gap-2">
                         <span className="text-lg sm:text-xl font-extrabold text-zeiq-black font-mono">

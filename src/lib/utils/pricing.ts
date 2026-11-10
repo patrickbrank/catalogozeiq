@@ -1,0 +1,119 @@
+import type { Product } from '@/types';
+
+export interface ProductPricingInfo {
+  effectivePrice: number | null;
+  regularPrice: number | null;
+  originalPrice: number | null;
+  promotionalPrice: number | null;
+  isPromoActive: boolean;
+  promoStatus: 'active' | 'scheduled' | 'ended' | 'none';
+  promoStartDate?: Date | null;
+  promoEndDate?: Date | null;
+  discountPercentage?: number | null;
+  savingsAmount?: number | null;
+  resellerMarginPercentage?: number | null;
+}
+
+export function parseISODateSafe(val?: string | null): Date | null {
+  if (!val) return null;
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+export function formatCurrencyBRL(val?: number | null): string {
+  if (val == null || isNaN(val)) return 'R$ 0,00';
+  return `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export function cleanSkuKey(sku?: string | null): string {
+  if (!sku) return '';
+  return sku.trim().toLowerCase().replace(/^mg/i, '');
+}
+
+export function getProductEffectivePrice(
+  product?: Product | null,
+  referenceDate: Date = new Date()
+): ProductPricingInfo {
+  if (!product) {
+    return {
+      effectivePrice: null,
+      regularPrice: null,
+      originalPrice: null,
+      promotionalPrice: null,
+      isPromoActive: false,
+      promoStatus: 'none',
+    };
+  }
+
+  const regularPrice =
+    typeof product.price === 'number' && !isNaN(product.price) && product.price > 0
+      ? product.price
+      : null;
+
+  const originalPrice =
+    typeof product.original_price === 'number' && !isNaN(product.original_price) && product.original_price > 0
+      ? product.original_price
+      : null;
+
+  const promotionalPrice =
+    typeof product.promotional_price === 'number' &&
+    !isNaN(product.promotional_price) &&
+    product.promotional_price > 0
+      ? product.promotional_price
+      : null;
+
+  let isPromoActive = false;
+  let promoStatus: 'active' | 'scheduled' | 'ended' | 'none' = 'none';
+  let promoStartDate: Date | null = null;
+  let promoEndDate: Date | null = null;
+
+  if (promotionalPrice != null && regularPrice != null && promotionalPrice < regularPrice) {
+    promoStartDate = parseISODateSafe(product.promo_start_at);
+    promoEndDate = parseISODateSafe(product.promo_end_at);
+
+    const nowTime = referenceDate.getTime();
+
+    if (promoStartDate && nowTime < promoStartDate.getTime()) {
+      promoStatus = 'scheduled';
+      isPromoActive = false;
+    } else if (promoEndDate && nowTime > promoEndDate.getTime()) {
+      promoStatus = 'ended';
+      isPromoActive = false;
+    } else {
+      promoStatus = 'active';
+      isPromoActive = true;
+    }
+  }
+
+  const effectivePrice = isPromoActive && promotionalPrice != null ? promotionalPrice : regularPrice;
+
+  let discountPercentage: number | null = null;
+  let savingsAmount: number | null = null;
+  if (isPromoActive && promotionalPrice != null && regularPrice != null) {
+    savingsAmount = Math.max(0, regularPrice - promotionalPrice);
+    discountPercentage = Math.round((savingsAmount / regularPrice) * 100);
+  }
+
+  let resellerMarginPercentage: number | null = null;
+  if (effectivePrice != null && originalPrice != null && originalPrice > effectivePrice) {
+    resellerMarginPercentage = Math.round(((originalPrice - effectivePrice) / effectivePrice) * 100);
+  }
+
+  return {
+    effectivePrice,
+    regularPrice,
+    originalPrice,
+    promotionalPrice,
+    isPromoActive,
+    promoStatus,
+    promoStartDate,
+    promoEndDate,
+    discountPercentage,
+    savingsAmount,
+    resellerMarginPercentage,
+  };
+}

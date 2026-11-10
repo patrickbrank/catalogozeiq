@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { getCatalogData, invalidateCatalogCache, cleanProductDescription } from '@/lib/data/products';
 import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
 import { parseProductSizes, findStockForSize, normalizeCanonicalSize, buildProductVariants } from '@/lib/utils/sizes';
+import { getPromotionsMap, savePromotionsMap, cleanSkuKey, mergePromotionsIntoProducts } from '@/lib/data/promotions';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,15 +48,26 @@ export async function GET() {
       );
     }
 
+    const promoMap = await getPromotionsMap();
+
     const formattedProducts = (dbProducts || []).map((p: any) => {
       const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
       const sizesList = parsedSizes.sizes || [];
+      const promoData = promoMap[p.id] || (p.code_sku ? promoMap[cleanSkuKey(p.code_sku)] : null);
+      const promotionalPrice = p.promotional_price ?? promoData?.promotional_price ?? null;
+      const promoStartAt = p.promo_start_at ?? promoData?.promo_start_at ?? null;
+      const promoEndAt = p.promo_end_at ?? promoData?.promo_end_at ?? null;
+
       const { variants, hasSizes, options } = buildProductVariants({
         id: p.id,
         name: p.name,
         code_sku: p.code_sku,
         ean: p.ean,
         price: p.price,
+        original_price: p.original_price,
+        promotional_price: promotionalPrice,
+        promo_start_at: promoStartAt,
+        promo_end_at: promoEndAt,
         stock_by_size: p.stock_by_size,
         total_stock: p.total_stock,
         sizes: sizesList,
@@ -67,6 +79,9 @@ export async function GET() {
         parent_sku: p.code_sku || '',
         product_sku: p.code_sku || '',
         sku_pai: p.code_sku || '',
+        promotional_price: promotionalPrice,
+        promo_start_at: promoStartAt,
+        promo_end_at: promoEndAt,
         sizes: sizesList,
         has_sizes: hasSizes,
         has_variants: hasSizes,
@@ -132,6 +147,9 @@ export async function POST(request: NextRequest) {
       description,
       price,
       original_price,
+      promotional_price,
+      promo_start_at,
+      promo_end_at,
       is_published = true,
       is_featured = false,
       display_order = 0,
@@ -181,6 +199,9 @@ export async function POST(request: NextRequest) {
       description: description?.trim() || null,
       price: price != null && !isNaN(price) ? Number(price) : null,
       original_price: original_price != null && !isNaN(original_price) ? Number(original_price) : null,
+      promotional_price: promotional_price != null && !isNaN(promotional_price) && promotional_price > 0 ? Number(promotional_price) : null,
+      promo_start_at: promo_start_at || null,
+      promo_end_at: promo_end_at || null,
       is_published: !!is_published,
       is_featured: !!is_featured,
       display_order: Number(display_order) || 0,
@@ -196,11 +217,16 @@ export async function POST(request: NextRequest) {
       .single();
 
     // Fallback se colunas opcionais não existirem no schema do banco
-    if (insertErr && (insertErr.message?.includes('price') || insertErr.message?.includes('stock') || insertErr.message?.includes('ean'))) {
+    if (insertErr && (insertErr.message?.includes('price') || insertErr.message?.includes('stock') || insertErr.message?.includes('ean') || insertErr.message?.includes('promo'))) {
       if (insertErr.message?.includes('ean')) delete insertPayload.ean;
       if (insertErr.message?.includes('price')) {
         delete insertPayload.price;
         delete insertPayload.original_price;
+      }
+      if (insertErr.message?.includes('promo')) {
+        delete insertPayload.promotional_price;
+        delete insertPayload.promo_start_at;
+        delete insertPayload.promo_end_at;
       }
       if (insertErr.message?.includes('stock')) {
         delete insertPayload.stock_by_size;
@@ -221,6 +247,24 @@ export async function POST(request: NextRequest) {
     }
 
     const productId = newProd.id;
+
+    // Sincroniza preço promocional no storage de promoções
+    const numPromoPrice = promotional_price != null && !isNaN(promotional_price) && promotional_price > 0 ? Number(promotional_price) : null;
+    if (numPromoPrice != null) {
+      try {
+        const map = await getPromotionsMap();
+        map[productId] = {
+          promotional_price: numPromoPrice,
+          promo_start_at: promo_start_at || null,
+          promo_end_at: promo_end_at || null,
+          updated_at: new Date().toISOString(),
+        };
+        if (newProd.code_sku) map[cleanSkuKey(newProd.code_sku)] = map[productId];
+        await savePromotionsMap(map);
+      } catch (err) {
+        console.warn('Erro ao salvar promoção no storage:', err);
+      }
+    }
 
     // Vincula categorias
     if (Array.isArray(category_ids) && category_ids.length > 0) {
@@ -314,6 +358,16 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    let hasPromoField = false;
+    let numPromoPrice: number | null = null;
+    if (fields.promotional_price !== undefined) {
+      hasPromoField = true;
+      numPromoPrice = fields.promotional_price != null && !isNaN(fields.promotional_price) && fields.promotional_price > 0 ? Number(fields.promotional_price) : null;
+      updatePayload.promotional_price = numPromoPrice;
+      updatePayload.promo_start_at = fields.promo_start_at || null;
+      updatePayload.promo_end_at = fields.promo_end_at || null;
+    }
+
     let { data: updatedProd, error: updateErr } = await adminSupabase
       .from('products')
       .update(updatePayload)
@@ -321,8 +375,48 @@ export async function PUT(request: NextRequest) {
       .select('*')
       .single();
 
+    if (updateErr && (updateErr.message?.includes('promotional_price') || updateErr.message?.includes('promo'))) {
+      delete updatePayload.promotional_price;
+      delete updatePayload.promo_start_at;
+      delete updatePayload.promo_end_at;
+      const retry = await adminSupabase
+        .from('products')
+        .update(updatePayload)
+        .eq('id', id)
+        .select('*')
+        .single();
+      updatedProd = retry.data;
+      updateErr = retry.error;
+    }
+
     if (updateErr) {
       return NextResponse.json({ success: false, error: updateErr.message }, { status: 400 });
+    }
+
+    // Sincroniza com mapa de promoções do storage
+    if (hasPromoField) {
+      try {
+        const map = await getPromotionsMap();
+        if (numPromoPrice != null) {
+          map[id] = {
+            promotional_price: numPromoPrice,
+            promo_start_at: fields.promo_start_at || null,
+            promo_end_at: fields.promo_end_at || null,
+            updated_at: new Date().toISOString(),
+          };
+          if (updatedProd?.code_sku) {
+            map[cleanSkuKey(updatedProd.code_sku)] = map[id];
+          }
+        } else {
+          delete map[id];
+          if (updatedProd?.code_sku) {
+            delete map[cleanSkuKey(updatedProd.code_sku)];
+          }
+        }
+        await savePromotionsMap(map);
+      } catch (err) {
+        console.warn('Aviso ao sincronizar mapa de promoções:', err);
+      }
     }
 
     // Atualiza categorias se fornecidas

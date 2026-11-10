@@ -5,6 +5,7 @@ import { Product, Category } from '@/types';
 import { Department, DEFAULT_DEPARTMENTS } from '@/lib/data/departments';
 import { getDepartments } from '@/lib/data/departments-server';
 import { parseProductSizes } from '@/lib/utils/sizes';
+import { mergePromotionsIntoProducts } from '@/lib/data/promotions';
 
 function getPublicSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -274,15 +275,17 @@ export async function getCatalogData(): Promise<{ products: Product[]; categorie
           return idB - idA;
         });
 
+      const productsWithPromos = await mergePromotionsIntoProducts(formattedProducts);
+
       cachedCatalog = {
-        products: formattedProducts,
+        products: productsWithPromos,
         categories: dbCategories || [],
         departments: departments,
         timestamp: Date.now(),
       };
 
       return {
-        products: formattedProducts,
+        products: productsWithPromos,
         categories: dbCategories || [],
         departments: departments,
       };

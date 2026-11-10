@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { QuoteItem, Product } from '@/types';
+import { getProductEffectivePrice } from '@/lib/utils/pricing';
 
 export interface CartLastAdded {
   id: string;
@@ -58,11 +59,17 @@ export const useQuoteCart = create<QuoteCartState>()(
             selectedSize: selectedSize || undefined,
           };
 
+          const pricing = getProductEffectivePrice(product);
+          const finalPrice = pricing.effectivePrice ?? product.price ?? null;
+
           if (existingIndex > -1) {
             const updatedItems = [...state.items];
             updatedItems[existingIndex].quantity += quantity;
-            if (product.price != null) {
-              updatedItems[existingIndex].price = product.price;
+            if (finalPrice != null) {
+              updatedItems[existingIndex].price = finalPrice;
+              updatedItems[existingIndex].regularPrice = pricing.regularPrice ?? product.price ?? null;
+              updatedItems[existingIndex].originalPrice = pricing.originalPrice ?? product.original_price ?? null;
+              updatedItems[existingIndex].isPromo = pricing.isPromoActive;
             }
             if (notes) {
               updatedItems[existingIndex].notes = notes;
@@ -79,7 +86,10 @@ export const useQuoteCart = create<QuoteCartState>()(
             productSlug: product.slug,
             sku: product.code_sku,
             coverImage: coverImage,
-            price: product.price ?? null,
+            price: finalPrice,
+            regularPrice: pricing.regularPrice ?? product.price ?? null,
+            originalPrice: pricing.originalPrice ?? product.original_price ?? null,
+            isPromo: pricing.isPromoActive,
             quantity: Math.max(1, quantity),
             selectedSize: selectedSize || undefined,
             notes: notes || undefined,
@@ -119,6 +129,9 @@ export const useQuoteCart = create<QuoteCartState>()(
 
           const existingIndex = state.items.findIndex((item) => item.productId === product.id);
 
+          const pricing = getProductEffectivePrice(product);
+          const finalPrice = pricing.effectivePrice ?? product.price ?? null;
+
           if (existingIndex > -1) {
             const updatedItems = [...state.items];
             const currentItem = updatedItems[existingIndex];
@@ -134,7 +147,10 @@ export const useQuoteCart = create<QuoteCartState>()(
               ...currentItem,
               quantity: newTotal,
               sizeBreakdown: mergedBreakdown,
-              price: product.price ?? currentItem.price ?? null,
+              price: finalPrice ?? currentItem.price ?? null,
+              regularPrice: pricing.regularPrice ?? product.price ?? null,
+              originalPrice: pricing.originalPrice ?? product.original_price ?? null,
+              isPromo: pricing.isPromoActive,
               notes: notes || currentItem.notes,
             };
 
@@ -147,7 +163,10 @@ export const useQuoteCart = create<QuoteCartState>()(
             productSlug: product.slug,
             sku: product.code_sku,
             coverImage: coverImage,
-            price: product.price ?? null,
+            price: finalPrice,
+            regularPrice: pricing.regularPrice ?? product.price ?? null,
+            originalPrice: pricing.originalPrice ?? product.original_price ?? null,
+            isPromo: pricing.isPromoActive,
             quantity: totalQty,
             sizeBreakdown: validBreakdown,
             notes: notes || undefined,

@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { invalidateCatalogCache } from '@/lib/data/products';
 import { normalizeCanonicalSize, parseProductSizes, findStockForSize, buildProductVariants } from '@/lib/utils/sizes';
+import { getPromotionsMap, cleanSkuKey } from '@/lib/data/promotions';
 
 interface StockBySizeInput {
   [size: string]: number | string;
@@ -357,6 +358,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const promoMap = await getPromotionsMap();
+    const promoData = promoMap[product.id] || (product.code_sku ? promoMap[cleanSkuKey(product.code_sku)] : null);
+    const promotionalPrice = product.promotional_price ?? promoData?.promotional_price ?? null;
+    const promoStartAt = product.promo_start_at ?? promoData?.promo_start_at ?? null;
+    const promoEndAt = product.promo_end_at ?? promoData?.promo_end_at ?? null;
+
     const parsedSizes = parseProductSizes(product.description, product.sizes, product.name, product.stock_by_size);
     const sizesList = parsedSizes.sizes || [];
     const { variants, hasSizes, options } = buildProductVariants({
@@ -365,6 +372,10 @@ export async function GET(request: NextRequest) {
       code_sku: product.code_sku,
       ean: product.ean,
       price: product.price,
+      original_price: product.original_price,
+      promotional_price: promotionalPrice,
+      promo_start_at: promoStartAt,
+      promo_end_at: promoEndAt,
       stock_by_size: product.stock_by_size,
       total_stock: product.total_stock,
       sizes: sizesList,
@@ -391,6 +402,9 @@ export async function GET(request: NextRequest) {
         sku_pai: parentSku,
         ean: product.ean,
         price: product.price ?? null,
+        promotional_price: promotionalPrice,
+        promo_start_at: promoStartAt,
+        promo_end_at: promoEndAt,
         total_stock: product.total_stock ?? 0,
         stock_by_size: product.stock_by_size || {},
         sizes: sizesList,
@@ -406,20 +420,30 @@ export async function GET(request: NextRequest) {
 
   // 2. Consulta de lista de produtos para sincronização
   if (listProducts && adminSupabase) {
+    const promoMap = await getPromotionsMap();
     const { data: dbProducts } = await adminSupabase
       .from('products')
-      .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
+      .select('id, name, code_sku, ean, price, original_price, stock_by_size, total_stock, description')
       .order('code_sku', { ascending: true });
 
     const formatted = (dbProducts || []).map((p: any) => {
       const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
       const sizesList = parsedSizes.sizes || [];
+      const promoData = promoMap[p.id] || (p.code_sku ? promoMap[cleanSkuKey(p.code_sku)] : null);
+      const promotionalPrice = p.promotional_price ?? promoData?.promotional_price ?? null;
+      const promoStartAt = p.promo_start_at ?? promoData?.promo_start_at ?? null;
+      const promoEndAt = p.promo_end_at ?? promoData?.promo_end_at ?? null;
+
       const { variants, hasSizes, options } = buildProductVariants({
         id: p.id,
         name: p.name,
         code_sku: p.code_sku,
         ean: p.ean,
         price: p.price,
+        original_price: p.original_price,
+        promotional_price: promotionalPrice,
+        promo_start_at: promoStartAt,
+        promo_end_at: promoEndAt,
         stock_by_size: p.stock_by_size,
         total_stock: p.total_stock,
         sizes: sizesList,
@@ -437,6 +461,9 @@ export async function GET(request: NextRequest) {
         sku_pai: parentSku,
         ean: p.ean,
         price: p.price ?? null,
+        promotional_price: promotionalPrice,
+        promo_start_at: promoStartAt,
+        promo_end_at: promoEndAt,
         total_stock: p.total_stock ?? 0,
         stock_by_size: p.stock_by_size || {},
         sizes: sizesList,
