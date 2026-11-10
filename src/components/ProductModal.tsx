@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Check, ShoppingBag, Tag, Layers, SlidersHorizontal, Flame } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
@@ -26,6 +26,13 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
   const [notes, setNotes] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
+  // Estados e controle de gesto para fechar arrastando para baixo
+  const [dragOffsetY, setDragOffsetY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const startYRef = useRef(0);
+  const isDraggingRef = useRef(false);
+
   const addItem = useQuoteCart((state) => state.addItem);
   const addBundle = useQuoteCart((state) => state.addBundle);
 
@@ -47,6 +54,9 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
     setSimpleQuantity(1);
     setNotes('');
     setIsSuccess(false);
+    setDragOffsetY(0);
+    setIsDragging(false);
+    setIsClosing(false);
 
     // Inicializa a grade com 0 para cada tamanho
     if (product) {
@@ -155,17 +165,79 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
     });
   };
 
+  // Manipulação de gesto de deslizar para baixo (fechar arrastando)
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    startYRef.current = e.clientY;
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    const deltaY = e.clientY - startYRef.current;
+    if (deltaY > 0) {
+      setDragOffsetY(deltaY);
+    } else {
+      setDragOffsetY(deltaY * 0.15);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+
+    const deltaY = e.clientY - startYRef.current;
+    if (deltaY > 65) {
+      setIsClosing(true);
+      setTimeout(() => {
+        setDragOffsetY(0);
+        setIsClosing(false);
+        onClose();
+      }, 160);
+    } else {
+      setDragOffsetY(0);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-zeiq-black/60 backdrop-blur-xs animate-fade-in">
       {/* Backdrop */}
       <div className="fixed inset-0" onClick={onClose} />
 
       {/* Caixa do Modal / Bottom Sheet no Mobile */}
-      <div className="relative w-full max-w-4xl max-h-[92dvh] sm:max-h-[90vh] bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 border-t sm:border border-slate-200 animate-in slide-in-from-bottom-3 sm:slide-in-from-bottom-0 sm:fade-in duration-200">
+      <div 
+        style={{
+          transform: isClosing
+            ? 'translateY(100%)'
+            : dragOffsetY > 0
+            ? `translateY(${dragOffsetY}px)`
+            : undefined,
+          transition: isDragging
+            ? 'none'
+            : 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease-out',
+          opacity: isClosing ? 0 : dragOffsetY > 0 ? Math.max(0.35, 1 - dragOffsetY / 280) : 1,
+        }}
+        className="relative w-full max-w-4xl max-h-[92dvh] sm:max-h-[90vh] bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 border-t sm:border border-slate-200 animate-in slide-in-from-bottom-3 sm:slide-in-from-bottom-0 sm:fade-in duration-200"
+      >
         
-        {/* Barra sutil de arrastar no topo (Mobile) */}
-        <div className="pt-2 pb-1 flex justify-center sm:hidden shrink-0">
-          <div className="w-10 h-1 bg-slate-300 rounded-full" />
+        {/* Barra interativa de arrastar no topo (deslize para fechar) */}
+        <div 
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className="pt-2.5 pb-2 flex justify-center items-center cursor-grab active:cursor-grabbing select-none shrink-0 touch-none w-full group/handle"
+          title="Deslize para baixo para fechar"
+        >
+          <div className="w-12 h-1.5 bg-slate-300 group-hover/handle:bg-slate-400 group-active/handle:bg-slate-500 rounded-full transition-colors" />
         </div>
 
         {/* Botão de Fechar */}

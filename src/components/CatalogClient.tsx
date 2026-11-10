@@ -597,45 +597,7 @@ export function CatalogClient({
         forcePromoPreview={adminPromoPreview}
       />
 
-      {/* 7. Barra de Controle de Prévia Exclusiva para Administrador */}
-      {isAdmin && (
-        <aside
-          aria-label="Controle de Pré-visualização da Campanha"
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-zinc-950/95 text-white pl-4 pr-2 py-2 rounded-full shadow-2xl border border-zinc-700/80 backdrop-blur-md flex items-center gap-3 text-xs select-none animate-in fade-in slide-in-from-bottom-2"
-        >
-          <div className="flex items-center gap-2 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-zinc-300 hidden sm:inline">Modo Admin:</span>
-            <span className="text-zinc-200 font-bold">Vigência oficial dia 13/11</span>
-          </div>
-
-          <div className="h-4 w-px bg-zinc-700 mx-1 hidden sm:block" />
-
-          <button
-            type="button"
-            onClick={toggleAdminPromoPreview}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              adminPromoPreview
-                ? 'bg-emerald-500 text-zinc-950 shadow-md font-black hover:bg-emerald-400'
-                : 'bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700'
-            }`}
-          >
-            {adminPromoPreview ? (
-              <>
-                <span>🔥</span>
-                <span>Prévia Ativa (3 Preços)</span>
-              </>
-            ) : (
-              <>
-                <span>👁️</span>
-                <span>Visão do Cliente (Sem Promo)</span>
-              </>
-            )}
-          </button>
-        </aside>
-      )}
-
-      {/* 8. Rodapé */}
+      {/* 7. Rodapé */}
       <Footer settings={initialSettings} />
     </div>
   );
