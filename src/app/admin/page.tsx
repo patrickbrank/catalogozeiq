@@ -2090,30 +2090,16 @@ export default function AdminDashboardPage() {
                   const activeCampaignEmoji = activePromoProduct?.campaign_emoji || '🔥';
                   const activeCampaignName = activePromoProduct?.campaign_name || 'Campanha Black Friday';
                   return (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setIsCampaignModalOpen(true)}
-                        className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
-                        title="Configurar campanha promocional e importar planilha de preços"
-                      >
-                        <span className="text-sm">{activeCampaignEmoji}</span>
-                        <span className="hidden sm:inline">{activeCampaignName}</span>
-                        <span className="sm:hidden">Campanha</span>
-                      </button>
-
-                      <Link
-                        href="/?preview=promo"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-zinc-900 hover:bg-black text-white border border-zinc-700/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
-                        title="Abrir catálogo em nova aba com a prévia da campanha ativa"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="hidden sm:inline">Ver Prévia</span>
-                        <span className="sm:hidden">Prévia</span>
-                      </Link>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsCampaignModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
+                      title="Configurar campanha promocional e importar planilha de preços"
+                    >
+                      <span className="text-sm">{activeCampaignEmoji}</span>
+                      <span className="hidden sm:inline">{activeCampaignName}</span>
+                      <span className="sm:hidden">Campanha</span>
+                    </button>
                   );
                 })()}
 
