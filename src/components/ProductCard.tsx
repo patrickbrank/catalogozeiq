@@ -101,13 +101,13 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
 
         {/* Badge de Esgotado ou Campanha Promocional */}
         {isOutOfStock ? (
-          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg z-20">
+          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-rose-600 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-md z-20">
             Esgotado
           </div>
         ) : pricing.isPromoActive ? (
-          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-zinc-950/95 backdrop-blur-md text-white border border-white/30 shadow-xl shadow-black/50 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full z-20 flex items-center gap-1.5 sm:gap-2 select-none animate-in fade-in">
-            <span className="text-base sm:text-lg leading-none drop-shadow-sm">{pricing.campaignEmoji || '🔥'}</span>
-            <span className="text-white font-black text-xs sm:text-sm tracking-tight">
+          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black text-white border border-white/20 shadow-[0_4px_14px_rgba(0,0,0,0.22)] px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full z-20 flex items-center gap-1.5 select-none animate-in fade-in">
+            <span className="text-sm sm:text-base leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
+            <span className="text-white font-black text-xs sm:text-[13px] tracking-tight">
               {pricing.discountPercentage ? `${pricing.discountPercentage}% OFF` : 'PROMO'}
             </span>
           </div>
@@ -175,101 +175,152 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
           )}
         </div>
 
-        {/* Rodapé do Card: Preço e Botão travados no fundo na mesma linha horizontal */}
-        <div className="mt-auto pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+        {/* Rodapé do Card: Proposta 1 (2 Níveis de Alta Precisão e Alinhamento) */}
+        <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
           {pricing.isPromoActive ? (
-            <div className="flex flex-col min-w-0 justify-center space-y-0.5">
-              {pricing.originalPrice != null && (
-                <div className="grid grid-cols-[56px_auto] items-baseline gap-x-2 leading-tight">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-sans select-none">
-                    Varejo:
+            <>
+              {/* Nível 1: Linha de Referência de Margem B2B (Varejo e Revenda de Tabela) */}
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden">
+                {pricing.originalPrice != null && (
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider font-sans text-slate-400 select-none">
+                      Varejo:
+                    </span>
+                    <span className="font-medium text-slate-400 tabular-nums">
+                      R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </span>
-                  <span className="text-[11px] font-medium text-slate-400 font-mono tabular-nums">
-                    R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                )}
+                {pricing.originalPrice != null && pricing.regularPrice != null && (
+                  <span className="text-slate-300 font-sans select-none shrink-0">•</span>
+                )}
+                {pricing.regularPrice != null && (
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider font-sans text-slate-400 select-none">
+                      Revenda:
+                    </span>
+                    <span className="font-medium text-slate-400 line-through decoration-slate-300 tabular-nums" title="Preço normal de tabela">
+                      R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </span>
-                </div>
-              )}
-              {pricing.regularPrice != null && (
-                <div className="grid grid-cols-[56px_auto] items-baseline gap-x-2 leading-tight">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-sans select-none">
-                    Revenda:
-                  </span>
-                  <span className="text-[11px] font-medium text-slate-400 font-mono line-through decoration-slate-300 tabular-nums" title="Preço normal de revenda">
-                    R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              )}
-              <div className="grid grid-cols-[56px_auto] items-baseline gap-x-2 leading-tight pt-0.5">
-                <span className="text-[10px] font-black text-zeiq-black uppercase tracking-wider font-sans select-none">
-                  Promo:
-                </span>
-                <span className="text-[15px] sm:text-base font-black text-zeiq-black font-mono tracking-tight tabular-nums">
-                  R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                )}
               </div>
-            </div>
-          ) : (
-            <div className="flex flex-col min-w-0 justify-center space-y-0.5">
-              {product.original_price != null && product.price != null && product.original_price > product.price && (
-                <div className="grid grid-cols-[56px_auto] items-baseline gap-x-2 leading-tight">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-sans select-none">
-                    Varejo:
-                  </span>
-                  <span className="text-[11px] font-medium text-slate-400 font-mono tabular-nums">
-                    R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              )}
-              {product.price != null && product.price > 0 ? (
-                <div className="grid grid-cols-[56px_auto] items-baseline gap-x-2 leading-tight pt-0.5">
-                  <span className="text-[10px] font-black text-zeiq-black uppercase tracking-wider font-sans select-none">
-                    Revenda:
-                  </span>
-                  <span className="text-[15px] sm:text-base font-black text-zeiq-black font-mono tracking-tight tabular-nums">
-                    R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              ) : (
-                <span className="text-xs font-medium text-slate-500">
-                  Sob consulta
-                </span>
-              )}
-            </div>
-          )}
 
-          <button
-            type="button"
-            onClick={handleActionClick}
-            disabled={isOutOfStock && !hasSizes}
-            className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer inline-flex items-center justify-center gap-1.5 ${
-              isAdded
-                ? 'bg-emerald-600 text-white'
-                : isOutOfStock && !hasSizes
-                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                : isOutOfStock && hasSizes
-                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                : 'bg-zeiq-black hover:bg-zinc-800 text-white shadow-xs'
-            }`}
-          >
-            {isAdded ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                Adicionado
-              </>
-            ) : isOutOfStock && !hasSizes ? (
-              'Esgotado'
-            ) : hasSizes ? (
-              <>
-                <Layers className="w-3.5 h-3.5" />
-                {isOutOfStock ? 'Ver Grade' : 'Escolher Grade'}
-              </>
-            ) : (
-              <>
-                <Plus className="w-3.5 h-3.5" />
-                Adicionar
-              </>
-            )}
-          </button>
+              {/* Nível 2: Preço Promocional Hero + Botão de Ação Alinhados */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-baseline gap-1.5 min-w-0 whitespace-nowrap">
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-zeiq-black font-sans shrink-0 select-none">
+                    Promo:
+                  </span>
+                  <span className="text-base sm:text-lg font-black text-zeiq-black font-mono tracking-tight tabular-nums">
+                    R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleActionClick}
+                  disabled={isOutOfStock && !hasSizes}
+                  className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer inline-flex items-center justify-center gap-1.5 ${
+                    isAdded
+                      ? 'bg-emerald-600 text-white'
+                      : isOutOfStock && !hasSizes
+                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                      : isOutOfStock && hasSizes
+                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                      : 'bg-zeiq-black hover:bg-zinc-800 text-white shadow-xs'
+                  }`}
+                >
+                  {isAdded ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      Adicionado
+                    </>
+                  ) : isOutOfStock && !hasSizes ? (
+                    'Esgotado'
+                  ) : hasSizes ? (
+                    <>
+                      <Layers className="w-3.5 h-3.5" />
+                      {isOutOfStock ? 'Ver Grade' : 'Escolher Grade'}
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      Adicionar
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Nível 1: Linha de Referência Varejo Sugerido (se houver) */}
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden">
+                {product.original_price != null && product.price != null && product.original_price > product.price && (
+                  <span className="flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider font-sans text-slate-400 select-none">
+                      Varejo:
+                    </span>
+                    <span className="font-medium text-slate-400 tabular-nums">
+                      R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {/* Nível 2: Preço Normal de Revenda + Botão de Ação */}
+              <div className="flex items-center justify-between gap-2">
+                {product.price != null && product.price > 0 ? (
+                  <div className="flex items-baseline gap-1.5 min-w-0 whitespace-nowrap">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-zeiq-black font-sans shrink-0 select-none">
+                      Revenda:
+                    </span>
+                    <span className="text-base sm:text-lg font-black text-zeiq-black font-mono tracking-tight tabular-nums">
+                      R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs font-medium text-slate-500">
+                    Sob consulta
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleActionClick}
+                  disabled={isOutOfStock && !hasSizes}
+                  className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer inline-flex items-center justify-center gap-1.5 ${
+                    isAdded
+                      ? 'bg-emerald-600 text-white'
+                      : isOutOfStock && !hasSizes
+                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                      : isOutOfStock && hasSizes
+                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                      : 'bg-zeiq-black hover:bg-zinc-800 text-white shadow-xs'
+                  }`}
+                >
+                  {isAdded ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      Adicionado
+                    </>
+                  ) : isOutOfStock && !hasSizes ? (
+                    'Esgotado'
+                  ) : hasSizes ? (
+                    <>
+                      <Layers className="w-3.5 h-3.5" />
+                      {isOutOfStock ? 'Ver Grade' : 'Escolher Grade'}
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      Adicionar
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

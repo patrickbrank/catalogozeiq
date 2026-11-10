@@ -243,7 +243,7 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
                   {pricing.isPromoActive ? (
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-2.5">
-                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-black bg-zinc-950/95 backdrop-blur-md text-white border border-white/25 shadow-md">
+                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-black bg-gradient-to-b from-zinc-900 via-zinc-950 to-black text-white border border-white/20 shadow-[0_4px_14px_rgba(0,0,0,0.22)]">
                           <span className="text-base select-none leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
                           <span>{pricing.campaignName || 'Condição Especial de Campanha'}</span>
                         </span>
