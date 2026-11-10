@@ -75,13 +75,13 @@ export async function GET(request: NextRequest) {
       if (userRole === 'marketing') userRole = 'admin';
       if (userRole === 'ROLE_RESELLER') userRole = 'representative';
 
-      // Se o usuário está cadastrado na tabela oficial de representantes (resellers), garante o cargo de representative
+      // Se o usuário está cadastrado na tabela oficial de representantes (resellers), garante o cargo apenas se o profile não definiu explicitamente
       const isOfficialRep =
         resellersUserIds.has(u.id) ||
         (u.email && resellersEmails.has(u.email.toLowerCase().trim())) ||
         p.store_name === 'Representação Comercial Zeiq';
 
-      if (!isMaster && userRole !== 'admin' && isOfficialRep) {
+      if (!isMaster && userRole !== 'admin' && !p.role && isOfficialRep) {
         userRole = 'representative';
       }
 
@@ -285,6 +285,11 @@ export async function POST(request: NextRequest) {
         } catch (resErr) {
           console.warn('Aviso ao sincronizar tabela resellers:', resErr);
         }
+      } else {
+        // Se NÃO for representante, remove qualquer registro residual da tabela resellers
+        try {
+          await adminSupabase.from('resellers').delete().or(`user_id.eq.${newUserId},email.eq.${cleanEmail}`);
+        } catch {}
       }
     } catch (e) {
       console.warn('Aviso ao sincronizar profile do usuário:', e);
@@ -590,6 +595,32 @@ async function handleUpdateUser(request: NextRequest) {
       const { error: srvErr } = await serverSupabase.from('profiles').upsert(profileData);
       if (srvErr) {
         await adminSupabase.from('profiles').upsert(profileData);
+      }
+
+      // Sincroniza tabela resellers: adiciona se for representante, remove se for outro cargo
+      const targetEmail = targetUser.email || '';
+      if (targetRole === 'representative' && targetEmail) {
+        const cleanWhatsapp = (phone || updatedUserMeta.phone || '').replace(/\D/g, '');
+        try {
+          await adminSupabase.from('resellers').upsert({
+            name: contact_name?.trim() || updatedUserMeta.contact_name || targetEmail.split('@')[0],
+            email: targetEmail.toLowerCase().trim(),
+            whatsapp: cleanWhatsapp || '00000000000',
+            phone: phone?.trim() || updatedUserMeta.phone || null,
+            status: 'ativo',
+            notification_preference: 'both',
+            user_id: id,
+          }, { onConflict: 'email' });
+        } catch (repErr) {
+          console.warn('Aviso ao sincronizar tabela resellers:', repErr);
+        }
+      } else if (targetRole && targetRole !== 'representative') {
+        try {
+          const filter = targetEmail ? `user_id.eq.${id},email.eq.${targetEmail}` : `user_id.eq.${id}`;
+          await adminSupabase.from('resellers').delete().or(filter);
+        } catch (delResErr) {
+          console.warn('Aviso ao remover da tabela resellers:', delResErr);
+        }
       }
     } catch (profileErr) {
       console.warn('Aviso ao atualizar profiles:', profileErr);
