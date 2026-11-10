@@ -245,7 +245,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                         </span>
                         <span className="text-xs font-semibold text-slate-500">/ unidade atacado</span>
                         {product.original_price != null && product.original_price > product.price && (
-                          <span className="text-xs line-through text-slate-400 font-mono">
+                          <span className="text-xs text-slate-400 font-mono">
                             R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         )}

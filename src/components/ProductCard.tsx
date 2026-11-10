@@ -169,7 +169,7 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
         <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
           <div className="flex flex-col">
             {product.original_price != null && product.price != null && product.original_price > product.price && (
-              <span className="text-xs line-through text-slate-400 font-mono">
+              <span className="text-xs text-slate-400 font-mono">
                 R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}

@@ -2335,6 +2335,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
                       <th className="py-3 px-4">Preço Atacado</th>
+                      <th className="py-3 px-4">Preço Varejo</th>
                       <th className="py-3 px-4 text-center">Estoque</th>
                       <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-center">Destaque</th>
@@ -2344,7 +2345,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {paginatedProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                        <td colSpan={9} className="py-12 text-center text-slate-400">
                           Nenhum produto localizado com os filtros selecionados.
                         </td>
                       </tr>
@@ -2393,6 +2394,16 @@ export default function AdminDashboardPage() {
                                 </span>
                               ) : (
                                 <span className="text-slate-400 font-normal italic text-xs">Sob consulta</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4 font-mono text-slate-600 whitespace-nowrap">
+                              {prod.original_price != null && prod.original_price > 0 ? (
+                                <span className="text-slate-700 font-semibold">
+                                  R$ {prod.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300 font-normal text-xs">-</span>
                               )}
                             </td>
 
@@ -2538,7 +2549,7 @@ export default function AdminDashboardPage() {
                               )}
                             </div>
 
-                            <div className="mt-1 font-mono font-bold text-xs">
+                            <div className="mt-1 font-mono font-bold text-xs flex flex-wrap items-baseline gap-1.5">
                               {prod.price != null && prod.price > 0 ? (
                                 <span className="text-emerald-700">
                                   R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -2546,6 +2557,11 @@ export default function AdminDashboardPage() {
                               ) : (
                                 <span className="text-slate-400 font-normal italic text-[11px]">
                                   Sob consulta
+                                </span>
+                              )}
+                              {prod.original_price != null && prod.original_price > 0 && (
+                                <span className="text-slate-400 font-normal text-[11px]">
+                                  (Varejo: R$ {prod.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                                 </span>
                               )}
                             </div>
