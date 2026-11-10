@@ -135,10 +135,11 @@ export async function mergePromotionsIntoProducts(products: Product[]): Promise<
     const startAt = promo?.promo_start_at ?? meta.promo_start_at ?? p.promo_start_at ?? null;
     const endAt = promo?.promo_end_at ?? meta.promo_end_at ?? p.promo_end_at ?? null;
 
-    if (promoPrice != null && promoPrice > 0) {
+    const numPromo = promoPrice != null ? Number(promoPrice) : null;
+    if (numPromo != null && !isNaN(numPromo) && numPromo > 0) {
       return {
         ...p,
-        promotional_price: promoPrice,
+        promotional_price: numPromo,
         promo_start_at: startAt,
         promo_end_at: endAt,
         campaign_name: meta.campaign_name,

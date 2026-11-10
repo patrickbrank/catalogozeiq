@@ -16,7 +16,8 @@ export async function middleware(request: NextRequest) {
     pathname === '/admin/login' ||
     pathname === '/revendedor/login' ||
     pathname === '/reseller/login' ||
-    pathname.startsWith('/api/');
+    pathname.startsWith('/api/') ||
+    (pathname === '/' && (request.nextUrl.searchParams.has('preview') || request.nextUrl.searchParams.has('promo')));
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';

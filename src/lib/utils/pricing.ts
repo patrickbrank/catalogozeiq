@@ -41,6 +41,16 @@ export function formatCurrencyBRL(val?: number | null): string {
   return `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+export function parseNumberSafe(val: any): number | null {
+  if (val == null || val === '') return null;
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  const str = String(val).trim().replace(/R\$|\$/g, '').trim();
+  const num = str.includes(',')
+    ? parseFloat(str.replace(/\./g, '').replace(',', '.'))
+    : parseFloat(str);
+  return isNaN(num) || num <= 0 ? null : num;
+}
+
 export function cleanSkuKey(sku?: string | null): string {
   if (!sku) return '';
   return sku.trim().toLowerCase().replace(/^mg/i, '');
@@ -62,22 +72,9 @@ export function getProductEffectivePrice(
     };
   }
 
-  const regularPrice =
-    typeof product.price === 'number' && !isNaN(product.price) && product.price > 0
-      ? product.price
-      : null;
-
-  const originalPrice =
-    typeof product.original_price === 'number' && !isNaN(product.original_price) && product.original_price > 0
-      ? product.original_price
-      : null;
-
-  const promotionalPrice =
-    typeof product.promotional_price === 'number' &&
-    !isNaN(product.promotional_price) &&
-    product.promotional_price > 0
-      ? product.promotional_price
-      : null;
+  const regularPrice = parseNumberSafe(product.price);
+  const originalPrice = parseNumberSafe(product.original_price);
+  const promotionalPrice = parseNumberSafe(product.promotional_price);
 
   let isPromoActive = false;
   let promoStatus: 'active' | 'scheduled' | 'ended' | 'none' = 'none';
