@@ -92,13 +92,6 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
           </div>
         )}
 
-        {/* Badge de SKU Técnico */}
-        {product.code_sku && (
-          <div className="absolute top-2 left-2 bg-zeiq-black text-white text-xs font-mono font-bold px-2 py-0.5 rounded shadow-xs z-20">
-            {product.code_sku}
-          </div>
-        )}
-
         {/* Badge de Esgotado ou Campanha Promocional */}
         {isOutOfStock ? (
           <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-rose-600 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-md z-20">
@@ -117,12 +110,21 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
       {/* Conteúdo do Card - Estrutura com flex-1 para alinhamento uniforme */}
       <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between gap-2.5">
         <div>
-          {/* Categoria */}
-          {product.categories && product.categories.length > 0 && (
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1 truncate">
-              {product.categories[0].name}
-            </span>
-          )}
+          {/* Linha de Metadados: Categoria e Código SKU Técnico */}
+          <div className="flex items-center justify-between gap-1.5 mb-1">
+            {product.categories && product.categories.length > 0 ? (
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate">
+                {product.categories[0].name}
+              </span>
+            ) : (
+              <span />
+            )}
+            {product.code_sku && (
+              <span className="text-[11px] font-mono font-bold text-slate-400 shrink-0">
+                {product.code_sku}
+              </span>
+            )}
+          </div>
 
           {/* Nome do Produto com suporte elegante a até 3 linhas e altura mínima travada */}
           <h3 
@@ -179,37 +181,39 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
         <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col gap-1.5">
           {pricing.isPromoActive ? (
             <>
-              {/* Nível 1: Linha de Referência de Margem B2B (Varejo e Revenda de Tabela) */}
-              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden">
-                {pricing.originalPrice != null && (
-                  <span className="flex items-center gap-1 shrink-0">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider font-sans text-slate-400 select-none">
-                      Varejo:
+              {/* Nível 1: Pill de Referência de Margem B2B (Grounded & Elegante) */}
+              <div className="flex items-center min-h-[22px]">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-[10px] sm:text-[11px] text-slate-500 font-mono select-none max-w-full truncate">
+                  {pricing.originalPrice != null && (
+                    <span className="flex items-center gap-1 shrink-0">
+                      <span className="font-medium text-slate-400 font-sans">
+                        Varejo:
+                      </span>
+                      <span className="font-medium text-slate-500 tabular-nums">
+                        R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
                     </span>
-                    <span className="font-medium text-slate-400 tabular-nums">
-                      R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  )}
+                  {pricing.originalPrice != null && pricing.regularPrice != null && (
+                    <span className="text-slate-300 font-sans shrink-0">•</span>
+                  )}
+                  {pricing.regularPrice != null && (
+                    <span className="flex items-center gap-1 shrink-0">
+                      <span className="font-medium text-slate-400 font-sans">
+                        Revenda:
+                      </span>
+                      <span className="font-medium text-slate-400 line-through decoration-slate-300 tabular-nums" title="Preço normal de tabela">
+                        R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
                     </span>
-                  </span>
-                )}
-                {pricing.originalPrice != null && pricing.regularPrice != null && (
-                  <span className="text-slate-300 font-sans select-none shrink-0">•</span>
-                )}
-                {pricing.regularPrice != null && (
-                  <span className="flex items-center gap-1 shrink-0">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider font-sans text-slate-400 select-none">
-                      Revenda:
-                    </span>
-                    <span className="font-medium text-slate-400 line-through decoration-slate-300 tabular-nums" title="Preço normal de tabela">
-                      R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </span>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Nível 2: Preço Promocional Hero + Botão de Ação Alinhados */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-baseline gap-1.5 min-w-0 whitespace-nowrap">
-                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-zeiq-black font-sans shrink-0 select-none">
+                  <span className="text-xs font-bold text-slate-600 font-sans shrink-0 select-none">
                     Promo:
                   </span>
                   <span className="text-base sm:text-lg font-black text-zeiq-black font-mono tracking-tight tabular-nums">
@@ -254,17 +258,19 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
             </>
           ) : (
             <>
-              {/* Nível 1: Linha de Referência Varejo Sugerido (se houver) */}
-              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden">
-                {product.original_price != null && product.price != null && product.original_price > product.price && (
-                  <span className="flex items-center gap-1 shrink-0">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider font-sans text-slate-400 select-none">
-                      Varejo:
+              {/* Nível 1: Pill de Referência Varejo Sugerido (se houver) */}
+              <div className="flex items-center min-h-[22px]">
+                {product.original_price != null && product.price != null && product.original_price > product.price ? (
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200/70 text-[10px] sm:text-[11px] text-slate-500 font-mono select-none max-w-full truncate">
+                    <span className="font-medium text-slate-400 font-sans">
+                      Varejo sugerido:
                     </span>
-                    <span className="font-medium text-slate-400 tabular-nums">
+                    <span className="font-medium text-slate-500 tabular-nums">
                       R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                  </span>
+                  </div>
+                ) : (
+                  <div className="h-[22px]" />
                 )}
               </div>
 
@@ -272,7 +278,7 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
               <div className="flex items-center justify-between gap-2">
                 {product.price != null && product.price > 0 ? (
                   <div className="flex items-baseline gap-1.5 min-w-0 whitespace-nowrap">
-                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-zeiq-black font-sans shrink-0 select-none">
+                    <span className="text-xs font-bold text-slate-600 font-sans shrink-0 select-none">
                       Revenda:
                     </span>
                     <span className="text-base sm:text-lg font-black text-zeiq-black font-mono tracking-tight tabular-nums">
