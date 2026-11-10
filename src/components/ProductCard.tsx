@@ -177,22 +177,22 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
           )}
         </div>
 
-        {/* Rodapé do Card: Proposta 1 (2 Níveis de Alta Precisão e Alinhamento) */}
-        <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col gap-1">
+        {/* Rodapé do Card: Layout Comercial Redesenhado com Botão Full Width */}
+        <div className="mt-auto pt-3 border-t border-slate-100 flex flex-col gap-2.5">
           {pricing.isPromoActive ? (
-            <>
-              {/* Nível 1: Linha de Referência de Margem B2B (Alinhada perfeitamente à esquerda) */}
-              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden select-none">
+            <div className="flex flex-col gap-0.5">
+              {/* Linha 1: Referência B2B (Varejo e Revenda) */}
+              <div className="flex items-center gap-1.5 text-[11px] leading-tight text-slate-400 font-mono select-none truncate">
                 {pricing.originalPrice != null && (
                   <span className="flex items-center gap-1 shrink-0">
                     <span className="font-sans text-slate-400 font-medium">Varejo:</span>
-                    <span className="font-medium text-slate-500 tabular-nums">
+                    <span className="font-semibold text-slate-600 tabular-nums">
                       R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </span>
                 )}
                 {pricing.originalPrice != null && pricing.regularPrice != null && (
-                  <span className="text-slate-300 font-sans select-none shrink-0">•</span>
+                  <span className="text-slate-300 font-sans select-none">•</span>
                 )}
                 {pricing.regularPrice != null && (
                   <span className="flex items-center gap-1 shrink-0">
@@ -204,60 +204,24 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
                 )}
               </div>
 
-              {/* Nível 2: Preço Promocional Hero + Botão de Ação Alinhados */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-baseline gap-1.5 min-w-0 whitespace-nowrap">
-                  <span className="text-xs font-bold text-slate-600 font-sans shrink-0 select-none">
-                    Promo:
-                  </span>
-                  <span className="text-base sm:text-lg font-black text-zeiq-black font-mono tracking-tight tabular-nums">
-                    R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleActionClick}
-                  disabled={isOutOfStock && !hasSizes}
-                  className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer inline-flex items-center justify-center gap-1.5 ${
-                    isAdded
-                      ? 'bg-emerald-600 text-white'
-                      : isOutOfStock && !hasSizes
-                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                      : isOutOfStock && hasSizes
-                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                      : 'bg-zeiq-black hover:bg-zinc-800 text-white shadow-xs'
-                  }`}
-                >
-                  {isAdded ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      Adicionado
-                    </>
-                  ) : isOutOfStock && !hasSizes ? (
-                    'Esgotado'
-                  ) : hasSizes ? (
-                    <>
-                      <Layers className="w-3.5 h-3.5" />
-                      {isOutOfStock ? 'Ver Grade' : 'Escolher Grade'}
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" />
-                      Adicionar
-                    </>
-                  )}
-                </button>
+              {/* Linha 2: Preço Promocional Hero */}
+              <div className="flex items-baseline gap-2 pt-0.5">
+                <span className="text-lg sm:text-xl font-black text-zeiq-black font-mono tracking-tight tabular-nums">
+                  R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100/70 border border-emerald-200/80 px-1.5 py-0.5 rounded select-none">
+                  Promoção
+                </span>
               </div>
-            </>
+            </div>
           ) : (
-            <>
-              {/* Nível 1: Linha de Referência Varejo Sugerido (se houver) */}
-              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] leading-tight text-slate-400 font-mono h-4 overflow-hidden select-none">
+            <div className="flex flex-col gap-0.5">
+              {/* Linha 1: Varejo Sugerido */}
+              <div className="flex items-center gap-1 text-[11px] leading-tight text-slate-400 font-mono h-4 select-none truncate">
                 {product.original_price != null && product.price != null && product.original_price > product.price ? (
                   <span className="flex items-center gap-1 shrink-0">
                     <span className="font-sans text-slate-400 font-medium">Varejo sugerido:</span>
-                    <span className="font-medium text-slate-500 tabular-nums">
+                    <span className="font-semibold text-slate-600 tabular-nums">
                       R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </span>
@@ -266,59 +230,60 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
                 )}
               </div>
 
-              {/* Nível 2: Preço Normal de Revenda + Botão de Ação */}
-              <div className="flex items-center justify-between gap-2">
+              {/* Linha 2: Preço Normal de Revenda */}
+              <div className="flex items-baseline gap-2 pt-0.5">
                 {product.price != null && product.price > 0 ? (
-                  <div className="flex items-baseline gap-1.5 min-w-0 whitespace-nowrap">
-                    <span className="text-xs font-bold text-slate-600 font-sans shrink-0 select-none">
-                      Revenda:
-                    </span>
-                    <span className="text-base sm:text-lg font-black text-zeiq-black font-mono tracking-tight tabular-nums">
+                  <>
+                    <span className="text-lg sm:text-xl font-black text-zeiq-black font-mono tracking-tight tabular-nums">
                       R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                  </div>
+                    <span className="text-[11px] font-medium text-slate-500 select-none">
+                      revenda atacado
+                    </span>
+                  </>
                 ) : (
                   <span className="text-xs font-medium text-slate-500">
                     Sob consulta
                   </span>
                 )}
-
-                <button
-                  type="button"
-                  onClick={handleActionClick}
-                  disabled={isOutOfStock && !hasSizes}
-                  className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 shrink-0 whitespace-nowrap cursor-pointer inline-flex items-center justify-center gap-1.5 ${
-                    isAdded
-                      ? 'bg-emerald-600 text-white'
-                      : isOutOfStock && !hasSizes
-                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                      : isOutOfStock && hasSizes
-                      ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                      : 'bg-zeiq-black hover:bg-zinc-800 text-white shadow-xs'
-                  }`}
-                >
-                  {isAdded ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      Adicionado
-                    </>
-                  ) : isOutOfStock && !hasSizes ? (
-                    'Esgotado'
-                  ) : hasSizes ? (
-                    <>
-                      <Layers className="w-3.5 h-3.5" />
-                      {isOutOfStock ? 'Ver Grade' : 'Escolher Grade'}
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" />
-                      Adicionar
-                    </>
-                  )}
-                </button>
               </div>
-            </>
+            </div>
           )}
+
+          {/* Botão de Ação Full Width Confortável e Imponente */}
+          <button
+            type="button"
+            onClick={handleActionClick}
+            disabled={isOutOfStock && !hasSizes}
+            className={`w-full h-9 rounded-xl text-xs font-bold transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2 ${
+              isAdded
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : isOutOfStock && !hasSizes
+                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                : isOutOfStock && hasSizes
+                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                : 'bg-zeiq-black hover:bg-zinc-800 text-white shadow-xs'
+            }`}
+          >
+            {isAdded ? (
+              <>
+                <Check className="w-4 h-4" />
+                Adicionado
+              </>
+            ) : isOutOfStock && !hasSizes ? (
+              'Esgotado'
+            ) : hasSizes ? (
+              <>
+                <Layers className="w-4 h-4" />
+                {isOutOfStock ? 'Ver Grade' : 'Escolher Grade'}
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                Adicionar
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

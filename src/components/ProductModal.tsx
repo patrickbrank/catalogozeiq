@@ -238,108 +238,99 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
                   {product.name}
                 </h2>
 
-                {/* Box Comercial Sóbrio com Preço B2B */}
-                <div className="p-4 rounded-2xl border border-slate-200/90 bg-[#f8f9fa] mb-4">
+                {/* Box Comercial B2B Unificado e Otimizado */}
+                <div className="rounded-2xl border border-slate-200/90 bg-[#f8f9fa] overflow-hidden mb-4 shadow-2xs">
                   {pricing.isPromoActive ? (
                     <div>
-                      {/* Linha 1: Badges de Campanha e Percentual de Desconto */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                        <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-b from-zinc-900 via-zinc-950 to-black text-white border border-white/20 shadow-sm whitespace-nowrap">
-                          <span className="text-sm select-none leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
-                          <span>{pricing.campaignName || 'Condição Especial de Campanha'}</span>
-                        </span>
+                      {/* Top Bar da Campanha Integrada */}
+                      <div className="px-4 py-2.5 bg-gradient-to-r from-zinc-950 via-zinc-900 to-black text-white flex items-center justify-between gap-2 select-none">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
+                          <span className="text-xs font-bold tracking-tight">{pricing.campaignName || 'Campanha Promocional'}</span>
+                        </div>
                         {pricing.discountPercentage != null && (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold text-slate-900 bg-slate-200/90 border border-slate-300/60 whitespace-nowrap">
-                            {pricing.discountPercentage}% OFF no atacado
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-white/20 text-white border border-white/20 backdrop-blur-xs">
+                            {pricing.discountPercentage}% OFF
                           </span>
                         )}
                       </div>
 
-                      {/* Linha 2: Pill Estruturada de Referência de Margem (Varejo e Revenda de Tabela) */}
-                      <div className="mb-2">
-                        <div className="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-xs text-slate-500 font-mono select-none max-w-full">
+                      {/* Corpo Comercial: Preço e Referências de Margem B2B */}
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl sm:text-3xl font-black text-zeiq-black font-mono tracking-tight tabular-nums">
+                            R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-xs font-medium text-slate-500 select-none">
+                            / unidade atacado
+                          </span>
+                        </div>
+
+                        {/* Linha de Referência de Margem e Preço Anterior */}
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono pt-2 border-t border-slate-200/70 select-none">
                           {pricing.originalPrice != null && (
-                            <span className="flex items-center gap-1 shrink-0">
-                              <span className="font-medium text-slate-400 font-sans">
-                                Varejo sugerido:
-                              </span>
-                              <span className="font-semibold text-slate-700 tabular-nums">
+                            <span className="flex items-center gap-1 text-slate-500">
+                              <span className="font-sans text-slate-400 font-medium">Varejo sugerido:</span>
+                              <strong className="text-slate-700 font-semibold tabular-nums">
                                 R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
+                              </strong>
                             </span>
                           )}
                           {pricing.originalPrice != null && pricing.regularPrice != null && (
-                            <span className="text-slate-300 font-sans select-none shrink-0">•</span>
+                            <span className="text-slate-300 font-sans">•</span>
                           )}
                           {pricing.regularPrice != null && (
-                            <span className="flex items-center gap-1 shrink-0">
-                              <span className="font-medium text-slate-400 font-sans">
-                                Revenda normal:
-                              </span>
-                              <span className="font-medium text-slate-400 line-through decoration-slate-300 tabular-nums" title="Preço normal de tabela">
+                            <span className="flex items-center gap-1 text-slate-400">
+                              <span className="font-sans text-slate-400 font-medium">Revenda normal:</span>
+                              <span className="line-through decoration-slate-300 tabular-nums">
                                 R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </span>
                           )}
-                        </div>
-                      </div>
-
-                      {/* Linha 3: Preço Promocional Hero */}
-                      <div className="flex items-baseline gap-2 pt-0.5">
-                        <span className="text-xs sm:text-sm font-bold text-slate-600 font-sans select-none">
-                          Promo:
-                        </span>
-                        <span className="text-2xl sm:text-3xl font-black text-zeiq-black font-mono tracking-tight tabular-nums">
-                          R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                        <span className="text-xs font-medium text-slate-500 select-none">
-                          / un. atacado
-                        </span>
-                      </div>
-
-                      {/* Linha 4: Subtotal Dinâmico */}
-                      {(hasSizes ? totalGradePieces > 0 : simpleQuantity > 0) && (
-                        <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-800">
-                          <span className="text-slate-600">
-                            Subtotal deste item ({hasSizes ? `${totalGradePieces} un.` : `${simpleQuantity} un.`}):
-                          </span>
-                          <span className="text-base sm:text-lg font-mono font-black text-zeiq-black tabular-nums">
-                            R$ {((hasSizes ? totalGradePieces : simpleQuantity) * (pricing.effectivePrice || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ) : product.price != null && product.price > 0 ? (
-                    <div>
-                      {/* Nível 1: Pill de Varejo Sugerido (se houver) */}
-                      {product.original_price != null && product.original_price > product.price && (
-                        <div className="mb-2">
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 text-xs text-slate-500 font-mono select-none">
-                            <span className="font-medium text-slate-400 font-sans">
-                              Varejo sugerido:
+                          {pricing.savingsAmount != null && pricing.savingsAmount > 0 && (
+                            <span className="ml-auto text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                              Economia de R$ {pricing.savingsAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / un.
                             </span>
-                            <span className="font-semibold text-slate-700 tabular-nums">
-                              R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          )}
+                        </div>
+
+                        {/* Subtotal Dinâmico */}
+                        {(hasSizes ? totalGradePieces > 0 : simpleQuantity > 0) && (
+                          <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-800">
+                            <span className="text-slate-600">
+                              Subtotal deste item ({hasSizes ? `${totalGradePieces} un.` : `${simpleQuantity} un.`}):
+                            </span>
+                            <span className="text-base sm:text-lg font-mono font-black text-zeiq-black tabular-nums">
+                              R$ {((hasSizes ? totalGradePieces : simpleQuantity) * (pricing.effectivePrice || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Nível 2: Preço Normal de Atacado */}
+                        )}
+                      </div>
+                    </div>
+                  ) : product.price != null && product.price > 0 ? (
+                    <div className="p-4 space-y-3">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xs sm:text-sm font-bold text-slate-600 font-sans select-none">
-                          Revenda:
-                        </span>
                         <span className="text-2xl sm:text-3xl font-black text-zeiq-black font-mono tracking-tight tabular-nums">
                           R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                         <span className="text-xs font-medium text-slate-500 select-none">
-                          / un. atacado
+                          / unidade atacado
                         </span>
                       </div>
 
+                      {product.original_price != null && product.original_price > product.price && (
+                        <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between text-xs font-mono select-none">
+                          <span className="font-sans text-slate-500 font-medium">
+                            Varejo sugerido ao consumidor:
+                          </span>
+                          <strong className="text-slate-700 font-bold tabular-nums">
+                            R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                        </div>
+                      )}
+
                       {(hasSizes ? totalGradePieces > 0 : simpleQuantity > 0) && (
-                        <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-800">
+                        <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-800">
                           <span className="text-slate-600">
                             Subtotal deste item ({hasSizes ? `${totalGradePieces} un.` : `${simpleQuantity} un.`}):
                           </span>
@@ -350,7 +341,7 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
                       )}
                     </div>
                   ) : (
-                    <div>
+                    <div className="p-4">
                       <div className="text-xs font-semibold text-zeiq-black mb-0.5">
                         Preço sob consulta (Revenda e Atacado)
                       </div>
