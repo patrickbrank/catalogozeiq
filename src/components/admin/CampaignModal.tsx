@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Upload, FileSpreadsheet, Check, AlertCircle, Trash2, ArrowRight, Loader2, Sparkles, Zap, Flame } from 'lucide-react';
+import { X, Calendar, Upload, FileSpreadsheet, Check, AlertCircle, Trash2, ArrowRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Product } from '@/types';
 import { cleanSkuKey } from '@/lib/utils/pricing';
 
@@ -20,32 +20,35 @@ interface ParsedPromoRow {
 
 export function CampaignModal({ isOpen, onClose, products, onSuccess }: CampaignModalProps) {
   const [campaignName, setCampaignName] = useState('Campanha Black Friday');
-  
-  // Período oficial solicitado: 03/11/2026 até 30/11/2026 (fim do mês)
-  const defaultStart = '2026-11-03';
-  const defaultEnd = '2026-11-30';
 
-  const [startDate, setStartDate] = useState(defaultStart);
-  const [endDate, setEndDate] = useState(defaultEnd);
-  const [pastedText, setPastedText] = useState('');
-  const [activeTab, setActiveTab] = useState<'official' | 'upload' | 'paste'>('official');
+  // Período oficial: 03/11/2026 até 30/11/2026
+  const [startDate, setStartDate] = useState('2026-11-03');
+  const [endDate, setEndDate] = useState('2026-11-30');
+
+  // Controle de visualização do calendário customizado
+  const [viewYear, setViewYear] = useState(2026);
+  const [viewMonth, setViewMonth] = useState(10); // 10 = Novembro (0-indexed)
+
   const [useOfficialFile, setUseOfficialFile] = useState(true);
+  const [showCustomUpload, setShowCustomUpload] = useState(false);
+  const [pastedText, setPastedText] = useState('');
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setErrorMsg('');
-      setStartDate(defaultStart);
-      setEndDate(defaultEnd);
-      setCampaignName('Campanha Black Friday');
+      setStartDate('2026-11-03');
+      setEndDate('2026-11-30');
+      setViewYear(2026);
+      setViewMonth(10);
       setUseOfficialFile(true);
-      setActiveTab('official');
+      setShowCustomUpload(false);
       setPastedText('');
     }
   }, [isOpen]);
 
-  // Mapa de produtos por SKU para validação instantânea
+  // Mapa de produtos por SKU para validação rápida
   const productBySkuMap = useMemo(() => {
     const map = new Map<string, Product>();
     products.forEach((p) => {
@@ -60,28 +63,22 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
     return map;
   }, [products]);
 
-  // Parser resiliente de linhas de planilha (suporta Tabulação do Excel, Ponto e Vírgula e Vírgula)
+  // Parser de linhas para upload manual
   const parseRows = (text: string): ParsedPromoRow[] => {
     const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     const parsed: ParsedPromoRow[] = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // Ignora linha de cabeçalho comum
       if (i === 0 && (line.toLowerCase().includes('sku') || line.toLowerCase().includes('produto') || line.toLowerCase().includes('preço') || line.toLowerCase().includes('preco'))) {
         continue;
       }
 
       let tokens: string[] = [];
-      if (line.includes('\t')) {
-        tokens = line.split('\t').map((t) => t.trim());
-      } else if (line.includes(';')) {
-        tokens = line.split(';').map((t) => t.trim());
-      } else if (line.includes(',')) {
-        tokens = line.split(',').map((t) => t.trim());
-      } else {
-        tokens = line.split(/\s+/).map((t) => t.trim());
-      }
+      if (line.includes('\t')) tokens = line.split('\t').map((t) => t.trim());
+      else if (line.includes(';')) tokens = line.split(';').map((t) => t.trim());
+      else if (line.includes(',')) tokens = line.split(',').map((t) => t.trim());
+      else tokens = line.split(/\s+/).map((t) => t.trim());
 
       if (tokens.length >= 2) {
         const skuToken = tokens[0].replace(/^"|"$/g, '').trim();
@@ -97,15 +94,10 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
 
         if (!isNaN(cleanNum) && cleanNum > 0 && skuToken) {
           const matched = productBySkuMap.get(cleanSkuKey(skuToken));
-          parsed.push({
-            sku: skuToken,
-            price: cleanNum,
-            matchedProduct: matched,
-          });
+          parsed.push({ sku: skuToken, price: cleanNum, matchedProduct: matched });
         }
       }
     }
-
     return parsed;
   };
 
@@ -122,49 +114,73 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
 
     setErrorMsg('');
     const reader = new FileReader();
-
     reader.onload = (evt) => {
       const content = evt.target?.result;
       if (typeof content === 'string') {
         setPastedText(content);
         setUseOfficialFile(false);
-        setActiveTab('paste');
       }
     };
-
-    reader.onerror = () => {
-      setErrorMsg('Falha ao ler o arquivo selecionado.');
-    };
-
+    reader.onerror = () => setErrorMsg('Falha ao ler o arquivo selecionado.');
     reader.readAsText(file, 'utf8');
   };
 
-  const handlePresetDate = (type: 'black_friday' | 'novembro' | '30days' | 'continuous') => {
-    if (type === 'black_friday') {
-      setStartDate('2026-11-03');
-      setEndDate('2026-11-30');
-      setCampaignName('Campanha Black Friday');
-    } else if (type === 'novembro') {
-      setStartDate('2026-11-01');
-      setEndDate('2026-11-30');
-      setCampaignName('Novembro Promocional');
-    } else if (type === '30days') {
-      const today = new Date().toISOString().slice(0, 10);
-      const next30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      setStartDate(today);
-      setEndDate(next30);
-      setCampaignName('Campanha 30 Dias');
-    } else if (type === 'continuous') {
-      setStartDate('');
-      setEndDate('');
-      setCampaignName('Promoção Contínua');
+  // Navegação do Calendário Customizado Zeiq
+  const handlePrevMonth = () => {
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
     }
+  };
+
+  const handleNextMonth = () => {
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  // Cálculo da matriz de dias do calendário
+  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Domingo
+  const daysInCurrentMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const handleDaySelect = (dayNum: number) => {
+    const mStr = String(viewMonth + 1).padStart(2, '0');
+    const dStr = String(dayNum).padStart(2, '0');
+    const clickedDate = `${viewYear}-${mStr}-${dStr}`;
+
+    if (!startDate || (startDate && endDate)) {
+      setStartDate(clickedDate);
+      setEndDate('');
+    } else if (startDate && !endDate) {
+      if (clickedDate < startDate) {
+        setEndDate(startDate);
+        setStartDate(clickedDate);
+      } else {
+        setEndDate(clickedDate);
+      }
+    }
+  };
+
+  const formatDateShort = (iso?: string | null) => {
+    if (!iso) return '--/--/----';
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!useOfficialFile && parsedItems.length === 0) {
-      setErrorMsg('Nenhum item válido identificado. Escolha a planilha oficial ou informe os itens.');
+      setErrorMsg('Nenhum item válido identificado. Utilize a planilha oficial ou informe os itens.');
       return;
     }
 
@@ -192,7 +208,7 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Erro ao aplicar campanha promocional.');
+        throw new Error(data.error || 'Erro ao aplicar campanha.');
       }
 
       onSuccess(data.message || `Campanha ativada para ${matchedCount} produtos com sucesso!`);
@@ -230,67 +246,24 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
     }
   };
 
-  // Helper para formatar data em português sem popovers
-  const formatDateLabel = (isoDate: string) => {
-    if (!isoDate) return 'Não definida';
-    const [year, month, day] = isoDate.split('-');
-    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return `${day} de ${months[parseInt(month, 10) - 1]} de ${year}`;
-  };
-
-  // Status dinâmico da campanha
-  const getStatusBadge = () => {
-    if (!startDate && !endDate) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Ativa Continuamente (Sem prazo de encerramento)
-        </span>
-      );
-    }
-    const now = new Date().toISOString().slice(0, 10);
-    if (startDate && now < startDate) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
-          ⏳ Agendada (iniciará em {formatDateLabel(startDate)})
-        </span>
-      );
-    }
-    if (endDate && now > endDate) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300">
-          ⏹️ Período Encerrado
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs">
-        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-        🔥 Campanha Ativa Agora (Vigente até 30 de Novembro)
-      </span>
-    );
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]"
+        className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabeçalho de Alto Contraste Zeiq */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-950 via-zinc-900 to-zeiq-black text-white flex items-center justify-between shrink-0 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl shadow-inner border border-emerald-500/30">
-              🔥
-            </div>
+        {/* Cabeçalho Limpo Zeiq */}
+        <div className="px-5 py-4 bg-zeiq-black text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">🔥</span>
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight leading-tight flex items-center gap-2">
-                <span>Campanha Promocional & Black Friday</span>
+              <h3 className="text-sm sm:text-base font-bold text-white tracking-tight leading-none">
+                Campanha Black Friday
               </h3>
-              <p className="text-xs text-emerald-200/80 mt-0.5">
-                Programe o período e configure a tabela de preços especiais para os lojistas.
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Configure as datas e ative os preços promocionais no catálogo.
               </p>
             </div>
           </div>
@@ -298,295 +271,218 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
           <button
             type="button"
             onClick={onClose}
-            className="p-2 text-white/70 hover:text-white rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Corpo com Scroll Suave */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
+        {/* Formulário Enxuto e Otimizado */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 flex items-start gap-2.5">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* 1. SEÇÃO DE PERÍODO & ATALHOS RÁPIDOS DE 1 CLIQUE */}
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span className="font-bold text-zeiq-black text-xs flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-emerald-600" />
-                Período da Promoção (Ativação Automática)
+          {/* 1. SEÇÃO DE PERÍODO COM CALENDÁRIO VISUAL CUSTOMIZADO (ZERO POPUPS NATIVOS) */}
+          <div className="p-4 bg-[#f8f9fa] rounded-2xl border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                Vigência da Promoção
               </span>
-              <div>{getStatusBadge()}</div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                {startDate && endDate ? `${formatDateShort(startDate)} a ${formatDateShort(endDate)}` : 'Período Contínuo'}
+              </span>
             </div>
 
-            {/* Atalhos Rápidos - 1 Clique */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1.5">
-                Atalhos de Período Rápido:
-              </label>
-              <div className="flex flex-wrap gap-1.5">
+            {/* Painel do Calendário Customizado Zeiq */}
+            <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+              {/* Barra do Mês / Navegação */}
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <button
                   type="button"
-                  onClick={() => handlePresetDate('black_friday')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                    startDate === '2026-11-03' && endDate === '2026-11-30'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                  }`}
+                  onClick={handlePrevMonth}
+                  className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  ⚡ Black Friday Oficial (03/11 a 30/11)
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
+
+                <span className="font-bold text-slate-900 text-xs">
+                  {monthNames[viewMonth]} de {viewYear}
+                </span>
 
                 <button
                   type="button"
-                  onClick={() => handlePresetDate('novembro')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                    startDate === '2026-11-01' && endDate === '2026-11-30'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                  }`}
+                  onClick={handleNextMonth}
+                  className="p-1 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  📅 Mês de Novembro (01 a 30)
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handlePresetDate('30days')}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-white text-slate-700 border border-slate-200 hover:border-slate-300"
-                >
-                  🗓️ Próximos 30 dias
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handlePresetDate('continuous')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                    !startDate && !endDate
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  ♾️ Contínua (Sem data final)
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
-            </div>
 
-            {/* Painel Duplo com Visual Zeiq (Sem dependência do popover feio do navegador) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  Início da Campanha
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-zeiq-black cursor-pointer"
-                  />
-                </div>
-                <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
-                  {formatDateLabel(startDate)}
-                </span>
+              {/* Dias da Semana */}
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span>D</span>
+                <span>S</span>
+                <span>T</span>
+                <span>Q</span>
+                <span>Q</span>
+                <span>S</span>
+                <span>S</span>
               </div>
 
-              <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                  Término da Campanha
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-zeiq-black cursor-pointer"
-                  />
-                </div>
-                <span className="text-[11px] text-slate-500 font-semibold mt-1 block">
-                  {formatDateLabel(endDate)}
-                </span>
+              {/* Grade dos Dias do Mês */}
+              <div className="grid grid-cols-7 gap-y-1 gap-x-0.5 text-center text-xs">
+                {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                  <div key={`blank-${i}`} className="h-7" />
+                ))}
+
+                {Array.from({ length: daysInCurrentMonth }).map((_, i) => {
+                  const dayNum = i + 1;
+                  const mStr = String(viewMonth + 1).padStart(2, '0');
+                  const dStr = String(dayNum).padStart(2, '0');
+                  const thisDate = `${viewYear}-${mStr}-${dStr}`;
+
+                  const isStart = thisDate === startDate;
+                  const isEnd = thisDate === endDate;
+                  const inRange = startDate && endDate && thisDate > startDate && thisDate < endDate;
+
+                  return (
+                    <button
+                      key={`day-${dayNum}`}
+                      type="button"
+                      onClick={() => handleDaySelect(dayNum)}
+                      className={`h-7 text-[11px] font-bold transition-colors cursor-pointer select-none flex items-center justify-center ${
+                        isStart && isEnd
+                          ? 'bg-emerald-600 text-white rounded-md shadow-xs'
+                          : isStart
+                          ? 'bg-emerald-600 text-white rounded-l-md shadow-xs'
+                          : isEnd
+                          ? 'bg-emerald-600 text-white rounded-r-md shadow-xs'
+                          : inRange
+                          ? 'bg-emerald-50 text-emerald-900 font-semibold'
+                          : 'text-slate-700 hover:bg-slate-100 rounded-md'
+                      }`}
+                    >
+                      {dayNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Clique no 1º dia e no último dia para ajustar o intervalo.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartDate('2026-11-03');
+                    setEndDate('2026-11-30');
+                    setViewMonth(10);
+                    setViewYear(2026);
+                  }}
+                  className="font-bold text-emerald-700 hover:underline cursor-pointer"
+                >
+                  Restaurar 03/11 a 30/11
+                </button>
               </div>
             </div>
           </div>
 
-          {/* 2. SELEÇÃO DA PLANILHA DE PREÇOS */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="font-bold text-zeiq-black text-xs flex items-center gap-1.5">
-                <FileSpreadsheet className="w-4 h-4 text-zeiq-orange" />
-                Planilha de Preços Promocionais (Coluna PREÇO NOVO)
-              </span>
+          {/* 2. SEÇÃO DE PLANILHA (SEM DUPLICIDADES OU TEXTOS REPETIDOS) */}
+          <div className="p-4 bg-[#f8f9fa] rounded-2xl border border-slate-200/80 space-y-2.5">
+            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <FileSpreadsheet className="w-3.5 h-3.5 text-zeiq-orange" />
+              Tabela de Preços Promocionais
+            </span>
 
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUseOfficialFile(true);
-                    setActiveTab('official');
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                    activeTab === 'official' ? 'bg-zeiq-black text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Planilha Oficial
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUseOfficialFile(false);
-                    setActiveTab('upload');
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                    activeTab === 'upload' ? 'bg-zeiq-black text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Subir Arquivo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUseOfficialFile(false);
-                    setActiveTab('paste');
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                    activeTab === 'paste' ? 'bg-zeiq-black text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Colar do Excel
-                </button>
-              </div>
-            </div>
-
-            {/* ABA 1: Planilha Oficial Revenda_Black.xlsx */}
-            {activeTab === 'official' && (
-              <div className="p-4 bg-emerald-50/70 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
-                    📊
-                  </div>
-                  <div>
-                    <strong className="block font-bold text-emerald-950 text-xs">
-                      docs/Revenda_Black.xlsx (Planilha Oficial da Black Friday)
-                    </strong>
-                    <span className="text-[11px] text-emerald-800 block mt-0.5">
-                      417 produtos mapeados no catálogo com os valores da coluna <strong>PREÇO NOVO</strong>.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 self-start sm:self-auto shrink-0 shadow-2xs">
-                  <Check className="w-4 h-4" />
-                  <span>Pronta para aplicar</span>
-                </div>
-              </div>
-            )}
-
-            {/* ABA 2: Upload de Novo Arquivo */}
-            {activeTab === 'upload' && (
-              <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl bg-slate-50/60 hover:bg-emerald-50/30 transition-all cursor-pointer text-center group">
-                <Upload className="w-8 h-8 text-slate-400 group-hover:text-emerald-600 transition-colors mb-2" />
-                <span className="font-bold text-slate-700 group-hover:text-emerald-950 text-xs">
-                  Clique para selecionar outra planilha (.csv ou .txt)
-                </span>
-                <span className="text-[11px] text-slate-400 mt-1">
-                  Colunas: Código do Produto e Preço Promocional
-                </span>
-                <input
-                  type="file"
-                  accept=".csv,.txt,.tsv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-            )}
-
-            {/* ABA 3: Colar direto do Excel */}
-            {activeTab === 'paste' && (
-              <div>
-                <textarea
-                  rows={5}
-                  value={pastedText}
-                  onChange={(e) => {
-                    setPastedText(e.target.value);
-                    setUseOfficialFile(false);
-                  }}
-                  placeholder={`Cole aqui as colunas copiadas do seu Excel:\n208.025\t49,90\n208.011\t49,90\n401.021\t49,90`}
-                  className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                />
-                <span className="text-[10px] text-slate-400 block mt-1">
-                  Dica: Basta copiar as colunas de SKU e PREÇO NOVO no Excel e colar com Ctrl+V aqui.
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* 3. RESUMO E PRÉ-VISUALIZAÇÃO */}
-          {!useOfficialFile && parsedItems.length > 0 && (
-            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-emerald-950 text-xs flex items-center gap-1.5">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  {matchedCount} produtos reconhecidos no catálogo ({parsedItems.length} linhas na planilha)
-                </span>
-                {parsedItems.length > matchedCount && (
-                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                    {parsedItems.length - matchedCount} SKUs não encontrados
+            {/* Card Único e Direto da Planilha Oficial */}
+            <div className="p-3 bg-white rounded-xl border border-emerald-300 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-xl shrink-0">📊</span>
+                <div className="min-w-0">
+                  <span className="font-bold text-slate-900 block truncate text-xs">
+                    Revenda_Black.xlsx
                   </span>
-                )}
+                  <span className="text-[11px] text-emerald-800 font-medium block">
+                    {matchedCount} produtos mapeados com a coluna <strong>PREÇO NOVO</strong>
+                  </span>
+                </div>
               </div>
 
-              <div className="max-h-36 overflow-y-auto bg-white rounded-xl border border-emerald-200 text-[11px]">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
-                    <tr>
-                      <th className="py-1.5 px-3">SKU</th>
-                      <th className="py-1.5 px-3">Produto Localizado</th>
-                      <th className="py-1.5 px-3">Preço Regular</th>
-                      <th className="py-1.5 px-3 text-right">Novo Promo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono">
-                    {parsedItems.slice(0, 6).map((it, idx) => (
-                      <tr key={idx} className={it.matchedProduct ? 'hover:bg-slate-50/50' : 'bg-rose-50/40 text-rose-600'}>
-                        <td className="py-1.5 px-3 font-bold">{it.sku}</td>
-                        <td className="py-1.5 px-3 font-sans truncate max-w-xs">
-                          {it.matchedProduct ? it.matchedProduct.name : 'SKU não localizado no catálogo'}
-                        </td>
-                        <td className="py-1.5 px-3 text-slate-400">
-                          {it.matchedProduct?.price ? `R$ ${it.matchedProduct.price.toFixed(2).replace('.', ',')}` : '-'}
-                        </td>
-                        <td className="py-1.5 px-3 text-right font-black text-emerald-700">
-                          R$ {it.price.toFixed(2).replace('.', ',')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px] shrink-0">
+                ✓ Pronta
+              </span>
             </div>
-          )}
+
+            {/* Opção Secundária Discreta (Upload manual caso queira trocar) */}
+            <div className="pt-1">
+              {!showCustomUpload ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCustomUpload(true)}
+                  className="text-[11px] text-slate-500 hover:text-zeiq-black font-semibold underline cursor-pointer"
+                >
+                  + Deseja subir outra planilha ou colar dados do Excel?
+                </button>
+              ) : (
+                <div className="mt-2 p-3 bg-white rounded-xl border border-slate-200 space-y-2 animate-in fade-in">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700">Subir Arquivo Personalizado</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomUpload(false);
+                        setUseOfficialFile(true);
+                      }}
+                      className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <input
+                    type="file"
+                    accept=".csv,.txt,.tsv"
+                    onChange={handleFileUpload}
+                    className="block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+                  />
+
+                  <textarea
+                    rows={3}
+                    value={pastedText}
+                    onChange={(e) => {
+                      setPastedText(e.target.value);
+                      setUseOfficialFile(false);
+                    }}
+                    placeholder="Ou cole aqui (SKU e Preço Promocional):&#10;208.025	49,90"
+                    className="w-full p-2 font-mono text-[11px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Rodapé e Botões de Ação */}
-          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={handleClearAllPromotions}
               disabled={saving}
-              className="px-3 py-2 text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="text-rose-600 hover:text-rose-800 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Encerrar / Limpar Promoções</span>
+              <span>Encerrar Campanha</span>
             </button>
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -594,17 +490,17 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
               <button
                 type="submit"
                 disabled={saving || (!useOfficialFile && parsedItems.length === 0)}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer active:scale-95"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
               >
                 {saving ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Aplicando...</span>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Ativando...</span>
                   </>
                 ) : (
                   <>
-                    <span>Ativar Campanha para {matchedCount} Produtos</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span>Ativar Black Friday ({matchedCount} Produtos)</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>

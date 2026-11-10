@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Plus, Check, Layers } from 'lucide-react';
+import { Plus, Check, Layers, Flame } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { parseProductSizes, isProductOutOfStock, isSizeOutOfStock } from '@/lib/utils/sizes';
@@ -104,9 +104,9 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
             Esgotado
           </div>
         ) : pricing.isPromoActive ? (
-          <div className="absolute top-2 right-2 bg-gradient-to-r from-emerald-600 to-teal-700 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-sm z-20 flex items-center gap-1">
-            <span>🔥</span>
-            <span>{pricing.discountPercentage ? `${pricing.discountPercentage}% OFF` : 'Campanha'}</span>
+          <div className="absolute top-2 right-2 bg-zinc-950/85 backdrop-blur-md text-white border border-white/20 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-tight shadow-sm z-20 flex items-center gap-1">
+            <Flame className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+            <span>{pricing.discountPercentage ? `${pricing.discountPercentage}% OFF` : 'PROMO'}</span>
           </div>
         ) : null}
       </div>
@@ -173,27 +173,22 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
         </div>
 
         {/* Rodapé do Card: Preço e Botão travados no fundo na mesma linha horizontal */}
-        <div className="mt-auto pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
+        <div className="mt-auto pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2">
           {pricing.isPromoActive ? (
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {pricing.regularPrice != null && (
-                  <span className="text-[11px] line-through text-slate-400 font-mono" title="Preço normal de atacado">
-                    De R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                )}
-                {pricing.originalPrice != null && (
-                  <span className="text-[10px] text-slate-400 font-medium font-mono" title="Preço sugerido para revenda no varejo">
-                    Sug. R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm sm:text-base font-black text-emerald-700 font-mono tracking-tight">
-                  R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {pricing.originalPrice != null && (
+                <span className="text-[11px] text-slate-400 font-mono" title="Preço sugerido para revenda no varejo">
+                  R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-tight">
-                  atacado
+              )}
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                {pricing.regularPrice != null && (
+                  <span className="text-xs line-through text-slate-400 font-mono" title="Preço normal de atacado">
+                    R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+                <span className="text-sm font-black text-emerald-700 font-mono tracking-tight">
+                  R$ {pricing.effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>

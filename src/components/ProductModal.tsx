@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Check, ShoppingBag, Tag, Layers, SlidersHorizontal } from 'lucide-react';
+import { X, Plus, Minus, Check, ShoppingBag, Tag, Layers, SlidersHorizontal, Flame } from 'lucide-react';
 import { Product } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { parseProductSizes, isProductOutOfStock as checkProductOutOfStock, isSizeOutOfStock as checkSizeOutOfStock, findStockForSize } from '@/lib/utils/sizes';
@@ -242,8 +242,9 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                   {pricing.isPromoActive ? (
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-2xs">
-                          🔥 Condição Especial de Campanha
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-950 text-white border border-white/20 shadow-xs">
+                          <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                          <span>Condição Especial de Campanha</span>
                         </span>
                         {pricing.discountPercentage != null && (
                           <span className="text-xs font-bold text-emerald-800">
