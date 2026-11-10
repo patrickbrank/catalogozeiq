@@ -177,13 +177,21 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
           {pricing.isPromoActive ? (
             <div className="flex flex-col min-w-0">
               {pricing.originalPrice != null && (
-                <span className="text-[11px] text-slate-400 font-mono" title="Preço sugerido para revenda no varejo">
-                  R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <div className="flex items-baseline gap-1 text-slate-400 font-mono leading-none mb-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-sans">
+                    Varejo:
+                  </span>
+                  <span className="text-[11px] font-medium">
+                    R$ {pricing.originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               )}
               <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
+                  Revenda:
+                </span>
                 {pricing.regularPrice != null && (
-                  <span className="text-xs line-through text-slate-400 font-mono" title="Preço normal de atacado">
+                  <span className="text-xs line-through text-slate-400 font-mono" title="Preço normal de atacado/revenda">
                     R$ {pricing.regularPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 )}
@@ -193,16 +201,26 @@ export function ProductCard({ product, onOpenDetails }: ProductCardProps) {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               {product.original_price != null && product.price != null && product.original_price > product.price && (
-                <span className="text-xs text-slate-400 font-mono">
-                  R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <div className="flex items-baseline gap-1 text-slate-400 font-mono leading-none mb-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-sans">
+                    Varejo:
+                  </span>
+                  <span className="text-[11px] font-medium">
+                    R$ {product.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               )}
               {product.price != null && product.price > 0 ? (
-                <span className="text-sm font-black text-zeiq-black font-mono tracking-tight">
-                  R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
+                    Revenda:
+                  </span>
+                  <span className="text-sm font-black text-zeiq-black font-mono tracking-tight">
+                    R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
               ) : (
                 <span className="text-xs font-medium text-slate-500">
                   Sob consulta

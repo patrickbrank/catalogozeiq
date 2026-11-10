@@ -2417,19 +2417,25 @@ export default function AdminDashboardPage() {
                                 const pricing = getProductEffectivePrice(prod);
                                 if (pricing.promotionalPrice != null && pricing.promotionalPrice > 0) {
                                   return (
-                                    <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
                                       <span className="font-bold text-emerald-800">
                                         R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </span>
                                       {pricing.promoStatus === 'active' ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
+                                        <span 
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60"
+                                          title={prod.promo_end_at ? `Ativo até ${new Date(prod.promo_end_at).toLocaleDateString('pt-BR')}` : 'Promoção Ativa'}
+                                        >
                                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                          🔥 Ativo {prod.promo_end_at ? `(até ${new Date(prod.promo_end_at).toLocaleDateString('pt-BR')})` : ''}
+                                          {prod.campaign_emoji || '🔥'} Ativo
                                         </span>
                                       ) : pricing.promoStatus === 'scheduled' ? (
-                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700">
+                                        <span 
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/60"
+                                          title={prod.promo_start_at ? `Inicia em ${new Date(prod.promo_start_at).toLocaleDateString('pt-BR')}` : 'Agendado'}
+                                        >
                                           <span>⏳</span>
-                                          Inicia {prod.promo_start_at ? new Date(prod.promo_start_at).toLocaleDateString('pt-BR') : ''}
+                                          Agendado
                                         </span>
                                       ) : pricing.promoStatus === 'ended' ? (
                                         <span className="text-[10px] font-medium text-slate-400">
@@ -2561,6 +2567,7 @@ export default function AdminDashboardPage() {
                 ) : (
                   paginatedProducts.map((prod) => {
                     const cover = prod.images?.find((i) => i.is_cover)?.public_url || prod.images?.[0]?.public_url;
+                    const pricing = getProductEffectivePrice(prod);
                     return (
                       <div key={prod.id} className="p-3.5 space-y-3 transition-colors hover:bg-slate-50/50">
                         <div className="flex items-start gap-3">
@@ -2597,12 +2604,17 @@ export default function AdminDashboardPage() {
 
                             <div className="mt-1 font-mono font-bold text-xs flex flex-wrap items-baseline gap-1.5">
                               {prod.price != null && prod.price > 0 ? (
-                                <span className="text-emerald-700">
+                                <span className={pricing.isPromoActive ? 'text-slate-400 line-through text-[11px]' : 'text-emerald-700'}>
                                   R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               ) : (
                                 <span className="text-slate-400 font-normal italic text-[11px]">
                                   Sob consulta
+                                </span>
+                              )}
+                              {pricing.isPromoActive && pricing.promotionalPrice != null && (
+                                <span className="text-emerald-700 font-black">
+                                  R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               )}
                               {prod.original_price != null && prod.original_price > 0 && (

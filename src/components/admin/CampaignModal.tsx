@@ -20,6 +20,7 @@ interface ParsedPromoRow {
 
 export function CampaignModal({ isOpen, onClose, products, onSuccess }: CampaignModalProps) {
   const [campaignName, setCampaignName] = useState('Campanha Black Friday');
+  const [campaignEmoji, setCampaignEmoji] = useState('🔥');
 
   // Período oficial: 03/11/2026 até 30/11/2026
   const [startDate, setStartDate] = useState('2026-11-03');
@@ -38,13 +39,22 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
   useEffect(() => {
     if (isOpen) {
       setErrorMsg('');
-      setStartDate('2026-11-03');
-      setEndDate('2026-11-30');
-      setViewYear(2026);
-      setViewMonth(10);
       setUseOfficialFile(true);
       setShowCustomUpload(false);
       setPastedText('');
+
+      // Carrega dados da campanha salva
+      fetch('/api/admin/promotions/batch')
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) {
+            if (d.campaign_name) setCampaignName(d.campaign_name);
+            if (d.campaign_emoji) setCampaignEmoji(d.campaign_emoji);
+            if (d.startDate) setStartDate(d.startDate.slice(0, 10));
+            if (d.endDate) setEndDate(d.endDate.slice(0, 10));
+          }
+        })
+        .catch(() => {});
     }
   }, [isOpen]);
 
@@ -190,6 +200,7 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
     try {
       const payload = {
         campaign_name: campaignName.trim() || 'Campanha Black Friday',
+        campaign_emoji: campaignEmoji.trim() || '🔥',
         promo_start_at: startDate ? new Date(`${startDate}T00:00:00`).toISOString() : null,
         promo_end_at: endDate ? new Date(`${endDate}T23:59:59`).toISOString() : null,
         use_official_file: useOfficialFile,
@@ -257,10 +268,10 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
         {/* Cabeçalho Limpo Zeiq */}
         <div className="px-5 py-4 bg-zeiq-black text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <span className="text-lg">🔥</span>
+            <span className="text-xl select-none">{campaignEmoji}</span>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-white tracking-tight leading-none">
-                Campanha Black Friday
+                {campaignName || 'Campanha Promocional'}
               </h3>
               <p className="text-[11px] text-zinc-400 mt-1">
                 Configure as datas e ative os preços promocionais no catálogo.
@@ -285,6 +296,45 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
               <span>{errorMsg}</span>
             </div>
           )}
+
+          {/* Identificação da Campanha (Nome e Emoji Customizáveis) */}
+          <div className="p-3.5 bg-[#f8f9fa] rounded-2xl border border-slate-200/80 space-y-2.5">
+            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+              Nome e Emoji da Campanha
+            </label>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              {/* Seletor de Emoji com presets rápidos */}
+              <div className="flex items-center gap-1 p-1 bg-white border border-slate-200 rounded-xl shadow-2xs shrink-0">
+                <span className="text-base px-1.5 py-0.5 rounded-lg bg-slate-50 border border-slate-200 select-none">
+                  {campaignEmoji}
+                </span>
+                <div className="flex items-center gap-0.5">
+                  {['🔥', '⚡', '🏷️', '🛍️', '💥', '🎯', '⭐', '🖤'].map((em) => (
+                    <button
+                      key={em}
+                      type="button"
+                      onClick={() => setCampaignEmoji(em)}
+                      className={`w-6 h-6 rounded-md text-xs flex items-center justify-center transition-all cursor-pointer ${
+                        campaignEmoji === em ? 'bg-emerald-100 border border-emerald-300 scale-110 font-bold' : 'hover:bg-slate-100'
+                      }`}
+                    >
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Nome da Campanha */}
+              <input
+                type="text"
+                value={campaignName}
+                onChange={(e) => setCampaignName(e.target.value)}
+                placeholder="Ex: Black Friday 2026"
+                className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-zeiq-black placeholder:text-slate-300"
+              />
+            </div>
+          </div>
 
           {/* 1. SEÇÃO DE PERÍODO COM CALENDÁRIO VISUAL CUSTOMIZADO (ZERO POPUPS NATIVOS) */}
           <div className="p-4 bg-[#f8f9fa] rounded-2xl border border-slate-200/80 space-y-3">
@@ -490,17 +540,17 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
               <button
                 type="submit"
                 disabled={saving || (!useOfficialFile && parsedItems.length === 0)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
               >
                 {saving ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Ativando...</span>
+                    <span>Salvando...</span>
                   </>
                 ) : (
                   <>
-                    <span>Ativar Black Friday ({matchedCount} Produtos)</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <Check className="w-4 h-4" />
+                    <span>Salvar Campanha ({matchedCount} Produtos)</span>
                   </>
                 )}
               </button>

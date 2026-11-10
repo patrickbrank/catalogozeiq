@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
 import { invalidateCatalogCache } from '@/lib/data/products';
-import { getPromotionsMap, savePromotionsMap, cleanSkuKey } from '@/lib/data/promotions';
+import { getPromotionsMap, savePromotionsMap, cleanSkuKey, getCampaignMetaFromMap } from '@/lib/data/promotions';
 import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     let endDate: string | null = null;
 
     const now = Date.now();
-    for (const val of Object.values(promoMap)) {
+    for (const [k, val] of Object.entries(promoMap)) {
+      if (k === '_meta') continue;
       if (val.promo_start_at && !startDate) startDate = val.promo_start_at;
       if (val.promo_end_at && !endDate) endDate = val.promo_end_at;
       const s = val.promo_start_at ? new Date(val.promo_start_at).getTime() : 0;
@@ -36,14 +37,18 @@ export async function GET(request: NextRequest) {
       else activeCount++;
     }
 
+    const meta = getCampaignMetaFromMap(promoMap);
+
     return NextResponse.json({
       success: true,
-      count: keys.length,
+      count: keys.filter(k => k !== '_meta').length,
       activeCount,
       scheduledCount,
       endedCount,
-      startDate,
-      endDate,
+      startDate: meta.promo_start_at,
+      endDate: meta.promo_end_at,
+      campaign_name: meta.campaign_name,
+      campaign_emoji: meta.campaign_emoji,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -66,7 +71,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { items, promo_start_at = '2026-11-03T00:00:00.000Z', promo_end_at = '2026-11-30T23:59:59.000Z', campaign_name = 'Campanha Black Friday', use_official_file } = body;
+    const {
+      items,
+      promo_start_at = '2026-11-03T00:00:00.000Z',
+      promo_end_at = '2026-11-30T23:59:59.000Z',
+      campaign_name = 'Campanha Black Friday',
+      campaign_emoji = '🔥',
+      use_official_file
+    } = body;
 
     let finalItems: any[] = Array.isArray(items) ? items : [];
 
@@ -177,6 +189,15 @@ export async function POST(request: NextRequest) {
         } catch {}
       }
     }
+
+    // Grava metadados da campanha (nome e emoji)
+    promoMap['_meta'] = {
+      campaign_name,
+      campaign_emoji,
+      promo_start_at,
+      promo_end_at,
+      updated_at: new Date().toISOString(),
+    };
 
     // Salva mapa consolidado no storage
     await savePromotionsMap(promoMap);

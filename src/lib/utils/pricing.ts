@@ -5,6 +5,8 @@ export interface ProductPricingInfo {
   regularPrice: number | null;
   originalPrice: number | null;
   promotionalPrice: number | null;
+  campaignName?: string | null;
+  campaignEmoji?: string | null;
   isPromoActive: boolean;
   promoStatus: 'active' | 'scheduled' | 'ended' | 'none';
   promoStartDate?: Date | null;
@@ -108,6 +110,8 @@ export function getProductEffectivePrice(
     regularPrice,
     originalPrice,
     promotionalPrice,
+    campaignName: product.campaign_name || null,
+    campaignEmoji: product.campaign_emoji || '🔥',
     isPromoActive,
     promoStatus,
     promoStartDate,

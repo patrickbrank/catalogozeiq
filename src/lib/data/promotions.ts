@@ -13,7 +13,7 @@ export interface ProductPromotionConfig {
   updated_at?: string;
 }
 
-export type PromotionsMap = Record<string, ProductPromotionConfig>;
+export type PromotionsMap = Record<string, ProductPromotionConfig | CampaignMeta | any>;
 
 function getLocalConfigPath(): string {
   return path.join(process.cwd(), 'dados', 'promotions-config.json');
@@ -98,29 +98,51 @@ export async function savePromotionsMap(map: PromotionsMap): Promise<PromotionsM
   return map;
 }
 
+export interface CampaignMeta {
+  campaign_name?: string;
+  campaign_emoji?: string;
+  promo_start_at?: string | null;
+  promo_end_at?: string | null;
+  updated_at?: string;
+}
+
+export function getCampaignMetaFromMap(map: PromotionsMap): CampaignMeta {
+  const meta = (map['_meta'] as any) || {};
+  return {
+    campaign_name: meta.campaign_name || 'Campanha Black Friday',
+    campaign_emoji: meta.campaign_emoji || '🔥',
+    promo_start_at: meta.promo_start_at || '2026-11-03T00:00:00.000Z',
+    promo_end_at: meta.promo_end_at || '2026-11-30T23:59:59.000Z',
+    updated_at: meta.updated_at,
+  };
+}
+
 export async function mergePromotionsIntoProducts(products: Product[]): Promise<Product[]> {
   const promoMap = await getPromotionsMap();
   if (!promoMap || Object.keys(promoMap).length === 0) {
     return products;
   }
 
-  return products.map((p) => {
-    // Se o produto já possui preço promocional gravado diretamente no banco
-    if (p.promotional_price != null && p.promotional_price > 0) {
-      return p;
-    }
+  const meta = getCampaignMetaFromMap(promoMap);
 
+  return products.map((p) => {
     // Busca por id ou sku no mapa
     const byId = promoMap[p.id];
     const bySku = p.code_sku ? promoMap[cleanSkuKey(p.code_sku)] : null;
     const promo = byId || bySku;
 
-    if (promo && typeof promo.promotional_price === 'number' && promo.promotional_price > 0) {
+    const promoPrice = p.promotional_price ?? promo?.promotional_price ?? null;
+    const startAt = p.promo_start_at || promo?.promo_start_at || meta.promo_start_at || null;
+    const endAt = p.promo_end_at || promo?.promo_end_at || meta.promo_end_at || null;
+
+    if (promoPrice != null && promoPrice > 0) {
       return {
         ...p,
-        promotional_price: promo.promotional_price,
-        promo_start_at: promo.promo_start_at || p.promo_start_at || null,
-        promo_end_at: promo.promo_end_at || p.promo_end_at || null,
+        promotional_price: promoPrice,
+        promo_start_at: startAt,
+        promo_end_at: endAt,
+        campaign_name: meta.campaign_name,
+        campaign_emoji: meta.campaign_emoji,
       };
     }
 

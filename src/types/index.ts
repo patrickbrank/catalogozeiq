@@ -35,6 +35,8 @@ export interface Product {
   promotional_price?: number | null;
   promo_start_at?: string | null;
   promo_end_at?: string | null;
+  campaign_name?: string | null;
+  campaign_emoji?: string | null;
   is_published: boolean;
   is_featured: boolean;
   display_order: number;
