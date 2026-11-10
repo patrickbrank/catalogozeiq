@@ -51,9 +51,10 @@ function slugify(text: string) {
 
 export function cleanProductDescription(raw: string | null | undefined): string {
   if (!raw) return '';
-  return raw
+  let cleaned = raw
     .replace(/<\/?(?:del|s|strike)[^>]*>/gi, '')
     .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/\u00A0/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<[^>]+>/g, '')
@@ -66,6 +67,17 @@ export function cleanProductDescription(raw: string | null | undefined): string 
     .replace(/\\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  // Garante que a linha de Tamanhos fique padronizada com " | " (espaço antes e depois do pipe)
+  cleaned = cleaned.replace(/(Tamanhos?:\s*)([^\n\r]+)/i, (_, prefix, sizeStr) => {
+    const parts = sizeStr
+      .split('|')
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    return `${prefix.trim()} ${parts.join(' | ')}`;
+  });
+
+  return cleaned;
 }
 
 function parseCSV(text: string): string[][] {
