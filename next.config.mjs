@@ -8,10 +8,9 @@ const __dirname = path.dirname(__filename);
 const nextConfig = {
   outputFileTracingRoot: __dirname,
   images: {
-    formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 2592000,
-    deviceSizes: [360, 480, 640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [64, 96, 128, 256, 384],
+    // Desativa a otimização de imagens pelo servidor da Vercel (evita estourar o limite de 5.000 transformações/mês do plano Hobby)
+    // As fotos já estão no formato moderno .webp no Supabase Storage e são servidas diretamente via CDN
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
