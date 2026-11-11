@@ -62,7 +62,7 @@ import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/li
 import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
 import { CampaignModal } from '@/components/admin/CampaignModal';
-import { getProductEffectivePrice } from '@/lib/utils/pricing';
+import { getProductEffectivePrice, parseNumberSafe } from '@/lib/utils/pricing';
 import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/OrderStatusPopover';
 import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPicker';
 import { AvatarIcon, ADMIN_AVATARS, resolveAvatarId } from '@/lib/constants/avatars';
@@ -160,7 +160,7 @@ export default function AdminDashboardPage() {
   // Filtros - Produtos
   const [productSearch, setProductSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft' | 'low_stock' | 'out_of_stock'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'campaign' | 'published' | 'draft' | 'low_stock' | 'out_of_stock'>('all');
   const [visibleProductsCount, setVisibleProductsCount] = useState(ITEMS_PER_PAGE);
 
   const handleLoadMoreProducts = () => {
@@ -1376,6 +1376,9 @@ export default function AdminDashboardPage() {
 
       const matchesStatus =
         filterStatus === 'all' ||
+        (filterStatus === 'campaign' &&
+          parseNumberSafe(p.promotional_price) != null &&
+          (parseNumberSafe(p.price) == null || parseNumberSafe(p.promotional_price)! < parseNumberSafe(p.price)!)) ||
         (filterStatus === 'published' && p.is_published && (p.total_stock == null || p.total_stock > 0)) ||
         (filterStatus === 'draft' && !p.is_published) ||
         (filterStatus === 'low_stock' && typeof p.total_stock === 'number' && p.total_stock > 0 && p.total_stock <= 5) ||
@@ -1483,6 +1486,16 @@ export default function AdminDashboardPage() {
   const totalPiecesInStock = useMemo(() => products.reduce((acc, p) => acc + (p.total_stock || 0), 0), [products]);
   const lowStockCount = useMemo(() => products.filter((p) => (typeof p.total_stock === 'number' && p.total_stock > 0 && p.total_stock <= 5)).length, [products]);
   const outOfStockCount = useMemo(() => products.filter((p) => (typeof p.total_stock === 'number' ? p.total_stock === 0 : false)).length, [products]);
+  const campaignCount = useMemo(
+    () =>
+      products.filter((p) => {
+        const promoPrice = parseNumberSafe(p.promotional_price);
+        if (promoPrice == null || promoPrice <= 0) return false;
+        const regPrice = parseNumberSafe(p.price);
+        return regPrice == null || promoPrice < regPrice;
+      }).length,
+    [products]
+  );
 
   // Renderizador do Status Badge
   const renderStatusBadge = (status: OrderStatus) => {
@@ -2225,6 +2238,18 @@ export default function AdminDashboardPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => { setFilterStatus('campaign'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+                      filterStatus === 'campaign'
+                        ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-2xs'
+                        : 'text-amber-800 hover:text-orange-600 hover:bg-amber-50/60'
+                    }`}
+                  >
+                    <span className="text-xs">🔥</span>
+                    <span>Na Campanha ({campaignCount})</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { setFilterStatus('published'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
                     className={`py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                       filterStatus === 'published' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
@@ -2267,7 +2292,44 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Banner Informativo quando filtrado por Baixo Estoque ou Esgotados ou Ocultos */}
+            {/* Banner Informativo quando filtrado por Baixo Estoque ou Esgotados ou Ocultos ou Campanha */}
+            {filterStatus === 'campaign' && (
+              <div className="p-3.5 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border border-orange-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-orange-950 animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-700 flex items-center justify-center shrink-0 text-base">
+                    🔥
+                  </div>
+                  <div>
+                    <span className="font-bold block">
+                      Filtrando por Produtos da Campanha Vigente ({campaignCount})
+                    </span>
+                    <span className="text-xs text-orange-800/90 block">
+                      Exibindo produtos participantes com preços promocionais cadastrados para a campanha.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                  {canManageCampaigns && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCampaignModalOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-2xs"
+                    >
+                      Gerenciar Campanha
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setFilterStatus('all'); setVisibleProductsCount(ITEMS_PER_PAGE); }}
+                    className="px-3 py-1.5 rounded-lg bg-white hover:bg-orange-100/60 text-orange-900 border border-orange-300 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Ver Todos os Produtos
+                  </button>
+                </div>
+              </div>
+            )}
+
             {filterStatus === 'low_stock' && (
               <div className="p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 animate-in fade-in">
                 <div className="flex items-center gap-2.5">
