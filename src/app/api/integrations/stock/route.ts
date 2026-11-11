@@ -416,25 +416,86 @@ export async function GET(request: NextRequest) {
       (v) =>
         v.sku === requestedSku ||
         v.sku_alt === requestedSku ||
-        (normRequested && (v.size === normRequested || v.shopify_title === normRequested))
+        (normRequested && (v.size === normRequested || v.shopify_title === normRequested || v.shopify_title_alt === normRequested))
     ) || null;
+
+    const isVariable = hasSizes;
+    const isVariationQuery = Boolean(matchedVariant && requestedSku && requestedSku !== parentSku);
+
+    const variantPayload = matchedVariant ? {
+      id: matchedVariant.id,
+      product_id: product.id,
+      sku: matchedVariant.sku,
+      sku_alt: matchedVariant.sku_alt,
+      parent_sku: parentSku,
+      product_sku: parentSku,
+      code_sku: parentSku,
+      size: matchedVariant.size,
+      tamanho: matchedVariant.size,
+      tam: matchedVariant.size,
+      title: matchedVariant.title,
+      name: matchedVariant.name,
+      option1: matchedVariant.option1,
+      option1_alt: matchedVariant.option1_alt,
+      shopify_title: matchedVariant.shopify_title,
+      shopify_option1: matchedVariant.shopify_option1,
+      type: 'variation',
+      product_type: 'variation',
+      tipo: 'variacao',
+      inventory_quantity: matchedVariant.inventory_quantity,
+      stock: matchedVariant.stock,
+      price: matchedVariant.price,
+    } : null;
+
+    const mainSku = isVariationQuery && matchedVariant ? matchedVariant.sku : parentSku;
+    const mainSize = isVariationQuery && matchedVariant ? matchedVariant.size : null;
+    const mainTitle = isVariationQuery && matchedVariant ? matchedVariant.title : (isVariable ? product.name : 'Padrão');
 
     return NextResponse.json({
       success: true,
+      sku: mainSku,
+      parent_sku: parentSku,
+      product_sku: parentSku,
+      size: mainSize,
+      tamanho: mainSize,
+      tam: mainSize,
+      title: mainTitle,
+      option1: mainSize,
+      shopify_title: mainSize,
+      shopify_option1: mainSize,
+      type: isVariable ? 'variable' : 'simple',
+      product_type: isVariable ? 'variable' : 'simple',
+      tipo: isVariable ? 'com_variacao' : 'simples',
+      has_sizes: hasSizes,
+      has_variants: hasSizes,
+      inventory_quantity: isVariationQuery && matchedVariant ? matchedVariant.inventory_quantity : (product.total_stock ?? 0),
+      stock: isVariationQuery && matchedVariant ? matchedVariant.stock : (product.total_stock ?? 0),
+      variant: variantPayload,
+      matched_variant: variantPayload,
       product: {
         id: product.id,
         name: product.name,
         code_sku: parentSku,
-        sku: parentSku,
+        sku: mainSku,
         parent_sku: parentSku,
         product_sku: parentSku,
         sku_pai: parentSku,
+        size: mainSize,
+        tamanho: mainSize,
+        tam: mainSize,
+        title: mainTitle,
+        option1: mainSize,
+        type: isVariable ? 'variable' : 'simple',
+        product_type: isVariable ? 'variable' : 'simple',
+        tipo: isVariable ? 'com_variacao' : 'simples',
         ean: product.ean,
-        price: product.price ?? null,
+        price: isVariationQuery && matchedVariant?.price ? matchedVariant.price : (product.price ?? null),
         promotional_price: promotionalPrice,
         promo_start_at: promoStartAt,
         promo_end_at: promoEndAt,
         total_stock: product.total_stock ?? 0,
+        inventory_quantity: isVariationQuery && matchedVariant ? matchedVariant.inventory_quantity : (product.total_stock ?? 0),
+        stock: isVariationQuery && matchedVariant ? matchedVariant.stock : (product.total_stock ?? 0),
         stock_by_size: product.stock_by_size || {},
         sku_by_size: product.sku_by_size || {},
         sizes: sizesList,
@@ -443,7 +504,8 @@ export async function GET(request: NextRequest) {
         options,
         variants,
         variations: variants,
-        matched_variant: matchedVariant,
+        matched_variant: variantPayload,
+        variant: variantPayload,
       },
     });
   }
@@ -519,16 +581,72 @@ export async function GET(request: NextRequest) {
         sizes: sizesList,
         has_sizes: hasSizes,
         has_variants: hasSizes,
+        type: hasSizes ? 'variable' : 'simple',
+        product_type: hasSizes ? 'variable' : 'simple',
+        tipo: hasSizes ? 'com_variacao' : 'simples',
         options,
         variants,
         variations: variants,
       };
     });
 
+    // Gera lista plana de todas as variações (padrão Shopify / Multi-Channel Integrator)
+    const flatVariants = formatted.flatMap((p: any) =>
+      p.has_sizes && Array.isArray(p.variants) && p.variants.length > 0
+        ? p.variants.map((v: any) => ({
+            id: v.id,
+            product_id: p.id,
+            product_name: p.name,
+            sku: v.sku,
+            parent_sku: p.code_sku,
+            size: v.size,
+            tamanho: v.size,
+            tam: v.size,
+            title: v.size,
+            name: v.name,
+            option1: v.size,
+            shopify_title: v.size,
+            shopify_option1: v.size,
+            type: 'variation',
+            product_type: 'variation',
+            tipo: 'variacao',
+            inventory_quantity: v.inventory_quantity,
+            stock: v.stock,
+            price: v.price,
+          }))
+        : [
+            {
+              id: `${p.id}-simple`,
+              product_id: p.id,
+              product_name: p.name,
+              sku: p.code_sku,
+              parent_sku: p.code_sku,
+              size: null,
+              tamanho: null,
+              tam: null,
+              title: 'Padrão',
+              name: p.name,
+              option1: null,
+              shopify_title: 'Default Title',
+              shopify_option1: 'Default Title',
+              type: 'simple',
+              product_type: 'simple',
+              tipo: 'simples',
+              inventory_quantity: p.total_stock,
+              stock: p.total_stock,
+              price: p.price,
+            },
+          ]
+    );
+
     return NextResponse.json({
       success: true,
       total: formatted.length,
+      total_products: formatted.length,
+      total_variants: flatVariants.length,
       products: formatted,
+      items: formatted,
+      variants: flatVariants,
     });
   }
 

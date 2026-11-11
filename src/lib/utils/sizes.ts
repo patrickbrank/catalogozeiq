@@ -361,8 +361,13 @@ export interface CanonicalVariant {
   options: string[];
   display_title: string;
   shopify_title: string;
+  shopify_title_alt?: string | null;
   shopify_option1: string;
+  shopify_option1_alt?: string | null;
   alt_size: string | null;
+  type?: string;
+  product_type?: string;
+  tipo?: string;
   position: number;
   inventory_quantity: number;
   stock: number;
@@ -454,9 +459,14 @@ export function buildProductVariants(product: {
         option_value: canonicalSz,
         options: [canonicalSz],
         display_title: canonicalSz,
-        shopify_title: hyphenSz,
-        shopify_option1: hyphenSz,
+        shopify_title: canonicalSz,
+        shopify_title_alt: hyphenSz,
+        shopify_option1: canonicalSz,
+        shopify_option1_alt: hyphenSz,
         alt_size: hyphenSz,
+        type: 'variation',
+        product_type: 'variation',
+        tipo: 'variacao',
         position: vIdx + 1,
         inventory_quantity: stockQty,
         stock: stockQty,
@@ -502,8 +512,13 @@ export function buildProductVariants(product: {
     options: [],
     display_title: 'Padrão',
     shopify_title: 'Default Title',
+    shopify_title_alt: null,
     shopify_option1: 'Default Title',
+    shopify_option1_alt: null,
     alt_size: null,
+    type: 'simple',
+    product_type: 'simple',
+    tipo: 'simples',
     position: 1,
     inventory_quantity: product.total_stock ?? 0,
     stock: product.total_stock ?? 0,
