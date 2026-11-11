@@ -71,7 +71,10 @@ export function formatOrderWhatsAppMessage(
     let detailStr = '';
     if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
       const breakdown = Object.entries(item.sizeBreakdown)
-        .map(([sz, q]) => `${q} ${sz}`)
+        .map(([sz, q]) => {
+          const vSku = item.sku_by_size?.[sz];
+          return vSku ? `${q} ${sz} [${vSku}]` : `${q} ${sz}`;
+        })
         .join(', ');
       detailStr = ` (Grade: ${breakdown})`;
     } else if (item.selectedSize) {
@@ -141,7 +144,10 @@ export function formatOrderEmailHtml(
 
     let sizes = '';
     if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
-      sizes = Object.entries(item.sizeBreakdown).map(([sz, q]) => `${q}x ${sz}`).join(', ');
+      sizes = Object.entries(item.sizeBreakdown).map(([sz, q]) => {
+        const vSku = item.sku_by_size?.[sz];
+        return vSku ? `${q}x ${sz} [SKU: ${vSku}]` : `${q}x ${sz}`;
+      }).join(', ');
     } else if (item.selectedSize) {
       sizes = item.selectedSize;
     }

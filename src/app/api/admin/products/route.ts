@@ -69,6 +69,7 @@ export async function GET() {
         promo_start_at: promoStartAt,
         promo_end_at: promoEndAt,
         stock_by_size: p.stock_by_size,
+        sku_by_size: p.sku_by_size,
         total_stock: p.total_stock,
         sizes: sizesList,
       });
@@ -79,6 +80,8 @@ export async function GET() {
         parent_sku: p.code_sku || '',
         product_sku: p.code_sku || '',
         sku_pai: p.code_sku || '',
+        stock_by_size: p.stock_by_size || {},
+        sku_by_size: p.sku_by_size || {},
         promotional_price: promotionalPrice,
         promo_start_at: promoStartAt,
         promo_end_at: promoEndAt,
@@ -156,6 +159,7 @@ export async function POST(request: NextRequest) {
       display_order = 0,
       tags = [],
       stock_by_size = null,
+      sku_by_size = null,
       total_stock = null,
       category_ids = [],
       images = [],
@@ -208,6 +212,7 @@ export async function POST(request: NextRequest) {
       display_order: Number(display_order) || 0,
       tags: Array.isArray(tags) ? tags : [],
       stock_by_size: stock_by_size || null,
+      sku_by_size: sku_by_size || null,
       total_stock: calculatedTotal,
     };
 
@@ -218,8 +223,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     // Fallback se colunas opcionais não existirem no schema do banco
-    if (insertErr && (insertErr.message?.includes('price') || insertErr.message?.includes('stock') || insertErr.message?.includes('ean') || insertErr.message?.includes('promo'))) {
+    if (insertErr && (insertErr.message?.includes('price') || insertErr.message?.includes('stock') || insertErr.message?.includes('ean') || insertErr.message?.includes('promo') || insertErr.message?.includes('sku_by_size'))) {
       if (insertErr.message?.includes('ean')) delete insertPayload.ean;
+      if (insertErr.message?.includes('sku_by_size')) delete insertPayload.sku_by_size;
       if (insertErr.message?.includes('price')) {
         delete insertPayload.price;
         delete insertPayload.original_price;
@@ -381,10 +387,15 @@ export async function PUT(request: NextRequest) {
       .select('*')
       .single();
 
-    if (updateErr && (updateErr.message?.includes('promotional_price') || updateErr.message?.includes('promo'))) {
-      delete updatePayload.promotional_price;
-      delete updatePayload.promo_start_at;
-      delete updatePayload.promo_end_at;
+    if (updateErr && (updateErr.message?.includes('promotional_price') || updateErr.message?.includes('promo') || updateErr.message?.includes('sku_by_size'))) {
+      if (updateErr.message?.includes('sku_by_size')) {
+        delete updatePayload.sku_by_size;
+      }
+      if (updateErr.message?.includes('promotional_price') || updateErr.message?.includes('promo')) {
+        delete updatePayload.promotional_price;
+        delete updatePayload.promo_start_at;
+        delete updatePayload.promo_end_at;
+      }
       const retry = await adminSupabase
         .from('products')
         .update(updatePayload)

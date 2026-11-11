@@ -50,10 +50,14 @@ export const useQuoteCart = create<QuoteCartState>()(
             ? (product.images.find(img => img.is_cover)?.public_url || product.images[0].public_url)
             : undefined;
 
+          const itemSku = selectedSize
+            ? (product.sku_by_size?.[selectedSize]?.trim() || (product.code_sku ? `${product.code_sku}/${selectedSize}` : product.code_sku))
+            : product.code_sku;
+
           const lastAdded: CartLastAdded = {
             id: `${product.id}-${Date.now()}`,
             productName: product.name,
-            sku: product.code_sku,
+            sku: itemSku,
             coverImage,
             quantity,
             selectedSize: selectedSize || undefined,
@@ -76,6 +80,10 @@ export const useQuoteCart = create<QuoteCartState>()(
             }
             if (selectedSize) {
               updatedItems[existingIndex].selectedSize = selectedSize;
+              updatedItems[existingIndex].sku = itemSku;
+            }
+            if (product.sku_by_size) {
+              updatedItems[existingIndex].sku_by_size = { ...(updatedItems[existingIndex].sku_by_size || {}), ...product.sku_by_size };
             }
             return { items: updatedItems, lastAdded };
           }
@@ -84,7 +92,8 @@ export const useQuoteCart = create<QuoteCartState>()(
             productId: product.id,
             productName: product.name,
             productSlug: product.slug,
-            sku: product.code_sku,
+            sku: itemSku,
+            sku_by_size: product.sku_by_size ? { ...product.sku_by_size } : undefined,
             coverImage: coverImage,
             price: finalPrice,
             regularPrice: pricing.regularPrice ?? product.price ?? null,
@@ -147,6 +156,7 @@ export const useQuoteCart = create<QuoteCartState>()(
               ...currentItem,
               quantity: newTotal,
               sizeBreakdown: mergedBreakdown,
+              sku_by_size: product.sku_by_size ? { ...(currentItem.sku_by_size || {}), ...product.sku_by_size } : currentItem.sku_by_size,
               price: finalPrice ?? currentItem.price ?? null,
               regularPrice: pricing.regularPrice ?? product.price ?? null,
               originalPrice: pricing.originalPrice ?? product.original_price ?? null,
@@ -162,6 +172,7 @@ export const useQuoteCart = create<QuoteCartState>()(
             productName: product.name,
             productSlug: product.slug,
             sku: product.code_sku,
+            sku_by_size: product.sku_by_size ? { ...product.sku_by_size } : undefined,
             coverImage: coverImage,
             price: finalPrice,
             regularPrice: pricing.regularPrice ?? product.price ?? null,
@@ -287,7 +298,10 @@ export const useQuoteCart = create<QuoteCartState>()(
 
           if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
             const breakdownStr = Object.entries(item.sizeBreakdown)
-              .map(([sz, qty]) => `${qty} ${sz}`)
+              .map(([sz, qty]) => {
+                const vSku = item.sku_by_size?.[sz];
+                return vSku ? `${qty} ${sz} [SKU: ${vSku}]` : `${qty} ${sz}`;
+              })
               .join(', ');
             message += `   • Grade: *${breakdownStr}* (Total: ${item.quantity} un.)\n`;
           } else if (item.selectedSize) {
@@ -332,7 +346,10 @@ export const useQuoteCart = create<QuoteCartState>()(
 
           if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
             const breakdownStr = Object.entries(item.sizeBreakdown)
-              .map(([sz, qty]) => `${qty} un. ${sz}`)
+              .map(([sz, qty]) => {
+                const vSku = item.sku_by_size?.[sz];
+                return vSku ? `${qty} un. ${sz} [SKU: ${vSku}]` : `${qty} un. ${sz}`;
+              })
               .join(', ');
             body += `   - Grade selecionada: ${breakdownStr} (Total: ${item.quantity} peças)\n`;
           } else if (item.selectedSize) {

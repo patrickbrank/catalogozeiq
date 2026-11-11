@@ -80,6 +80,45 @@ export function findStockForSize(
   return undefined;
 }
 
+// Localiza de forma resiliente o SKU de determinada variação/tamanho
+export function findSkuForSize(
+  skuBySize?: Record<string, string> | null,
+  targetSize?: string | null,
+  parentSku?: string | null
+): string | undefined {
+  if (!targetSize) return parentSku || undefined;
+
+  if (skuBySize && typeof skuBySize === 'object') {
+    // 1. Match direto
+    if (skuBySize[targetSize]?.trim()) {
+      return skuBySize[targetSize].trim();
+    }
+    // 2. Match canônico normalizado (ex: '33/34' <-> '33-34')
+    const normTarget = normalizeCanonicalSize(targetSize);
+    if (normTarget && skuBySize[normTarget]?.trim()) {
+      return skuBySize[normTarget].trim();
+    }
+    const hyphenTarget = targetSize.includes('/') ? targetSize.replace('/', '-') : targetSize;
+    if (skuBySize[hyphenTarget]?.trim()) {
+      return skuBySize[hyphenTarget].trim();
+    }
+    for (const [k, v] of Object.entries(skuBySize)) {
+      if (typeof v === 'string' && v.trim() && normalizeCanonicalSize(k) === normTarget) {
+        return v.trim();
+      }
+    }
+  }
+
+  // 3. Fallback dinâmico com base no SKU pai
+  if (parentSku?.trim()) {
+    const cleanParent = parentSku.trim();
+    const cleanSz = normalizeCanonicalSize(targetSize) || targetSize.trim();
+    return `${cleanParent}/${cleanSz}`;
+  }
+
+  return undefined;
+}
+
 // Extrai tamanhos que foram marcados com <del> ou <s> na descrição do produto
 export function getDescriptionOutOfStockSizes(description?: string | null): Set<string> {
   const result = new Set<string>();
@@ -352,6 +391,7 @@ export function buildProductVariants(product: {
   promo_start_at?: string | null;
   promo_end_at?: string | null;
   stock_by_size?: Record<string, any> | null;
+  sku_by_size?: Record<string, string> | null;
   total_stock?: number | null;
   sizes?: string[] | null;
 }): {
@@ -387,13 +427,17 @@ export function buildProductVariants(product: {
       const canonicalSz = normalizeCanonicalSize(sz) || sz.trim();
       const stockQty = findStockForSize(product.stock_by_size, canonicalSz) ?? 0;
       const hyphenSz = canonicalSz.includes('/') ? canonicalSz.replace('/', '-') : canonicalSz;
-      const variantSku = parentSku ? `${parentSku}/${canonicalSz}` : canonicalSz;
+      
+      const explicitSku = findSkuForSize(product.sku_by_size, canonicalSz, null) || findSkuForSize(product.sku_by_size, sz, null);
+      const fallbackSku = parentSku ? `${parentSku}/${canonicalSz}` : canonicalSz;
+      const variantSku = explicitSku || fallbackSku;
+      const altSku = explicitSku || (parentSku ? `${parentSku}/${hyphenSz}` : hyphenSz);
 
       return {
         id: `${product.id}-${canonicalSz}`,
         product_id: product.id,
         sku: variantSku,
-        sku_alt: parentSku ? `${parentSku}/${hyphenSz}` : hyphenSz,
+        sku_alt: altSku,
         parent_sku: parentSku,
         product_sku: parentSku,
         code_sku: parentSku,

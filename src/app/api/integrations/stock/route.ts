@@ -288,43 +288,71 @@ function getSkuVariations(cleanSku: string): string[] {
 }
 
 // Localiza o produto no catálogo com tolerância a variações de SKU
-async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string): Promise<any | null> {
+async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string, originalSku?: string): Promise<any | null> {
+  const querySelect = async (query: any) => {
+    try {
+      const res = await query.select('id, name, code_sku, ean, price, original_price, stock_by_size, sku_by_size, total_stock, description');
+      if (res.error && res.error.message?.includes('sku_by_size')) {
+        return await query.select('id, name, code_sku, ean, price, original_price, stock_by_size, total_stock, description');
+      }
+      return res;
+    } catch {
+      return await query.select('id, name, code_sku, ean, price, original_price, stock_by_size, total_stock, description');
+    }
+  };
+
   // 1. Busca por EAN se informado
   if (rawEan) {
     try {
-      const { data: byEan, error: eanErr } = await adminSupabase
-        .from('products')
-        .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
-        .eq('ean', rawEan)
-        .maybeSingle();
+      const { data: byEan, error: eanErr } = await querySelect(
+        adminSupabase.from('products').eq('ean', rawEan).maybeSingle()
+      );
 
       if (!eanErr && byEan) return byEan;
     } catch {}
   }
 
-  if (!cleanSku) return null;
+  if (!cleanSku && !originalSku) return null;
 
   // 2. Busca pelas permutações de SKU (exata, sem/com MG, sem/com zero inicial, sem/com ponto)
-  const variations = getSkuVariations(cleanSku);
+  const variations = getSkuVariations(cleanSku || originalSku || '');
   const orClause = variations.map((v) => `code_sku.ilike.${v}`).join(',');
 
-  const { data: bySku } = await adminSupabase
-    .from('products')
-    .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
-    .or(orClause)
-    .limit(1);
+  const { data: bySku } = await querySelect(
+    adminSupabase.from('products').or(orClause).limit(1)
+  );
 
   if (bySku && bySku.length > 0) return bySku[0];
 
   // 3. Fallback pelo prefixo do nome do produto no catálogo (ex: "401.019 - Chinelo...")
-  const rootSku = cleanSku.includes('/') ? cleanSku.split('/')[0].trim() : cleanSku;
-  const { data: byNamePrefix } = await adminSupabase
-    .from('products')
-    .select('id, name, code_sku, ean, price, stock_by_size, total_stock, description')
-    .or(`name.ilike.${rootSku} - %,name.ilike.${rootSku}%,code_sku.ilike.${rootSku}%`)
-    .limit(1);
+  const rootSku = (cleanSku || originalSku || '').includes('/') ? (cleanSku || originalSku || '').split('/')[0].trim() : (cleanSku || originalSku || '');
+  const { data: byNamePrefix } = await querySelect(
+    adminSupabase.from('products').or(`name.ilike.${rootSku} - %,name.ilike.${rootSku}%,code_sku.ilike.${rootSku}%`).limit(1)
+  );
 
   if (byNamePrefix && byNamePrefix.length > 0) return byNamePrefix[0];
+
+  // 4. Busca dedicada em sku_by_size (quando o ERP envia o SKU exato de uma variação/tamanho)
+  const searchTarget = (originalSku || cleanSku || '').trim().toLowerCase();
+  if (searchTarget) {
+    try {
+      const { data: prodsWithVariants } = await querySelect(
+        adminSupabase.from('products').not('sku_by_size', 'is', null).neq('sku_by_size', '{}')
+      );
+      if (prodsWithVariants && Array.isArray(prodsWithVariants)) {
+        for (const p of prodsWithVariants) {
+          if (p.sku_by_size && typeof p.sku_by_size === 'object') {
+            for (const [szKey, vSku] of Object.entries(p.sku_by_size)) {
+              if (typeof vSku === 'string' && vSku.trim().toLowerCase() === searchTarget) {
+                p._matched_size = szKey;
+                return p;
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
 
   return null;
 }
@@ -350,7 +378,7 @@ export async function GET(request: NextRequest) {
   // 1. Consulta de produto específico por SKU
   if (requestedSku && adminSupabase) {
     const { cleanSku, rawEan } = normalizeStockItem({ sku: requestedSku });
-    const product = await findProduct(adminSupabase, cleanSku, rawEan);
+    const product = await findProduct(adminSupabase, cleanSku, rawEan, requestedSku);
     if (!product) {
       return NextResponse.json(
         { success: false, error: `Produto com SKU "${requestedSku}" não foi localizado no catálogo.` },
@@ -377,6 +405,7 @@ export async function GET(request: NextRequest) {
       promo_start_at: promoStartAt,
       promo_end_at: promoEndAt,
       stock_by_size: product.stock_by_size,
+      sku_by_size: product.sku_by_size,
       total_stock: product.total_stock,
       sizes: sizesList,
     });
@@ -407,6 +436,7 @@ export async function GET(request: NextRequest) {
         promo_end_at: promoEndAt,
         total_stock: product.total_stock ?? 0,
         stock_by_size: product.stock_by_size || {},
+        sku_by_size: product.sku_by_size || {},
         sizes: sizesList,
         has_sizes: hasSizes,
         has_variants: hasSizes,
@@ -421,10 +451,28 @@ export async function GET(request: NextRequest) {
   // 2. Consulta de lista de produtos para sincronização
   if (listProducts && adminSupabase) {
     const promoMap = await getPromotionsMap();
-    const { data: dbProducts } = await adminSupabase
-      .from('products')
-      .select('id, name, code_sku, ean, price, original_price, stock_by_size, total_stock, description')
-      .order('code_sku', { ascending: true });
+    let dbProducts: any[] = [];
+    try {
+      const res = await adminSupabase
+        .from('products')
+        .select('id, name, code_sku, ean, price, original_price, stock_by_size, sku_by_size, total_stock, description')
+        .order('code_sku', { ascending: true });
+      if (res.error && res.error.message?.includes('sku_by_size')) {
+        const fallbackRes = await adminSupabase
+          .from('products')
+          .select('id, name, code_sku, ean, price, original_price, stock_by_size, total_stock, description')
+          .order('code_sku', { ascending: true });
+        dbProducts = fallbackRes.data || [];
+      } else {
+        dbProducts = res.data || [];
+      }
+    } catch {
+      const fallbackRes = await adminSupabase
+        .from('products')
+        .select('id, name, code_sku, ean, price, original_price, stock_by_size, total_stock, description')
+        .order('code_sku', { ascending: true });
+      dbProducts = fallbackRes.data || [];
+    }
 
     const formatted = (dbProducts || []).map((p: any) => {
       const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
@@ -445,6 +493,7 @@ export async function GET(request: NextRequest) {
         promo_start_at: promoStartAt,
         promo_end_at: promoEndAt,
         stock_by_size: p.stock_by_size,
+        sku_by_size: p.sku_by_size,
         total_stock: p.total_stock,
         sizes: sizesList,
       });
@@ -466,6 +515,7 @@ export async function GET(request: NextRequest) {
         promo_end_at: promoEndAt,
         total_stock: p.total_stock ?? 0,
         stock_by_size: p.stock_by_size || {},
+        sku_by_size: p.sku_by_size || {},
         sizes: sizesList,
         has_sizes: hasSizes,
         has_variants: hasSizes,
@@ -592,7 +642,7 @@ export async function POST(request: NextRequest) {
     const invalidItems: Array<{ identifier: string; message: string }> = [];
 
     for (const rawItem of rawItems) {
-      const { cleanSku, originalSku, rawEan, stockBySize, size, quantity } = normalizeStockItem(rawItem);
+      let { cleanSku, originalSku, rawEan, stockBySize, size, quantity } = normalizeStockItem(rawItem);
       const identifier = rawEan || originalSku || cleanSku || 'não informado';
 
       if (!cleanSku && !rawEan) {
@@ -604,7 +654,7 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        let product = await findProduct(adminSupabase, cleanSku, rawEan);
+        let product = await findProduct(adminSupabase, cleanSku, rawEan, originalSku);
 
         if (!product) {
           const autoCreate = Boolean(
@@ -654,6 +704,19 @@ export async function POST(request: NextRequest) {
             message: `Produto com identificador "${identifier}" não foi localizado no catálogo ativo. Cadastre o produto previamente pelo painel admin ou envie "auto_create": true na integração.`,
           });
           continue;
+        }
+
+        // Se o tamanho não tiver sido deduzido, tenta casamento exato com sku_by_size do produto
+        if (!size && product._matched_size) {
+          size = product._matched_size;
+        } else if (!size && product.sku_by_size && typeof product.sku_by_size === 'object') {
+          const target = (originalSku || cleanSku || '').trim().toLowerCase();
+          for (const [szKey, vSku] of Object.entries(product.sku_by_size)) {
+            if (typeof vSku === 'string' && vSku.trim().toLowerCase() === target) {
+              size = szKey;
+              break;
+            }
+          }
         }
 
         // Obtém ou inicializa a consolidação deste produto

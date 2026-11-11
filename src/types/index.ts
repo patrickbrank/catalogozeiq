@@ -44,6 +44,7 @@ export interface Product {
   sizes?: string[];
   highlights?: ProductHighlight[];
   stock_by_size?: Record<string, number> | null;
+  sku_by_size?: Record<string, string> | null;
   total_stock?: number | null;
   created_at?: string;
   updated_at?: string;
@@ -64,6 +65,7 @@ export interface QuoteItem {
   isPromo?: boolean;
   selectedSize?: string;
   sizeBreakdown?: Record<string, number>; // Grade de atacado: { 'PP': 2, 'P': 4, 'M': 6, 'G': 4 }
+  sku_by_size?: Record<string, string>; // SKUs específicos de cada tamanho
   notes?: string;
 }
 

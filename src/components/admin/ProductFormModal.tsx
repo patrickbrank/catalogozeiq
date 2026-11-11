@@ -46,6 +46,7 @@ export function ProductFormModal({
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [customSizeInput, setCustomSizeInput] = useState('');
   const [stockBySize, setStockBySize] = useState<Record<string, number>>({});
+  const [skuBySize, setSkuBySize] = useState<Record<string, string>>({});
   const [defaultStock, setDefaultStock] = useState<number>(0);
   const [batchStockValue, setBatchStockValue] = useState('');
   const [highlights, setHighlights] = useState<ProductHighlight[]>([
@@ -87,6 +88,7 @@ export function ProductFormModal({
         populatedStock[sz] = typeof stock === 'number' ? stock : 0;
       });
       setStockBySize(populatedStock);
+      setSkuBySize(product.sku_by_size || {});
       setDefaultStock(
         typeof initialStock['_padrao'] === 'number'
           ? initialStock['_padrao']
@@ -137,6 +139,7 @@ export function ProductFormModal({
       setImages([]);
       setSelectedSizes([]);
       setStockBySize({});
+      setSkuBySize({});
       setDefaultStock(0);
       setBatchStockValue('');
     }
@@ -187,6 +190,30 @@ export function ProductFormModal({
       updated[sz] = 0;
     });
     setStockBySize(updated);
+  };
+
+  const handleSkuChange = (sz: string, val: string) => {
+    setSkuBySize((prev) => ({
+      ...prev,
+      [sz]: val,
+    }));
+  };
+
+  const handleAutoGenerateSkus = () => {
+    const parent = sku.trim();
+    if (!parent) return;
+    const updated: Record<string, string> = { ...skuBySize };
+    selectedSizes.forEach((sz) => {
+      if (!updated[sz]?.trim()) {
+        const hyphenSz = sz.includes('/') ? sz.replace('/', '-') : sz;
+        updated[sz] = `${parent}/${hyphenSz}`;
+      }
+    });
+    setSkuBySize(updated);
+  };
+
+  const handleClearAllSkus = () => {
+    setSkuBySize({});
   };
 
   const visibleCategories = useMemo(() => {
@@ -322,11 +349,16 @@ export function ProductFormModal({
       const numOriginalPrice = originalPrice.trim() ? parseFloat(originalPrice.replace(/\./g, '').replace(',', '.')) : null;
 
       let finalStockBySize: Record<string, number> = {};
+      let finalSkuBySize: Record<string, string> = {};
       let finalTotalStock = 0;
 
       if (selectedSizes.length > 0) {
         selectedSizes.forEach((sz) => {
           finalStockBySize[sz] = Math.max(0, stockBySize[sz] || 0);
+          const vSku = (skuBySize[sz] || '').trim();
+          if (vSku) {
+            finalSkuBySize[sz] = vSku;
+          }
         });
         finalTotalStock = Object.values(finalStockBySize).reduce((a, b) => a + b, 0);
       } else {
@@ -343,6 +375,7 @@ export function ProductFormModal({
         is_featured: isFeatured,
         tags,
         stock_by_size: finalStockBySize,
+        sku_by_size: finalSkuBySize,
         total_stock: finalTotalStock,
       };
 
@@ -885,9 +918,9 @@ export function ProductFormModal({
                 </div>
 
                 {/* Ações em Lote */}
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60">
-                  <span className="text-xs text-slate-500 font-medium">Ajuste rápido:</span>
-                  <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/60">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-slate-500 font-medium">Estoque:</span>
                     <input
                       type="number"
                       min="0"
@@ -910,6 +943,26 @@ export function ProductFormModal({
                       className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-rose-50 text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors cursor-pointer"
                     >
                       Zerar todos
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-slate-500 font-medium">SKUs:</span>
+                    <button
+                      type="button"
+                      onClick={handleAutoGenerateSkus}
+                      disabled={!sku.trim()}
+                      title="Preenche automaticamente os SKUs das variações usando o SKU principal"
+                      className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-slate-100 text-zeiq-black border border-slate-200 rounded-lg disabled:opacity-40 transition-colors cursor-pointer"
+                    >
+                      Sugerir SKUs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearAllSkus}
+                      className="px-2 py-1 text-xs font-semibold bg-white hover:bg-slate-100 text-slate-500 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Limpar SKUs
                     </button>
                   </div>
                 </div>
@@ -969,6 +1022,25 @@ export function ProductFormModal({
                           >
                             <Plus className="w-3 h-3" />
                           </button>
+                        </div>
+
+                        {/* SKU da Variação */}
+                        <div className="mt-2 pt-2 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <label className="text-[10px] font-semibold text-slate-500">
+                              SKU Variação
+                            </label>
+                            {skuBySize[sz]?.trim() && (
+                              <span className="text-[9px] text-emerald-600 font-bold">Ativo</span>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={skuBySize[sz] || ''}
+                            onChange={(e) => handleSkuChange(sz, e.target.value)}
+                            placeholder={sku.trim() ? `${sku.trim()}/${sz.replace('/', '-')}` : 'SKU...'}
+                            className="w-full text-[11px] font-mono px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                          />
                         </div>
                       </div>
                     );
