@@ -12,6 +12,7 @@ interface ProductFormModalProps {
   product: Product | null;
   categories: Category[];
   departments?: Department[];
+  canManageCampaigns?: boolean;
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -21,6 +22,7 @@ export function ProductFormModal({
   product,
   categories,
   departments,
+  canManageCampaigns = true,
   isOpen,
   onClose,
   onSaved,
@@ -356,15 +358,17 @@ export function ProductFormModal({
         basePayload.original_price = null;
       }
 
-      const numPromoPrice = promotionalPrice.trim() ? parseFloat(promotionalPrice.replace(/\./g, '').replace(',', '.')) : null;
-      if (numPromoPrice != null && !isNaN(numPromoPrice) && numPromoPrice > 0) {
-        basePayload.promotional_price = numPromoPrice;
-        basePayload.promo_start_at = isPromoScheduleEnabled && promoStartAt ? new Date(`${promoStartAt}T00:00:00`).toISOString() : null;
-        basePayload.promo_end_at = isPromoScheduleEnabled && promoEndAt ? new Date(`${promoEndAt}T23:59:59`).toISOString() : null;
-      } else {
-        basePayload.promotional_price = null;
-        basePayload.promo_start_at = null;
-        basePayload.promo_end_at = null;
+      if (canManageCampaigns) {
+        const numPromoPrice = promotionalPrice.trim() ? parseFloat(promotionalPrice.replace(/\./g, '').replace(',', '.')) : null;
+        if (numPromoPrice != null && !isNaN(numPromoPrice) && numPromoPrice > 0) {
+          basePayload.promotional_price = numPromoPrice;
+          basePayload.promo_start_at = isPromoScheduleEnabled && promoStartAt ? new Date(`${promoStartAt}T00:00:00`).toISOString() : null;
+          basePayload.promo_end_at = isPromoScheduleEnabled && promoEndAt ? new Date(`${promoEndAt}T23:59:59`).toISOString() : null;
+        } else {
+          basePayload.promotional_price = null;
+          basePayload.promo_start_at = null;
+          basePayload.promo_end_at = null;
+        }
       }
 
       // Envia para a API administrativa segura (com chave de serviço e validação de sessão)
@@ -471,7 +475,7 @@ export function ProductFormModal({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`grid grid-cols-1 ${canManageCampaigns ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
               {/* 1. Preço de Atacado Regular */}
               <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
                 <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
@@ -490,25 +494,27 @@ export function ProductFormModal({
                 </div>
               </div>
 
-              {/* 2. Preço Promocional / Campanha */}
-              <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-300/80 shadow-2xs">
-                <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    🔥 Preço Promo (R$)
-                  </span>
-                  <span className="text-[10px] text-emerald-700 font-bold">Black Friday</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">R$</span>
-                  <input
-                    type="text"
-                    value={promotionalPrice}
-                    onChange={(e) => setPromotionalPrice(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full pl-8 pr-3 py-1.5 text-sm font-black bg-white border border-emerald-300 rounded-lg text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-300"
-                  />
+              {/* 2. Preço Promocional / Campanha (Somente Master e Administradores) */}
+              {canManageCampaigns && (
+                <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-300/80 shadow-2xs">
+                  <label className="block text-xs font-bold text-emerald-950 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      🔥 Preço Promo (R$)
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-bold">Black Friday</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">R$</span>
+                    <input
+                      type="text"
+                      value={promotionalPrice}
+                      onChange={(e) => setPromotionalPrice(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full pl-8 pr-3 py-1.5 text-sm font-black bg-white border border-emerald-300 rounded-lg text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-300"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* 3. Preço Sugerido Varejo */}
               <div className="p-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs">
@@ -529,8 +535,8 @@ export function ProductFormModal({
               </div>
             </div>
 
-            {/* Agendamento da Promoção */}
-            {promotionalPrice.trim() && (
+            {/* Agendamento da Promoção (Somente Master e Administradores) */}
+            {canManageCampaigns && promotionalPrice.trim() && (
               <div className="pt-2 border-t border-slate-200/70 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="inline-flex items-center gap-2 cursor-pointer">

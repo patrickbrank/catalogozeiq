@@ -13,16 +13,20 @@ export async function GET() {
       );
     }
 
+    const canManageCampaigns = isMaster || role === 'admin';
+
     return NextResponse.json({
       success: true,
       isAdmin: true,
       isMaster,
+      canManageCampaigns,
       role,
       user: {
         id: user.id,
         email: user.email,
         role: role,
         is_master: isMaster,
+        can_manage_campaigns: canManageCampaigns,
         contact_name: user.user_metadata?.contact_name || user.email?.split('@')[0],
       },
     });

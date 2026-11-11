@@ -83,6 +83,7 @@ export default function AdminDashboardPage() {
   // Estados Globais do Painel
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const canManageCampaigns = Boolean(user?.is_master || user?.role === 'admin' || user?.can_manage_campaigns);
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'banners' | 'users' | 'categories' | 'resellers'>('products');
 
   // Estados para Gestão de Revendedores (Admin Master)
@@ -2085,7 +2086,7 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {(() => {
+                {canManageCampaigns && (() => {
                   const activePromoProduct = products.find((p) => p.campaign_emoji || p.campaign_name);
                   const activeCampaignEmoji = activePromoProduct?.campaign_emoji || '🔥';
                   const activeCampaignName = activePromoProduct?.campaign_name || 'Campanha Black Friday';
@@ -2356,7 +2357,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Produto & SKU</th>
                       <th className="py-3 px-4">Categorias</th>
                       <th className="py-3 px-4 whitespace-nowrap">Preço Atacado</th>
-                      <th className="py-3 px-4 whitespace-nowrap">Preço Promo</th>
+                      {canManageCampaigns && <th className="py-3 px-4 whitespace-nowrap">Preço Promo</th>}
                       <th className="py-3 px-4 whitespace-nowrap">Preço Varejo</th>
                       <th className="py-3 px-4 text-center">Estoque</th>
                       <th className="py-3 px-4 text-center">Status</th>
@@ -2367,7 +2368,7 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {paginatedProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="py-12 text-center text-slate-400">
+                        <td colSpan={canManageCampaigns ? 10 : 9} className="py-12 text-center text-slate-400">
                           Nenhum produto localizado com os filtros selecionados.
                         </td>
                       </tr>
@@ -2419,42 +2420,44 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3 px-4 font-mono whitespace-nowrap">
-                              {(() => {
-                                const pricing = getProductEffectivePrice(prod);
-                                if (pricing.promotionalPrice != null && pricing.promotionalPrice > 0) {
-                                  return (
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-emerald-800">
-                                        R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                      </span>
-                                      {pricing.promoStatus === 'active' ? (
-                                        <span 
-                                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60"
-                                          title={prod.promo_end_at ? `Ativo até ${new Date(prod.promo_end_at).toLocaleDateString('pt-BR')}` : 'Promoção Ativa'}
-                                        >
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                          {prod.campaign_emoji || '🔥'} Ativo
+                            {canManageCampaigns && (
+                              <td className="py-3 px-4 font-mono whitespace-nowrap">
+                                {(() => {
+                                  const pricing = getProductEffectivePrice(prod);
+                                  if (pricing.promotionalPrice != null && pricing.promotionalPrice > 0) {
+                                    return (
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-emerald-800">
+                                          R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
-                                      ) : pricing.promoStatus === 'scheduled' ? (
-                                        <span 
-                                          className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/60"
-                                          title={prod.promo_start_at ? `Inicia em ${new Date(prod.promo_start_at).toLocaleDateString('pt-BR')}` : 'Agendado'}
-                                        >
-                                          <span>⏳</span>
-                                          Agendado
-                                        </span>
-                                      ) : pricing.promoStatus === 'ended' ? (
-                                        <span className="text-[10px] font-medium text-slate-400">
-                                          Encerrado
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  );
-                                }
-                                return <span className="text-slate-300 font-normal text-xs">-</span>;
-                              })()}
-                            </td>
+                                        {pricing.promoStatus === 'active' ? (
+                                          <span 
+                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60"
+                                            title={prod.promo_end_at ? `Ativo até ${new Date(prod.promo_end_at).toLocaleDateString('pt-BR')}` : 'Promoção Ativa'}
+                                          >
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            {prod.campaign_emoji || '🔥'} Ativo
+                                          </span>
+                                        ) : pricing.promoStatus === 'scheduled' ? (
+                                          <span 
+                                            className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/60"
+                                            title={prod.promo_start_at ? `Inicia em ${new Date(prod.promo_start_at).toLocaleDateString('pt-BR')}` : 'Agendado'}
+                                          >
+                                            <span>⏳</span>
+                                            Agendado
+                                          </span>
+                                        ) : pricing.promoStatus === 'ended' ? (
+                                          <span className="text-[10px] font-medium text-slate-400">
+                                            Encerrado
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  }
+                                  return <span className="text-slate-300 font-normal text-xs">-</span>;
+                                })()}
+                              </td>
+                            )}
 
                             <td className="py-3 px-4 font-mono text-slate-600 whitespace-nowrap">
                               {prod.original_price != null && prod.original_price > 0 ? (
@@ -2611,7 +2614,7 @@ export default function AdminDashboardPage() {
 
                             <div className="mt-1 font-mono font-bold text-xs flex flex-wrap items-baseline gap-1.5">
                               {prod.price != null && prod.price > 0 ? (
-                                <span className={pricing.isPromoActive ? 'text-slate-400 line-through text-[11px]' : 'text-emerald-700'}>
+                                <span className={canManageCampaigns && pricing.isPromoActive ? 'text-slate-400 line-through text-[11px]' : 'text-emerald-700'}>
                                   R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               ) : (
@@ -2619,7 +2622,7 @@ export default function AdminDashboardPage() {
                                   Sob consulta
                                 </span>
                               )}
-                              {pricing.isPromoActive && pricing.promotionalPrice != null && (
+                              {canManageCampaigns && pricing.isPromoActive && pricing.promotionalPrice != null && (
                                 <span className="text-emerald-700 font-black">
                                   R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
@@ -4796,6 +4799,7 @@ export default function AdminDashboardPage() {
         product={editingProduct}
         categories={categories}
         departments={departments}
+        canManageCampaigns={canManageCampaigns}
         onClose={() => setIsProductModalOpen(false)}
         onSaved={fetchDashboardData}
       />
@@ -4803,15 +4807,17 @@ export default function AdminDashboardPage() {
       {/* ======================================================== */}
       {/* MODAL: CAMPANHA PROMOCIONAL / BLACK FRIDAY               */}
       {/* ======================================================== */}
-      <CampaignModal
-        isOpen={isCampaignModalOpen}
-        onClose={() => setIsCampaignModalOpen(false)}
-        products={products}
-        onSuccess={(msg) => {
-          showToast(msg || 'Campanha promocional atualizada com sucesso!');
-          fetchDashboardData();
-        }}
-      />
+      {canManageCampaigns && (
+        <CampaignModal
+          isOpen={isCampaignModalOpen}
+          onClose={() => setIsCampaignModalOpen(false)}
+          products={products}
+          onSuccess={(msg) => {
+            showToast(msg || 'Campanha promocional atualizada com sucesso!');
+            fetchDashboardData();
+          }}
+        />
+      )}
 
       {/* ======================================================== */}
       {/* MODAL: AJUSTE RÁPIDO DE ESTOQUE                         */}

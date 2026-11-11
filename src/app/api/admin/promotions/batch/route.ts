@@ -11,9 +11,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito.' }, { status: 403 });
+    const { isAdmin, isMaster, role } = await verifyAdmin();
+    const canManage = isMaster || role === 'admin';
+    if (!isAdmin || !canManage) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores e master.' }, { status: 403 });
     }
 
     const promoMap = await getPromotionsMap();
@@ -57,10 +58,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
+    const { isAdmin, isMaster, role } = await verifyAdmin();
+    const canManage = isMaster || role === 'admin';
+    if (!isAdmin || !canManage) {
       return NextResponse.json(
-        { success: false, error: 'Acesso restrito: apenas administradores podem configurar campanhas promocionais.' },
+        { success: false, error: 'Acesso restrito: apenas master e administradores podem configurar campanhas promocionais.' },
         { status: 403 }
       );
     }
@@ -261,9 +263,10 @@ export async function POST(request: NextRequest) {
 // DELETE: Encerra / Remove campanha de promoções em lote
 export async function DELETE(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
-    if (!isAdmin) {
-      return NextResponse.json({ success: false, error: 'Acesso restrito.' }, { status: 403 });
+    const { isAdmin, isMaster, role } = await verifyAdmin();
+    const canManage = isMaster || role === 'admin';
+    if (!isAdmin || !canManage) {
+      return NextResponse.json({ success: false, error: 'Acesso restrito a administradores e master.' }, { status: 403 });
     }
 
     const adminSupabase = getAdminClient();

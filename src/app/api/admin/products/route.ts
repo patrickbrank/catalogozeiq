@@ -122,7 +122,8 @@ export async function GET() {
 // POST: Cadastro de Novo Produto (Habilitado para Administradores e Equipe)
 export async function POST(request: NextRequest) {
   try {
-    const { isAdmin, role } = await verifyAdmin();
+    const { isAdmin, isMaster, role } = await verifyAdmin();
+    const canManageCampaigns = isMaster || role === 'admin';
     if (!isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Acesso restrito: apenas administradores podem cadastrar produtos.' },
@@ -248,9 +249,9 @@ export async function POST(request: NextRequest) {
 
     const productId = newProd.id;
 
-    // Sincroniza preço promocional no storage de promoções
-    const numPromoPrice = promotional_price != null && !isNaN(promotional_price) && promotional_price > 0 ? Number(promotional_price) : null;
-    if (numPromoPrice != null) {
+    // Sincroniza preço promocional no storage de promoções (somente Master e Admin)
+    const numPromoPrice = canManageCampaigns && promotional_price != null && !isNaN(promotional_price) && promotional_price > 0 ? Number(promotional_price) : null;
+    if (canManageCampaigns && numPromoPrice != null) {
       try {
         const map = await getPromotionsMap();
         map[productId] = {
@@ -312,7 +313,8 @@ export async function POST(request: NextRequest) {
 // PUT: Atualização de Produto (Habilitado para Administradores e Equipe)
 export async function PUT(request: NextRequest) {
   try {
-    const { isAdmin } = await verifyAdmin();
+    const { isAdmin, isMaster, role } = await verifyAdmin();
+    const canManageCampaigns = isMaster || role === 'admin';
     if (!isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Acesso restrito: apenas administradores podem editar produtos.' },
@@ -360,12 +362,16 @@ export async function PUT(request: NextRequest) {
 
     let hasPromoField = false;
     let numPromoPrice: number | null = null;
-    if (fields.promotional_price !== undefined) {
+    if (fields.promotional_price !== undefined && canManageCampaigns) {
       hasPromoField = true;
       numPromoPrice = fields.promotional_price != null && !isNaN(fields.promotional_price) && fields.promotional_price > 0 ? Number(fields.promotional_price) : null;
       updatePayload.promotional_price = numPromoPrice;
       updatePayload.promo_start_at = fields.promo_start_at || null;
       updatePayload.promo_end_at = fields.promo_end_at || null;
+    } else {
+      delete updatePayload.promotional_price;
+      delete updatePayload.promo_start_at;
+      delete updatePayload.promo_end_at;
     }
 
     let { data: updatedProd, error: updateErr } = await adminSupabase
@@ -393,8 +399,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: updateErr.message }, { status: 400 });
     }
 
-    // Sincroniza com mapa de promoções do storage
-    if (hasPromoField) {
+    // Sincroniza com mapa de promoções do storage (somente Master e Admin)
+    if (hasPromoField && canManageCampaigns) {
       try {
         const map = await getPromotionsMap();
         if (numPromoPrice != null) {
