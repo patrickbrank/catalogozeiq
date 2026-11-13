@@ -99,19 +99,18 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
           </div>
         ) : pricing.isPromoActive ? (
           <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20 flex items-center rounded-full overflow-hidden bg-black border border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.5)] select-none transition-transform group-hover:scale-105 duration-300">
-            {/* Gradiente quente de fundo com arcos em degradê escuro */}
+            {/* Gradiente quente de fundo */}
             <div className="absolute inset-0 bg-gradient-to-r from-[#4d1604] via-[#240a02] to-black pointer-events-none" />
-            <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#3b1203]/70 pointer-events-none" />
 
-            {/* Círculo da Chama com Relevo */}
-            <div className="relative z-10 flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-b from-[#5c1d05] to-[#2b0c01] border border-[#a63c0a]/50 shadow-inner ml-1 shrink-0">
+            {/* Círculo do Emoji sem borda */}
+            <div className="relative z-10 flex items-center justify-center w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-b from-[#5c1d05] to-[#2b0c01] ml-1 shrink-0">
               <span className="text-xs sm:text-sm leading-none drop-shadow-[0_2px_4px_rgba(255,100,0,0.5)]">
                 {pricing.campaignEmoji || '🔥'}
               </span>
             </div>
 
-            {/* Texto: Percentual e OFF em Branco */}
-            <div className="relative z-10 flex items-baseline gap-1.5 pl-1.5 pr-3 sm:pr-3.5 py-1 leading-none font-sans">
+            {/* Texto: Percentual e OFF em Branco com padding compacto */}
+            <div className="relative z-10 flex items-baseline gap-1 pl-1 pr-2.5 sm:pr-3 py-1 leading-none font-sans">
               <span className="text-white font-black text-xs sm:text-[13px] tracking-tight">
                 {pricing.discountPercentage ? `${pricing.discountPercentage}%` : 'PROMO'}
               </span>
