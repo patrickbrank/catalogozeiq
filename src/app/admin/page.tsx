@@ -2629,19 +2629,19 @@ export default function AdminDashboardPage() {
             {/* Tabela de Produtos (Desktop) + Cards (Mobile) */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="overflow-x-auto hidden md:block">
-                <table className="w-full min-w-[680px] text-left border-collapse">
+                <table className="w-full min-w-[1240px] text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Imagem</th>
-                      <th className="py-3 px-4">Produto & SKU</th>
-                      <th className="py-3 px-4">Categorias</th>
+                      <th className="py-3 px-4 w-14">Imagem</th>
+                      <th className="py-3 px-4 min-w-[240px]">Produto & SKU</th>
+                      <th className="py-3 px-4 min-w-[140px] whitespace-nowrap">Categorias</th>
                       <th className="py-3 px-4 whitespace-nowrap">Preço Atacado</th>
                       {canManageCampaigns && <th className="py-3 px-4 whitespace-nowrap">Preço Promo</th>}
                       <th className="py-3 px-4 whitespace-nowrap">Preço Varejo</th>
-                      <th className="py-3 px-4 text-center min-w-[170px]">Estoque</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-center">Destaque</th>
-                      <th className="py-3 px-4 text-right">Ações</th>
+                      <th className="py-3 px-4 text-center min-w-[220px] whitespace-nowrap">Estoque</th>
+                      <th className="py-3 px-4 text-center whitespace-nowrap">Status</th>
+                      <th className="py-3 px-4 text-center w-14 whitespace-nowrap">Destaque</th>
+                      <th className="py-3 px-4 pr-6 text-right w-24 whitespace-nowrap">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
@@ -2666,25 +2666,27 @@ export default function AdminDashboardPage() {
                               </div>
                             </td>
 
-                            <td className="py-3 px-4 max-w-sm">
-                              <p className="font-bold text-zeiq-black line-clamp-1">{prod.name}</p>
+                            <td className="py-3 px-4 min-w-[240px]">
+                              <p className="font-bold text-zeiq-black truncate max-w-[260px]" title={prod.name}>
+                                {prod.name}
+                              </p>
                               {prod.code_sku && (
-                                <span className="font-mono text-xs text-slate-500 font-semibold block mt-0.5">
+                                <span className="font-mono text-xs text-slate-500 font-semibold block mt-0.5 whitespace-nowrap">
                                   SKU: {prod.code_sku}
                                 </span>
                               )}
                             </td>
 
-                            <td className="py-3 px-4">
-                              <div className="flex flex-wrap gap-1 max-w-xs">
+                            <td className="py-3 px-4 min-w-[140px] whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap">
                                 {prod.categories && prod.categories.length > 0 ? (
                                   prod.categories.map((c) => (
-                                    <span key={c.id} className="text-xs font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                                    <span key={c.id} className="text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200/60 whitespace-nowrap">
                                       {c.name}
                                     </span>
                                   ))
                                 ) : (
-                                  <span className="text-xs text-slate-400 italic">Sem categoria</span>
+                                  <span className="text-xs text-slate-400 italic whitespace-nowrap">Sem categoria</span>
                                 )}
                               </div>
                             </td>
@@ -2749,12 +2751,12 @@ export default function AdminDashboardPage() {
                             </td>
 
                             {/* Coluna de Estoque com Ajuste Rápido e Detalhamento por Tamanho */}
-                            <td className="py-3 px-4 text-center">
+                            <td className="py-3 px-4 text-center min-w-[220px] whitespace-nowrap">
                               {(() => {
                                 const breakdown = getProductStockBreakdown(prod);
                                 const hasSizes = breakdown && breakdown.length > 0;
                                 return (
-                                  <div className="flex flex-col items-center gap-1.5 min-w-[150px] max-w-[280px] mx-auto">
+                                  <div className="flex flex-col items-center gap-1.5 whitespace-nowrap mx-auto">
                                     <button
                                       type="button"
                                       onClick={() => handleOpenQuickStock(prod)}
@@ -2790,13 +2792,13 @@ export default function AdminDashboardPage() {
                                     {hasSizes ? (
                                       <div
                                         onClick={() => handleOpenQuickStock(prod)}
-                                        className="flex flex-wrap items-center justify-center gap-1 cursor-pointer group/breakdown"
+                                        className="flex items-center justify-center gap-1 flex-nowrap whitespace-nowrap cursor-pointer group/breakdown"
                                         title="Clique para abrir o ajuste rápido de estoque por tamanho"
                                       >
                                         {breakdown.map(({ size, quantity, isZero, isLow }) => (
                                           <span
                                             key={size}
-                                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border transition-all ${
+                                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border whitespace-nowrap shrink-0 ${
                                               isZero
                                                 ? 'bg-rose-50 text-rose-700 border-rose-200 shadow-2xs'
                                                 : isLow
@@ -2812,7 +2814,7 @@ export default function AdminDashboardPage() {
                                         ))}
                                       </div>
                                     ) : (
-                                      <span className="text-[10px] text-slate-400 font-medium">
+                                      <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
                                         Produto simples
                                       </span>
                                     )}
@@ -2838,7 +2840,7 @@ export default function AdminDashboardPage() {
                               </button>
                             </td>
 
-                            <td className="py-3 px-4 text-center">
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => handleToggleFeatured(prod)}
@@ -2853,8 +2855,8 @@ export default function AdminDashboardPage() {
                               </button>
                             </td>
 
-                            <td className="py-3 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1">
+                            <td className="py-3 px-4 pr-6 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => {
