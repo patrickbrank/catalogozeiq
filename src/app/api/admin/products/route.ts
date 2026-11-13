@@ -51,7 +51,7 @@ export async function GET() {
     const promoMap = await getPromotionsMap();
 
     const formattedProducts = (dbProducts || []).map((p: any) => {
-      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
+      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size, p.sku_by_size);
       const sizesList = parsedSizes.sizes || [];
       const promoData = promoMap[p.id] || (p.code_sku ? promoMap[cleanSkuKey(p.code_sku)] : null);
       const promotionalPrice = p.promotional_price ?? promoData?.promotional_price ?? null;

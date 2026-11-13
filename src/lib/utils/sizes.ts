@@ -3,6 +3,17 @@ import { getProductEffectivePrice } from './pricing';
 
 export const COMMON_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XG', 'G1', 'G2', 'Único'];
 
+// Normaliza um SKU para formato compacto sem pontuações, traços, barras, espaços ou prefixo MG
+export function compactSku(s?: string | null): string {
+  if (!s) return '';
+  return s
+    .toString()
+    .trim()
+    .toUpperCase()
+    .replace(/^MG/i, '')
+    .replace(/[\.\/\-_\s]/g, '');
+}
+
 // Normaliza qualquer representação de tamanho para o padrão canônico do catálogo Zeiq
 export function normalizeCanonicalSize(rawSize?: string | null): string {
   if (!rawSize) return '';
@@ -12,31 +23,34 @@ export function normalizeCanonicalSize(rawSize?: string | null): string {
   // "tam: M", "tam. M", "tam M", "tamanho: M", "nr.M", "nr. M", "nº M", etc.
   clean = clean.replace(/^(?:TAM(?:\.|\:|\s+|-|_)*|TAMANHO(?:\.|\:|\s+|-|_)*|NR(?:\.|\:|\s+|-|_)*|NUM(?:\.|\:|\s+|-|_)*|Nº(?:\.|\:|\s+|-|_)*)+/i, '').trim();
 
-  // 1. Chinelos e calçados com numeração dupla (33/34, 35/36, 37/38, 39/40, 41/42, 43/44)
-  // Aceita variações: 33/34, 33-34, 33_34, 33 34, 33 / 34, 3334
-  const matchDouble = clean.match(/\b(33|35|37|39|41|43)[\s\/\-_]*(34|36|38|40|42|44)\b/);
+  // 1. Chinelos e calçados com numeração dupla delimitada (ex: 33/34, 39-40, 39_40, 39 40, 27/28, etc.)
+  const matchDouble = clean.match(/\b([0-9]{2})[\s\/\-_]+([0-9]{2})\b/);
   if (matchDouble) {
-    const s1 = matchDouble[1];
-    const s2 = matchDouble[2];
-    if (
-      (s1 === '33' && s2 === '34') ||
-      (s1 === '35' && s2 === '36') ||
-      (s1 === '37' && s2 === '38') ||
-      (s1 === '39' && s2 === '40') ||
-      (s1 === '41' && s2 === '42') ||
-      (s1 === '43' && s2 === '44')
-    ) {
-      return `${s1}/${s2}`;
+    return `${matchDouble[1]}/${matchDouble[2]}`;
+  }
+
+  // Numerações compactas de 4 dígitos para calçados (ex: 3334 -> 33/34, 3940 -> 39/40, 2728 -> 27/28)
+  const matchCompact4 = clean.match(/^([0-9]{2})([0-9]{2})$/);
+  if (matchCompact4) {
+    const n1 = parseInt(matchCompact4[1], 10);
+    const n2 = parseInt(matchCompact4[2], 10);
+    if (n1 >= 20 && n1 <= 50 && n2 >= n1 && n2 <= n1 + 2) {
+      return `${matchCompact4[1]}/${matchCompact4[2]}`;
     }
   }
 
-  // Numerações compactas de chinelos (ex: 3334 -> 33/34)
-  if (clean === '3334' || clean === '33' || clean === '34') return '33/34';
-  if (clean === '3536' || clean === '35' || clean === '36') return '35/36';
-  if (clean === '3738' || clean === '37' || clean === '38') return '37/38';
-  if (clean === '3940' || clean === '39' || clean === '40') return '39/40';
-  if (clean === '4142' || clean === '41' || clean === '42') return '41/42';
-  if (clean === '4344' || clean === '43' || clean === '44') return '43/44';
+  // Mapeamentos para tamanhos isolados que correspondem a faixas tradicionais de calçados
+  if (clean === '25' || clean === '26') return '25/26';
+  if (clean === '27' || clean === '28') return '27/28';
+  if (clean === '29' || clean === '30') return '29/30';
+  if (clean === '31' || clean === '32') return '31/32';
+  if (clean === '33' || clean === '34') return '33/34';
+  if (clean === '35' || clean === '36') return '35/36';
+  if (clean === '37' || clean === '38') return '37/38';
+  if (clean === '39' || clean === '40') return '39/40';
+  if (clean === '41' || clean === '42') return '41/42';
+  if (clean === '43' || clean === '44') return '43/44';
+  if (clean === '45' || clean === '46') return '45/46';
 
   // 2. Sapatilhas e combinações alfanuméricas
   if (clean === 'P34/6' || clean === 'P33/6' || clean === 'P 33-36' || clean === 'P3336') return 'P 33/36';
@@ -107,9 +121,16 @@ export function findSkuForSize(
         return v.trim();
       }
     }
+    // 3. Match compacto tolerante a delimitadores
+    const compTarget = compactSku(targetSize);
+    for (const [k, v] of Object.entries(skuBySize)) {
+      if (typeof v === 'string' && v.trim() && compactSku(k) === compTarget) {
+        return v.trim();
+      }
+    }
   }
 
-  // 3. Fallback dinâmico com base no SKU pai
+  // 4. Fallback dinâmico com base no SKU pai
   if (parentSku?.trim()) {
     const cleanParent = parentSku.trim();
     const cleanSz = normalizeCanonicalSize(targetSize) || targetSize.trim();
@@ -160,7 +181,8 @@ export function parseProductSizes(
   description?: string | null,
   explicitSizes?: string[],
   productName?: string,
-  stockBySize?: Record<string, any> | null
+  stockBySize?: Record<string, any> | null,
+  skuBySize?: Record<string, any> | null
 ): {
   sizes: string[];
   outOfStockSizes: string[];
@@ -181,25 +203,39 @@ export function parseProductSizes(
     };
   }
 
+  // Coleta tamanhos estruturados existentes em sku_by_size e stock_by_size
+  const structuredSizes: string[] = [];
+  if (skuBySize && typeof skuBySize === 'object') {
+    Object.keys(skuBySize).forEach((k) => {
+      const cleanK = k.trim();
+      if (cleanK && cleanK !== '_padrao') {
+        const canonical = normalizeCanonicalSize(cleanK) || cleanK;
+        if (canonical && !structuredSizes.includes(canonical)) {
+          structuredSizes.push(canonical);
+        }
+      }
+    });
+  }
+  if (stockBySize && typeof stockBySize === 'object') {
+    Object.keys(stockBySize).forEach((k) => {
+      const cleanK = k.trim();
+      if (cleanK && cleanK !== '_padrao') {
+        const canonical = normalizeCanonicalSize(cleanK) || cleanK;
+        if (canonical && !structuredSizes.includes(canonical)) {
+          structuredSizes.push(canonical);
+        }
+      }
+    });
+  }
+
   const fullText = `${productName ? `${productName} ` : ''}${description || ''}`;
 
   if (!description) {
+    if (structuredSizes.length > 0) {
+      return { sizes: structuredSizes, outOfStockSizes: [], cleanDescription: '' };
+    }
     if (/tamanho\s*[uú]nico/i.test(fullText)) {
       return { sizes: ['Único'], outOfStockSizes: [], cleanDescription: '' };
-    }
-    // Fallback: se não há descrição mas há grade em stock_by_size
-    if (stockBySize && typeof stockBySize === 'object') {
-      const fallbackSizes: string[] = [];
-      Object.keys(stockBySize).forEach((k) => {
-        const cleanK = k.trim();
-        if (cleanK && cleanK !== '_padrao') {
-          const canonical = normalizeCanonicalSize(cleanK) || cleanK;
-          if (canonical) fallbackSizes.push(canonical);
-        }
-      });
-      if (fallbackSizes.length > 0) {
-        return { sizes: Array.from(new Set(fallbackSizes)), outOfStockSizes: [], cleanDescription: '' };
-      }
     }
     return { sizes: [], outOfStockSizes: [], cleanDescription: '' };
   }
@@ -207,22 +243,11 @@ export function parseProductSizes(
   // Procura padrão "Tamanhos: PP | P | M | G..." ou "Tamanho: 33/34 | 35/36..."
   const match = description.match(/Tamanhos?:\s*([^\n\r]+)/i);
   if (!match) {
+    if (structuredSizes.length > 0) {
+      return { sizes: structuredSizes, outOfStockSizes: [], cleanDescription: description };
+    }
     if (/tamanho\s*[uú]nico/i.test(fullText)) {
       return { sizes: ['Único'], outOfStockSizes: [], cleanDescription: description };
-    }
-    // Fallback: se não encontrou padrão "Tamanhos:" mas há grade em stock_by_size
-    if (stockBySize && typeof stockBySize === 'object') {
-      const fallbackSizes: string[] = [];
-      Object.keys(stockBySize).forEach((k) => {
-        const cleanK = k.trim();
-        if (cleanK && cleanK !== '_padrao') {
-          const canonical = normalizeCanonicalSize(cleanK) || cleanK;
-          if (canonical) fallbackSizes.push(canonical);
-        }
-      });
-      if (fallbackSizes.length > 0) {
-        return { sizes: Array.from(new Set(fallbackSizes)), outOfStockSizes: [], cleanDescription: description };
-      }
     }
     return { sizes: [], outOfStockSizes: [], cleanDescription: description };
   }
@@ -259,8 +284,8 @@ export function parseProductSizes(
       extracted.push('Único');
     } else if (validStandard.has(upper)) {
       extracted.push(upper);
-    } else if (canonical && /^(?:33\/34|35\/36|37\/38|39\/40|41\/42|43\/44)$/.test(canonical)) {
-      // Calçados e Chinelos canônicos duplos: 33/34, 35/36, 37/38, 39/40, 41/42, 43/44
+    } else if (canonical && /^[0-9]{2}\/[0-9]{2}$/.test(canonical)) {
+      // Calçados e Chinelos canônicos duplos (33/34, 39/40, 27/28, etc.)
       extracted.push(canonical);
     } else if (/^[0-9]{2}\/[0-9]{2}$/.test(s)) {
       // Calçados e Chinelos com barra
@@ -276,7 +301,7 @@ export function parseProductSizes(
 
   // Remove a linha "Tamanhos: ..." da descrição
   const cleanDescription = description.replace(/Tamanhos?:\s*[^\n\r]+/gi, '').trim();
-  const uniqueSizes = Array.from(new Set(extracted));
+  const uniqueSizes = Array.from(new Set([...extracted, ...structuredSizes]));
 
   return {
     sizes: uniqueSizes,
@@ -404,7 +429,29 @@ export function buildProductVariants(product: {
   hasSizes: boolean;
   options: ProductOption[];
 } {
-  const sizesList = product.sizes || [];
+  let sizesList = product.sizes || [];
+  if (sizesList.length === 0) {
+    const fallbackSizes = new Set<string>();
+    if (product.sku_by_size && typeof product.sku_by_size === 'object') {
+      Object.keys(product.sku_by_size).forEach((k) => {
+        const cleanK = k.trim();
+        if (cleanK && cleanK !== '_padrao') {
+          fallbackSizes.add(normalizeCanonicalSize(cleanK) || cleanK);
+        }
+      });
+    }
+    if (product.stock_by_size && typeof product.stock_by_size === 'object') {
+      Object.keys(product.stock_by_size).forEach((k) => {
+        const cleanK = k.trim();
+        if (cleanK && cleanK !== '_padrao') {
+          fallbackSizes.add(normalizeCanonicalSize(cleanK) || cleanK);
+        }
+      });
+    }
+    if (fallbackSizes.size > 0) {
+      sizesList = Array.from(fallbackSizes);
+    }
+  }
   const hasSizes = sizesList.length > 0;
   const parentSku = (product.code_sku || '').trim();
   const prodName = (product.name || '').trim();

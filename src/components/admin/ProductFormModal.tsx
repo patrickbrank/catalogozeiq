@@ -75,7 +75,13 @@ export function ProductFormModal({
       setPromoEndAt(eDate);
       setIsPromoScheduleEnabled(Boolean(sDate || eDate));
       const parsedSpecs = parseProductSpecifications(product.description, product.highlights);
-      const parsedSizes = parseProductSizes(parsedSpecs.cleanDescription, product.sizes);
+      const parsedSizes = parseProductSizes(
+        parsedSpecs.cleanDescription,
+        product.sizes,
+        product.name,
+        product.stock_by_size,
+        product.sku_by_size
+      );
       setDescription(parsedSizes.cleanDescription || '');
       const activeSizes = product.sizes && product.sizes.length > 0 ? product.sizes : parsedSizes.sizes;
       setSelectedSizes(activeSizes);

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { invalidateCatalogCache } from '@/lib/data/products';
-import { normalizeCanonicalSize, parseProductSizes, findStockForSize, buildProductVariants } from '@/lib/utils/sizes';
+import { normalizeCanonicalSize, parseProductSizes, findStockForSize, buildProductVariants, compactSku } from '@/lib/utils/sizes';
 import { getPromotionsMap, cleanSkuKey } from '@/lib/data/promotions';
 
 interface StockBySizeInput {
@@ -152,14 +152,14 @@ function normalizeStockItem(item: any) {
 
   let cleanSku = rawSku;
 
-  // Extração inteligente de tamanho embutido no SKU (executa sempre para limpar cleanSku e extrair size)
+  // Extração inteligente de tamanho embutido no SKU
   if (cleanSku) {
-    // 1. Calçados duplos / chinelos no final do SKU:
-    // Suporta delimitadores /, -, _, espaço (ex: 401.009/33/34, 401.009-33/34, 401.009-33-34, 401.009_33_34, 401.009/3334, 401.009-33, 401.009/34)
-    const shoeMatch = cleanSku.match(/[\/\-_\s](33[\/\-_\s]*34|35[\/\-_\s]*36|37[\/\-_\s]*38|39[\/\-_\s]*40|41[\/\-_\s]*42|43[\/\-_\s]*44|33|34|35|36|37|38|39|40|41|42|43|44)$/i);
+    // 1. Calçados com numeração dupla no final do SKU:
+    // Suporta delimitadores /, -, _, espaço (ex: 401.021/39/40, 401.021/33/34, 401.021-39/40, 401.021-39-40, 401.021 39/40, 401.021/3940, 401.021-3940, 401.021/39)
+    const shoeMatch = cleanSku.match(/[\/\-_\s]([0-9]{2}[\/\-_\s][0-9]{2}|[0-9]{4}|[0-9]{2})$/i);
     if (shoeMatch) {
       if (!size) {
-        size = shoeMatch[1];
+        size = shoeMatch[1].trim();
       }
       cleanSku = cleanSku.slice(0, shoeMatch.index).trim();
     }
@@ -168,11 +168,11 @@ function normalizeStockItem(item: any) {
       const sapatilhaMatch = cleanSku.match(/[\/\-_\s]([PMG]\s*[0-9]{2}[\/\-_][0-9]{1,2}|[PMG][0-9]{2,4})$/i);
       if (sapatilhaMatch) {
         if (!size) {
-          size = sapatilhaMatch[1];
+          size = sapatilhaMatch[1].trim();
         }
         cleanSku = cleanSku.slice(0, sapatilhaMatch.index).trim();
       }
-      // 3. Delimitador '/' padrão Zeiq para vestuário (ex: 201.011/G ou 0214.013/PP)
+      // 3. Delimitador '/' padrão Zeiq para vestuário e variações gerais (ex: 2010.015/M ou 0214.013/PP)
       else if (cleanSku.includes('/')) {
         const firstSlash = cleanSku.indexOf('/');
         if (!size) {
@@ -180,32 +180,38 @@ function normalizeStockItem(item: any) {
         }
         cleanSku = cleanSku.slice(0, firstSlash).trim();
       }
-      // 4. Delimitador '-' padrão (ex: 0214.013-M)
-      else if (cleanSku.includes('-')) {
-        const lastDash = cleanSku.lastIndexOf('-');
-        const potentialSize = cleanSku.slice(lastDash + 1).trim();
-        if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
+      // 4. Delimitador '-' ou '_' para vestuário (ex: 2010.015-M)
+      else {
+        const clothMatch = cleanSku.match(/[\-_](PP|P|M|G|GG|XG|G1|G2|G3|2G|3G|ÚNICO|UNICO)$/i);
+        if (clothMatch) {
           if (!size) {
-            size = potentialSize;
+            size = clothMatch[1].trim();
           }
-          cleanSku = cleanSku.slice(0, lastDash).trim();
-        }
-      }
-      // 5. Delimitador '_' padrão (ex: 0214.013_M)
-      else if (cleanSku.includes('_')) {
-        const lastUnderscore = cleanSku.lastIndexOf('_');
-        const potentialSize = cleanSku.slice(lastUnderscore + 1).trim();
-        if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
-          if (!size) {
-            size = potentialSize;
+          cleanSku = cleanSku.slice(0, clothMatch.index).trim();
+        } else if (cleanSku.includes('-')) {
+          const lastDash = cleanSku.lastIndexOf('-');
+          const potentialSize = cleanSku.slice(lastDash + 1).trim();
+          if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
+            if (!size) {
+              size = potentialSize;
+            }
+            cleanSku = cleanSku.slice(0, lastDash).trim();
           }
-          cleanSku = cleanSku.slice(0, lastUnderscore).trim();
+        } else if (cleanSku.includes('_')) {
+          const lastUnderscore = cleanSku.lastIndexOf('_');
+          const potentialSize = cleanSku.slice(lastUnderscore + 1).trim();
+          if (potentialSize.length <= 6 && !potentialSize.includes('.')) {
+            if (!size) {
+              size = potentialSize;
+            }
+            cleanSku = cleanSku.slice(0, lastUnderscore).trim();
+          }
         }
       }
     }
   }
 
-  // Normalização canônica do tamanho (ex: 33-34 -> 33/34, P34/6 -> P 33/36, etc.)
+  // Normalização canônica do tamanho (ex: 33-34 -> 33/34, 3940 -> 39/40, P34/6 -> P 33/36, etc.)
   if (size) {
     size = normalizeCanonicalSize(size) || size;
   }
@@ -314,7 +320,33 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string,
 
   if (!cleanSku && !originalSku) return null;
 
-  // 2. Busca pelas permutações de SKU (exata, sem/com MG, sem/com zero inicial, sem/com ponto)
+  // 2. Busca prioritária em sku_by_size quando o SKU enviado é de uma variação cadastrada
+  const targetRaw = (originalSku || cleanSku || '').trim();
+  const targetComp = compactSku(targetRaw);
+  if (targetComp) {
+    try {
+      const { data: prodsWithVariants } = await querySelect(
+        adminSupabase.from('products').not('sku_by_size', 'is', null).neq('sku_by_size', '{}')
+      );
+      if (prodsWithVariants && Array.isArray(prodsWithVariants)) {
+        for (const p of prodsWithVariants) {
+          if (p.sku_by_size && typeof p.sku_by_size === 'object') {
+            for (const [szKey, vSku] of Object.entries(p.sku_by_size)) {
+              if (typeof vSku === 'string' && vSku.trim()) {
+                const normVSku = vSku.trim().toLowerCase();
+                if (normVSku === targetRaw.toLowerCase() || compactSku(vSku) === targetComp) {
+                  p._matched_size = normalizeCanonicalSize(szKey) || szKey;
+                  return p;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 3. Busca pelas permutações de SKU (exata, sem/com MG, sem/com zero inicial, sem/com ponto)
   const variations = getSkuVariations(cleanSku || originalSku || '');
   const orClause = variations.map((v) => `code_sku.ilike.${v}`).join(',');
 
@@ -324,35 +356,13 @@ async function findProduct(adminSupabase: any, cleanSku: string, rawEan: string,
 
   if (bySku && bySku.length > 0) return bySku[0];
 
-  // 3. Fallback pelo prefixo do nome do produto no catálogo (ex: "401.019 - Chinelo...")
+  // 4. Fallback pelo prefixo do nome do produto no catálogo (ex: "401.019 - Chinelo...")
   const rootSku = (cleanSku || originalSku || '').includes('/') ? (cleanSku || originalSku || '').split('/')[0].trim() : (cleanSku || originalSku || '');
   const { data: byNamePrefix } = await querySelect(
     adminSupabase.from('products').or(`name.ilike.${rootSku} - %,name.ilike.${rootSku}%,code_sku.ilike.${rootSku}%`).limit(1)
   );
 
   if (byNamePrefix && byNamePrefix.length > 0) return byNamePrefix[0];
-
-  // 4. Busca dedicada em sku_by_size (quando o ERP envia o SKU exato de uma variação/tamanho)
-  const searchTarget = (originalSku || cleanSku || '').trim().toLowerCase();
-  if (searchTarget) {
-    try {
-      const { data: prodsWithVariants } = await querySelect(
-        adminSupabase.from('products').not('sku_by_size', 'is', null).neq('sku_by_size', '{}')
-      );
-      if (prodsWithVariants && Array.isArray(prodsWithVariants)) {
-        for (const p of prodsWithVariants) {
-          if (p.sku_by_size && typeof p.sku_by_size === 'object') {
-            for (const [szKey, vSku] of Object.entries(p.sku_by_size)) {
-              if (typeof vSku === 'string' && vSku.trim().toLowerCase() === searchTarget) {
-                p._matched_size = szKey;
-                return p;
-              }
-            }
-          }
-        }
-      }
-    } catch {}
-  }
 
   return null;
 }
@@ -392,7 +402,7 @@ export async function GET(request: NextRequest) {
     const promoStartAt = product.promo_start_at ?? promoData?.promo_start_at ?? null;
     const promoEndAt = product.promo_end_at ?? promoData?.promo_end_at ?? null;
 
-    const parsedSizes = parseProductSizes(product.description, product.sizes, product.name, product.stock_by_size);
+    const parsedSizes = parseProductSizes(product.description, product.sizes, product.name, product.stock_by_size, product.sku_by_size);
     const sizesList = parsedSizes.sizes || [];
     const { variants, hasSizes, options } = buildProductVariants({
       id: product.id,
@@ -412,10 +422,13 @@ export async function GET(request: NextRequest) {
 
     const parentSku = product.code_sku || '';
     const normRequested = normalizeCanonicalSize(requestedSku);
+    const compRequested = compactSku(requestedSku);
     const matchedVariant = variants.find(
       (v) =>
         v.sku === requestedSku ||
         v.sku_alt === requestedSku ||
+        compactSku(v.sku) === compRequested ||
+        compactSku(v.sku_alt) === compRequested ||
         (normRequested && (v.size === normRequested || v.shopify_title === normRequested || v.shopify_title_alt === normRequested))
     ) || null;
 
@@ -537,7 +550,7 @@ export async function GET(request: NextRequest) {
     }
 
     const formatted = (dbProducts || []).map((p: any) => {
-      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size);
+      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size, p.sku_by_size);
       const sizesList = parsedSizes.sizes || [];
       const promoData = promoMap[p.id] || (p.code_sku ? promoMap[cleanSkuKey(p.code_sku)] : null);
       const promotionalPrice = p.promotional_price ?? promoData?.promotional_price ?? null;
@@ -824,18 +837,38 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Se o tamanho não tiver sido deduzido, tenta casamento exato com sku_by_size do produto
+        // Identificação segura do tamanho / variação
         if (!size && product._matched_size) {
           size = product._matched_size;
-        } else if (!size && product.sku_by_size && typeof product.sku_by_size === 'object') {
-          const target = (originalSku || cleanSku || '').trim().toLowerCase();
+        } else if (product.sku_by_size && typeof product.sku_by_size === 'object') {
+          // Se o tamanho não tiver sido deduzido ou para confirmar contra variações reais cadastradas
+          const targetComp = compactSku(originalSku || cleanSku || '');
           for (const [szKey, vSku] of Object.entries(product.sku_by_size)) {
-            if (typeof vSku === 'string' && vSku.trim().toLowerCase() === target) {
+            if (typeof vSku === 'string' && vSku.trim()) {
+              if (compactSku(vSku) === targetComp) {
+                size = normalizeCanonicalSize(szKey) || szKey;
+                break;
+              }
+            }
+          }
+        }
+
+        // Se o tamanho foi deduzido (ex: 39/40), tenta associar à chave canônica cadastrada em sku_by_size
+        if (size && product.sku_by_size && typeof product.sku_by_size === 'object') {
+          const normSize = normalizeCanonicalSize(size) || size;
+          for (const [szKey] of Object.entries(product.sku_by_size)) {
+            if (normalizeCanonicalSize(szKey) === normSize) {
               size = szKey;
               break;
             }
           }
         }
+
+        // Verifica se o produto possui variações de tamanho cadastradas
+        const hasStructuredSizes = Boolean(
+          (product.sku_by_size && Object.keys(product.sku_by_size).filter((k) => k !== '_padrao').length > 0) ||
+          (product.stock_by_size && Object.keys(product.stock_by_size).filter((k) => k !== '_padrao').length > 0)
+        );
 
         // Obtém ou inicializa a consolidação deste produto
         let entry = productUpdates.get(product.id);
@@ -854,23 +887,32 @@ export async function POST(request: NextRequest) {
 
         // CASO A: Grade completa de tamanhos informada como objeto
         if (stockBySize && Object.keys(stockBySize).length > 0) {
+          delete entry.stockBySize['_padrao'];
           entry.stockBySize = { ...entry.stockBySize, ...stockBySize };
         }
-        // CASO B: Atualização de tamanho pontual (ex: 201.001/G ou 401.001/33/34 ou item.size: "M")
+        // CASO B: Atualização de tamanho pontual (ex: 2010.015/M ou 401.021/39/40 ou item.size: "39/40")
         else if (size) {
           const cleanSize = normalizeCanonicalSize(size) || size.trim();
+          delete entry.stockBySize['_padrao'];
           entry.stockBySize[cleanSize] = quantity ?? 0;
         }
-        // CASO C: Produto simples (sem tamanho / tamanho único)
+        // CASO C: Linha enviada sem tamanho (SKU principal ou produto simples)
         else {
           const targetQty = quantity ?? 0;
-          const existingSizes = Object.keys(entry.stockBySize || {}).filter((k) => k !== '_padrao');
-          if (existingSizes.length > 0) {
-            // Se o produto já possui grade definida por tamanho, preserva as gavetas existentes
-            entry.totalStock = targetQty;
+          const existingRealSizes = Object.keys(entry.stockBySize || {}).filter((k) => k !== '_padrao');
+          if (hasStructuredSizes || existingRealSizes.length > 0) {
+            // É um produto com variações de grade: o SKU pai não deve criar a chave '_padrao', que duplicaria o total
+            delete entry.stockBySize['_padrao'];
           } else {
+            // É um produto simples autêntico (sem tamanhos)
             entry.stockBySize = { _padrao: targetQty };
           }
+        }
+
+        // Garante que a chave '_padrao' seja removida caso existam tamanhos reais no estoque
+        const nonPadraoSizes = Object.keys(entry.stockBySize).filter((k) => k !== '_padrao');
+        if (nonPadraoSizes.length > 0 && entry.stockBySize['_padrao'] !== undefined) {
+          delete entry.stockBySize['_padrao'];
         }
 
         // Recalcula o estoque total consolidado

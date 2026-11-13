@@ -313,7 +313,7 @@ export function HomeSlideBanner({
 
   // Trilho com repetição do primeiro slide para o efeito de espiar lateralmente
   const trackSlides = totalSlides > 1 ? [...slides, { ...slides[0], id: `${slides[0].id}-peek` }] : slides;
-  const stepPercent = isMobile ? 88 : 74;
+  const stepPercent = isMobile ? 88 : 80;
 
   return (
     <section
@@ -348,20 +348,21 @@ export function HomeSlideBanner({
                 <div
                   key={`${slide.id}-${index}`}
                   onClick={() => handleCardClick(slide, index)}
-                  className={`relative shrink-0 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/90 shadow-md transition-all duration-300 cursor-pointer group ${
-                    totalSlides > 1 ? (isMobile ? 'w-[86%]' : 'w-[72%]') : 'w-full'
+                  className={`relative shrink-0 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/90 shadow-md transition-all duration-300 cursor-pointer group bg-black/95 ${
+                    totalSlides > 1 ? (isMobile ? 'w-[88%]' : 'w-[80%]') : 'w-full'
                   } ${
                     isActive ? 'ring-1 ring-black/5 opacity-100 scale-100' : 'opacity-75 hover:opacity-95 scale-[0.98]'
                   }`}
                   style={{
-                    height: isMobile ? '235px' : '390px',
-                    maxHeight: isMobile ? '260px' : '430px',
+                    aspectRatio: isMobile
+                      ? (slide.mobileImage && slide.mobileImage !== slide.desktopImage ? '4 / 3' : '1720 / 430')
+                      : '1720 / 430',
                   }}
                   title={slide.title}
                 >
                   {/* Banner Gráfico Oficial Limpo (Sem botões sobrepostos) */}
                   <picture className="w-full h-full block">
-                    <source media="(max-width: 640px)" srcSet={slide.mobileImage} type="image/webp" />
+                    <source media="(max-width: 640px)" srcSet={slide.mobileImage} />
                     <img
                       src={slide.desktopImage}
                       alt={slide.title}

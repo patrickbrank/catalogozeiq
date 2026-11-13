@@ -57,7 +57,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Product, Category, Order, OrderStatus, QuoteItem, BannerItem, StoreSettings } from '@/types';
-import { parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
+import { parseProductSizes, findStockForSize, normalizeCanonicalSize } from '@/lib/utils/sizes';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
 import { DEFAULT_BANNERS, DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
 import { ProductFormModal } from '@/components/admin/ProductFormModal';
@@ -672,10 +672,63 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Obtém lista de tamanhos ativos do produto considerando dados do catálogo e grades estruturadas
+  const getProductActiveSizes = (product: Product): string[] => {
+    const parsed = parseProductSizes(
+      product.description,
+      product.sizes,
+      product.name,
+      product.stock_by_size,
+      product.sku_by_size
+    );
+    const set = new Set<string>();
+    (product.sizes || []).forEach((s) => {
+      const c = normalizeCanonicalSize(s) || s.trim();
+      if (c) set.add(c);
+    });
+    (parsed.sizes || []).forEach((s) => {
+      const c = normalizeCanonicalSize(s) || s.trim();
+      if (c) set.add(c);
+    });
+    if (product.sku_by_size && typeof product.sku_by_size === 'object') {
+      Object.keys(product.sku_by_size).forEach((s) => {
+        if (s.trim() && s.trim() !== '_padrao') {
+          const c = normalizeCanonicalSize(s) || s.trim();
+          if (c) set.add(c);
+        }
+      });
+    }
+    if (product.stock_by_size && typeof product.stock_by_size === 'object') {
+      Object.keys(product.stock_by_size).forEach((s) => {
+        if (s.trim() && s.trim() !== '_padrao') {
+          const c = normalizeCanonicalSize(s) || s.trim();
+          if (c) set.add(c);
+        }
+      });
+    }
+    return Array.from(set);
+  };
+
+  // Prepara o detalhamento do estoque separado por tamanho com status de estoque
+  const getProductStockBreakdown = (product: Product) => {
+    const activeSizes = getProductActiveSizes(product);
+    if (activeSizes.length === 0) return null;
+
+    const initialStock: Record<string, number> = product.stock_by_size || {};
+    return activeSizes.map((sz) => {
+      const qty = findStockForSize(initialStock, sz) ?? 0;
+      return {
+        size: sz,
+        quantity: qty,
+        isZero: qty === 0,
+        isLow: qty > 0 && qty <= 5,
+      };
+    });
+  };
+
   const handleOpenQuickStock = (product: Product) => {
     setQuickStockProduct(product);
-    const parsed = parseProductSizes(product.description, product.sizes, product.name);
-    const activeSizes = product.sizes && product.sizes.length > 0 ? product.sizes : parsed.sizes;
+    const activeSizes = getProductActiveSizes(product);
     const initialStock: Record<string, number> = product.stock_by_size || {};
     const populated: Record<string, number> = {};
     activeSizes.forEach((sz) => {
@@ -697,8 +750,7 @@ export default function AdminDashboardPage() {
     setSavingQuickStock(true);
 
     try {
-      const parsed = parseProductSizes(quickStockProduct.description, quickStockProduct.sizes, quickStockProduct.name);
-      const activeSizes = quickStockProduct.sizes && quickStockProduct.sizes.length > 0 ? quickStockProduct.sizes : parsed.sizes;
+      const activeSizes = getProductActiveSizes(quickStockProduct);
 
       let finalStock: Record<string, number> = {};
       let finalTotal = 0;
@@ -2421,7 +2473,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4 whitespace-nowrap">Preço Atacado</th>
                       {canManageCampaigns && <th className="py-3 px-4 whitespace-nowrap">Preço Promo</th>}
                       <th className="py-3 px-4 whitespace-nowrap">Preço Varejo</th>
-                      <th className="py-3 px-4 text-center">Estoque</th>
+                      <th className="py-3 px-4 text-center min-w-[170px]">Estoque</th>
                       <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-center">Destaque</th>
                       <th className="py-3 px-4 text-right">Ações</th>
@@ -2531,39 +2583,77 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            {/* Coluna de Estoque com Ajuste Rápido */}
-                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenQuickStock(prod)}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 group ${
-                                  prod.total_stock != null && prod.total_stock > 5
-                                    ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300'
-                                    : prod.total_stock != null && prod.total_stock > 0
-                                    ? 'bg-amber-50/80 hover:bg-amber-100 text-amber-800 border-amber-200 hover:border-amber-300'
-                                    : prod.total_stock === 0
-                                    ? 'bg-rose-50/70 hover:bg-rose-100/80 text-rose-700 border-rose-200 hover:border-rose-300'
-                                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
-                                }`}
-                                title="Clique para abrir o ajuste rápido de estoque"
-                              >
-                                <Boxes className={`w-3.5 h-3.5 ${
-                                  prod.total_stock != null && prod.total_stock > 5
-                                    ? 'text-slate-500 group-hover:text-slate-700'
-                                    : prod.total_stock != null && prod.total_stock > 0
-                                    ? 'text-amber-600'
-                                    : prod.total_stock === 0
-                                    ? 'text-rose-500'
-                                    : 'text-slate-400'
-                                }`} />
-                                <span className="font-mono">
-                                  {typeof prod.total_stock === 'number'
-                                    ? prod.total_stock === 0
-                                      ? '0 un. (Esgotado)'
-                                      : `${prod.total_stock} un.`
-                                    : 'Ajustar estoque'}
-                                </span>
-                              </button>
+                            {/* Coluna de Estoque com Ajuste Rápido e Detalhamento por Tamanho */}
+                            <td className="py-3 px-4 text-center">
+                              {(() => {
+                                const breakdown = getProductStockBreakdown(prod);
+                                const hasSizes = breakdown && breakdown.length > 0;
+                                return (
+                                  <div className="flex flex-col items-center gap-1.5 min-w-[150px] max-w-[280px] mx-auto">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenQuickStock(prod)}
+                                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border shadow-2xs cursor-pointer active:scale-95 group ${
+                                        prod.total_stock != null && prod.total_stock > 5
+                                          ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300'
+                                          : prod.total_stock != null && prod.total_stock > 0
+                                          ? 'bg-amber-50/80 hover:bg-amber-100 text-amber-800 border-amber-200 hover:border-amber-300'
+                                          : prod.total_stock === 0
+                                          ? 'bg-rose-50/70 hover:bg-rose-100/80 text-rose-700 border-rose-200 hover:border-rose-300'
+                                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                                      }`}
+                                      title="Clique para abrir o ajuste rápido de estoque"
+                                    >
+                                      <Boxes className={`w-3.5 h-3.5 ${
+                                        prod.total_stock != null && prod.total_stock > 5
+                                          ? 'text-slate-500 group-hover:text-slate-700'
+                                          : prod.total_stock != null && prod.total_stock > 0
+                                          ? 'text-amber-600'
+                                          : prod.total_stock === 0
+                                          ? 'text-rose-500'
+                                          : 'text-slate-400'
+                                      }`} />
+                                      <span className="font-mono">
+                                        {typeof prod.total_stock === 'number'
+                                          ? prod.total_stock === 0
+                                            ? '0 un. (Esgotado)'
+                                            : `${prod.total_stock} un.`
+                                          : 'Ajustar estoque'}
+                                      </span>
+                                    </button>
+
+                                    {hasSizes ? (
+                                      <div
+                                        onClick={() => handleOpenQuickStock(prod)}
+                                        className="flex flex-wrap items-center justify-center gap-1 cursor-pointer group/breakdown"
+                                        title="Clique para abrir o ajuste rápido de estoque por tamanho"
+                                      >
+                                        {breakdown.map(({ size, quantity, isZero, isLow }) => (
+                                          <span
+                                            key={size}
+                                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border transition-all ${
+                                              isZero
+                                                ? 'bg-rose-50 text-rose-700 border-rose-200 shadow-2xs'
+                                                : isLow
+                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                                : 'bg-slate-50 text-slate-600 border-slate-200/90'
+                                            }`}
+                                          >
+                                            <span className="opacity-75">{size}:</span>
+                                            <span className={isZero ? 'text-rose-700 font-black' : isLow ? 'text-amber-800 font-black' : 'text-slate-800'}>
+                                              {quantity}
+                                            </span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-400 font-medium">
+                                        Produto simples
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Coluna de Status (Visibilidade no Catálogo) */}
@@ -2695,6 +2785,37 @@ export default function AdminDashboardPage() {
                                 </span>
                               )}
                             </div>
+
+                            {/* Detalhamento de estoque por tamanho no mobile */}
+                            {(() => {
+                              const breakdown = getProductStockBreakdown(prod);
+                              if (!breakdown || breakdown.length === 0) return null;
+                              return (
+                                <div
+                                  onClick={() => handleOpenQuickStock(prod)}
+                                  className="flex flex-wrap items-center gap-1 mt-1.5 cursor-pointer"
+                                  title="Clique para abrir o ajuste rápido de estoque por tamanho"
+                                >
+                                  {breakdown.map(({ size, quantity, isZero, isLow }) => (
+                                    <span
+                                      key={size}
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                                        isZero
+                                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                          : isLow
+                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                          : 'bg-slate-50 text-slate-600 border-slate-200/90'
+                                      }`}
+                                    >
+                                      <span className="opacity-75">{size}:</span>
+                                      <span className={isZero ? 'text-rose-700 font-black' : isLow ? 'text-amber-800 font-black' : 'text-slate-800'}>
+                                        {quantity}
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -4426,7 +4547,7 @@ export default function AdminDashboardPage() {
                               <span className="text-xs text-slate-400 font-medium">Recomendado: ~1720x430 px</span>
                             </div>
 
-                            <div className="relative aspect-[16/4.5] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
+                            <div className="relative aspect-[4/1] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
                               {banner.desktopImage ? (
                                 <img
                                   src={banner.desktopImage}
@@ -4481,7 +4602,7 @@ export default function AdminDashboardPage() {
                               <span className="text-xs text-slate-400 font-medium">Recomendado: ~800x600 px</span>
                             </div>
 
-                            <div className="relative aspect-[16/6] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
+                            <div className="relative aspect-[4/3] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center group">
                               {banner.mobileImage ? (
                                 <img
                                   src={banner.mobileImage}
@@ -4907,8 +5028,7 @@ export default function AdminDashboardPage() {
             </p>
 
             {(() => {
-              const parsed = parseProductSizes(quickStockProduct.description, quickStockProduct.sizes, quickStockProduct.name);
-              const activeSizes = quickStockProduct.sizes && quickStockProduct.sizes.length > 0 ? quickStockProduct.sizes : parsed.sizes;
+              const activeSizes = getProductActiveSizes(quickStockProduct);
               const hasSizes = activeSizes.length > 0;
               const totalPieces = hasSizes
                 ? activeSizes.reduce((sum, sz) => sum + (quickStockBySize[sz] || 0), 0)
