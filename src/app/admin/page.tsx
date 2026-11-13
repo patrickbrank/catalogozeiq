@@ -2629,17 +2629,17 @@ export default function AdminDashboardPage() {
             {/* Tabela de Produtos (Desktop) + Cards (Mobile) */}
             <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
               <div className="hidden md:block">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full table-fixed text-left border-collapse">
                   <thead>
-                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-3 px-3.5 w-14">Foto</th>
-                      <th className="py-3 px-3.5 min-w-[200px]">Produto & SKU</th>
-                      <th className="py-3 px-3.5 whitespace-nowrap">Categoria</th>
-                      <th className="py-3 px-3.5 whitespace-nowrap">Preço Atacado</th>
-                      <th className="py-3 px-3.5 whitespace-nowrap">Preço Varejo</th>
-                      <th className="py-3 px-3.5 text-center whitespace-nowrap">Estoque</th>
-                      <th className="py-3 px-3.5 text-center whitespace-nowrap">Status</th>
-                      <th className="py-3 px-3.5 text-right whitespace-nowrap pr-5">Ações</th>
+                    <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-2.5 px-2.5 w-14 text-center">Foto</th>
+                      <th className="py-2.5 px-2.5 w-[28%]">Produto & SKU</th>
+                      <th className="py-2.5 px-2.5 w-[14%] whitespace-nowrap">Categoria</th>
+                      <th className="py-2.5 px-2.5 w-[14%] whitespace-nowrap">Preço Atacado</th>
+                      <th className="py-2.5 px-2.5 w-[11%] whitespace-nowrap">Varejo</th>
+                      <th className="py-2.5 px-2.5 w-[13%] text-center whitespace-nowrap">Estoque</th>
+                      <th className="py-2.5 px-2.5 w-[10%] text-center whitespace-nowrap">Status</th>
+                      <th className="py-2.5 px-2.5 w-[10%] text-right whitespace-nowrap pr-3">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
@@ -2654,8 +2654,8 @@ export default function AdminDashboardPage() {
                         const cover = prod.images?.find((i) => i.is_cover)?.public_url || prod.images?.[0]?.public_url;
                         return (
                           <tr key={prod.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-3 px-3.5 w-14">
-                              <div className="w-11 h-11 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                            <td className="py-2.5 px-2.5 w-14 text-center">
+                              <div className="w-10 h-10 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 mx-auto">
                                 {cover ? (
                                   <img src={cover} alt="" className="w-full h-full object-cover object-top" />
                                 ) : (
@@ -2664,20 +2664,20 @@ export default function AdminDashboardPage() {
                               </div>
                             </td>
 
-                            <td className="py-3 px-3.5 min-w-[200px] max-w-[280px]">
+                            <td className="py-2.5 px-2.5 min-w-0">
                               <p className="font-bold text-zeiq-black truncate block leading-snug" title={prod.name}>
                                 {prod.name}
                               </p>
                               {prod.code_sku && (
-                                <span className="font-mono text-[11px] text-slate-400 font-semibold block mt-0.5 whitespace-nowrap">
+                                <span className="font-mono text-[11px] text-slate-400 font-semibold block mt-0.5 truncate">
                                   SKU: {prod.code_sku}
                                 </span>
                               )}
                             </td>
 
-                            <td className="py-3 px-3.5 whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 whitespace-nowrap min-w-0">
                               {prod.categories?.[0] ? (
-                                <span className="inline-flex items-center h-8 px-3 rounded-lg text-xs font-semibold bg-[#f8f9fa] text-slate-700 border border-slate-200/80 whitespace-nowrap">
+                                <span className="inline-flex items-center h-7.5 px-2.5 rounded-lg text-xs font-semibold bg-[#f8f9fa] text-slate-700 border border-slate-200/80 truncate max-w-full">
                                   {prod.categories[0].name}
                                 </span>
                               ) : (
@@ -2685,19 +2685,19 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3 px-3.5 font-mono whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 font-mono whitespace-nowrap min-w-0">
                               {(() => {
                                 const pricing = getProductEffectivePrice(prod);
                                 const isPromo = Boolean(pricing.promotionalPrice && pricing.promotionalPrice > 0 && pricing.isPromoActive);
                                 if (isPromo && pricing.promotionalPrice != null) {
                                   return (
-                                    <div className="flex flex-col">
-                                      <div className="flex items-center gap-1.5">
+                                    <div className="flex flex-col leading-tight">
+                                      <div className="flex items-center gap-1">
                                         <span className="font-bold text-emerald-700 text-xs">
                                           R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
-                                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
-                                          🔥 Ativo
+                                        <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                                          🔥
                                         </span>
                                       </div>
                                       {prod.price != null && prod.price > 0 && (
@@ -2719,7 +2719,7 @@ export default function AdminDashboardPage() {
                               })()}
                             </td>
 
-                            <td className="py-3 px-3.5 font-mono text-slate-500 text-xs whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 font-mono text-slate-500 text-xs whitespace-nowrap min-w-0">
                               {prod.original_price != null && prod.original_price > 0 ? (
                                 <span>
                                   R$ {prod.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -2730,7 +2730,7 @@ export default function AdminDashboardPage() {
                             </td>
 
                             {/* Coluna de Estoque com Ajuste Rápido e Detalhamento por Tamanho */}
-                            <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 text-center whitespace-nowrap min-w-0">
                               {(() => {
                                 const breakdown = getProductStockBreakdown(prod);
                                 const hasSizes = breakdown && breakdown.length > 0;
@@ -2739,9 +2739,9 @@ export default function AdminDashboardPage() {
                                     <button
                                       type="button"
                                       onClick={() => handleOpenQuickStock(prod)}
-                                      className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-lg text-xs font-bold font-mono transition-all border shadow-2xs cursor-pointer active:scale-95 ${
+                                      className={`h-7.5 inline-flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-bold font-mono transition-all border shadow-2xs cursor-pointer active:scale-95 ${
                                         prod.total_stock != null && prod.total_stock > 5
-                                          ? 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300'
+                                          ? 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-700 border-slate-200'
                                           : prod.total_stock != null && prod.total_stock > 0
                                           ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                                           : prod.total_stock === 0
@@ -2763,13 +2763,13 @@ export default function AdminDashboardPage() {
                                     {hasSizes ? (
                                       <div
                                         onClick={() => handleOpenQuickStock(prod)}
-                                        className="flex items-center justify-center gap-1 flex-nowrap whitespace-nowrap cursor-pointer"
+                                        className="flex items-center justify-center gap-0.5 flex-nowrap whitespace-nowrap cursor-pointer"
                                         title="Clique para abrir o ajuste rápido de estoque por tamanho"
                                       >
                                         {breakdown.map(({ size, quantity, isZero, isLow }) => (
                                           <span
                                             key={size}
-                                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold border whitespace-nowrap shrink-0 ${
+                                            className={`inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-mono font-bold border whitespace-nowrap shrink-0 ${
                                               isZero
                                                 ? 'bg-rose-50 text-rose-700 border-rose-200'
                                                 : isLow
@@ -2793,11 +2793,11 @@ export default function AdminDashboardPage() {
                             </td>
 
                             {/* Coluna de Status (Visibilidade no Catálogo) */}
-                            <td className="py-3 px-3.5 text-center whitespace-nowrap">
+                            <td className="py-2.5 px-2.5 text-center whitespace-nowrap min-w-0">
                               <button
                                 type="button"
                                 onClick={() => handleTogglePublished(prod)}
-                                className={`h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-lg text-xs font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                className={`h-7.5 inline-flex items-center justify-center gap-1.5 px-2.5 rounded-lg text-xs font-bold border transition-all active:scale-95 cursor-pointer shadow-2xs ${
                                   prod.is_published
                                     ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
                                     : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
@@ -2810,12 +2810,12 @@ export default function AdminDashboardPage() {
                             </td>
 
                             {/* Coluna de Ações Integradas (Destaque, Editar, Excluir) */}
-                            <td className="py-3 px-3.5 pr-5 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-1.5 shrink-0">
+                            <td className="py-2.5 px-2.5 pr-3 text-right whitespace-nowrap min-w-0">
+                              <div className="flex items-center justify-end gap-1 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => handleToggleFeatured(prod)}
-                                  className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer ${
+                                  className={`w-7.5 h-7.5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer ${
                                     prod.is_featured
                                       ? 'text-amber-500 bg-amber-50/80 border-amber-200'
                                       : 'text-slate-300 hover:text-slate-500 bg-[#f8f9fa] border-slate-200'
@@ -2831,7 +2831,7 @@ export default function AdminDashboardPage() {
                                     setEditingProduct(prod);
                                     setIsProductModalOpen(true);
                                   }}
-                                  className="w-8 h-8 rounded-lg border border-slate-200 bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 hover:text-zeiq-black flex items-center justify-center transition-colors cursor-pointer"
+                                  className="w-7.5 h-7.5 rounded-lg border border-slate-200 bg-[#f8f9fa] hover:bg-slate-100 text-slate-600 hover:text-zeiq-black flex items-center justify-center transition-colors cursor-pointer"
                                   title="Editar Produto"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
@@ -2840,7 +2840,7 @@ export default function AdminDashboardPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteProduct(prod)}
-                                  className="w-8 h-8 rounded-lg border border-slate-200 bg-[#f8f9fa] hover:bg-rose-50 hover:border-rose-200 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                                  className="w-7.5 h-7.5 rounded-lg border border-slate-200 bg-[#f8f9fa] hover:bg-rose-50 hover:border-rose-200 text-slate-400 hover:text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
                                   title="Excluir Produto"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
