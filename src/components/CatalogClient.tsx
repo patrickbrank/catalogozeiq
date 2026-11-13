@@ -11,7 +11,7 @@ import { Footer } from '@/components/Footer';
 import { Product, Category, BannerItem, StoreSettings } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { DEPARTMENTS, Department, findDepartmentForCategory } from '@/lib/data/departments';
-import { Search, ArrowDown, X, ShieldAlert, Tag, ArrowDownWideNarrow, ChevronDown, Check } from 'lucide-react';
+import { Search, ArrowDown, X, ShieldAlert, Tag, ArrowDownWideNarrow, ChevronDown, Check, Flame, TrendingDown, TrendingUp, ArrowDownAZ } from 'lucide-react';
 import { isProductOutOfStock } from '@/lib/utils/sizes';
 import { getProductEffectivePrice } from '@/lib/utils/pricing';
 
@@ -22,30 +22,35 @@ export const CATALOG_SORT_OPTIONS: Array<{
   label: string;
   shortLabel: string;
   hint: string;
+  iconName: 'flame' | 'trending_down' | 'trending_up' | 'az';
 }> = [
   {
     id: 'featured',
     label: 'Lançamentos & Destaques',
     shortLabel: 'Lançamentos',
-    hint: 'Novidades e mais recentes',
+    hint: 'Novidades e destaques recentes',
+    iconName: 'flame',
   },
   {
     id: 'price_desc',
     label: 'Preço: Maior para Menor',
     shortLabel: 'Maior Preço',
     hint: 'Maior valor de atacado primeiro',
+    iconName: 'trending_down',
   },
   {
     id: 'price_asc',
     label: 'Preço: Menor para Maior',
     shortLabel: 'Menor Preço',
     hint: 'Menor valor de atacado primeiro',
+    iconName: 'trending_up',
   },
   {
     id: 'name_asc',
     label: 'Nome: A a Z',
     shortLabel: 'A - Z',
     hint: 'Ordem alfabética de produtos',
+    iconName: 'az',
   },
 ];
 
@@ -577,7 +582,7 @@ export function CatalogClient({
               <button
                 type="button"
                 onClick={() => setIsSortOpen((prev) => !prev)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer select-none active:scale-95 ${
+                className={`h-9 inline-flex items-center gap-2 px-3.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer select-none active:scale-95 ${
                   sortBy !== 'featured'
                     ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
                     : 'bg-white text-slate-700 hover:text-zeiq-black hover:bg-slate-50 border-slate-200'
@@ -632,20 +637,40 @@ export function CatalogClient({
                             setIsSortOpen(false);
                             setVisibleCount(ITEMS_PER_PAGE);
                           }}
-                          className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between gap-2.5 transition-all cursor-pointer group ${
+                          className={`w-full text-left p-2 rounded-xl text-xs flex items-center justify-between gap-3 transition-all cursor-pointer group ${
                             isSelected
-                              ? 'bg-zeiq-black text-white font-bold shadow-2xs'
-                              : 'text-slate-700 hover:bg-slate-100 hover:text-zeiq-black'
+                              ? 'bg-zeiq-black text-white font-bold shadow-xs'
+                              : 'text-slate-700 hover:bg-slate-50 hover:text-zeiq-black'
                           }`}
                         >
-                          <div className="min-w-0">
-                            <span className="block truncate">{opt.label}</span>
-                            <span className={`block text-[10px] font-normal truncate ${
-                              isSelected ? 'text-slate-300' : 'text-slate-400'
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-white/20 text-zeiq-orange'
+                                : opt.iconName === 'flame'
+                                ? 'bg-amber-50 text-amber-600'
+                                : opt.iconName === 'trending_down'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : opt.iconName === 'trending_up'
+                                ? 'bg-sky-50 text-sky-700'
+                                : 'bg-purple-50 text-purple-700'
                             }`}>
-                              {opt.hint}
+                              {opt.iconName === 'flame' && <Flame className="w-3.5 h-3.5 fill-current" />}
+                              {opt.iconName === 'trending_down' && <TrendingDown className="w-3.5 h-3.5" />}
+                              {opt.iconName === 'trending_up' && <TrendingUp className="w-3.5 h-3.5" />}
+                              {opt.iconName === 'az' && <ArrowDownAZ className="w-3.5 h-3.5" />}
                             </span>
+
+                            <div className="min-w-0">
+                              <span className="block font-bold text-xs truncate leading-snug">{opt.label}</span>
+                              <span className={`block text-[10px] font-normal truncate leading-tight ${
+                                isSelected ? 'text-slate-300' : 'text-slate-400'
+                              }`}>
+                                {opt.hint}
+                              </span>
+                            </div>
                           </div>
+
                           {isSelected ? (
                             <Check className="w-4 h-4 text-zeiq-orange shrink-0" />
                           ) : (
@@ -666,7 +691,7 @@ export function CatalogClient({
                 setHideOutOfStock(!hideOutOfStock);
                 setVisibleCount(ITEMS_PER_PAGE);
               }}
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer select-none active:scale-95 ${
+              className={`h-9 inline-flex items-center gap-2 px-3.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer select-none active:scale-95 ${
                 hideOutOfStock
                   ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
                   : 'bg-white text-slate-700 hover:text-zeiq-black hover:bg-slate-50 border-slate-200'
@@ -689,7 +714,7 @@ export function CatalogClient({
                   setSortBy('featured');
                   setVisibleCount(ITEMS_PER_PAGE);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-zeiq-black hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer active:scale-95"
+                className="h-9 inline-flex items-center gap-1.5 px-3.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-zeiq-black hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer active:scale-95"
               >
                 <X className="w-3.5 h-3.5 text-slate-500" />
                 Limpar filtros

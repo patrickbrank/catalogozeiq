@@ -1327,7 +1327,7 @@ export function ProductFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex items-center justify-center"
             >
               Cancelar
             </button>
@@ -1335,7 +1335,7 @@ export function ProductFormModal({
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs disabled:opacity-50 transition-all cursor-pointer active:scale-95"
+              className="h-10 px-5 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 transition-all cursor-pointer active:scale-95"
             >
               {saving ? (
                 <>

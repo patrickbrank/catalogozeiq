@@ -53,6 +53,10 @@ import {
   Minus,
   AlertTriangle,
   ArrowDownWideNarrow,
+  Flame,
+  TrendingDown,
+  TrendingUp,
+  ArrowDownAZ,
   Briefcase,
   Send,
 } from 'lucide-react';
@@ -78,11 +82,16 @@ function isMasterEmail(email?: string | null): boolean {
   return clean === 'marketing@zeiq.com.br' || clean === 'patrickbrank@outlook.com';
 }
 
-const ADMIN_SORT_OPTIONS = [
-  { id: 'default', label: 'Ordem Padrão', hint: 'Lançamentos e mais recentes' },
-  { id: 'price_desc', label: 'Preço: Maior para Menor', hint: 'Maior preço de atacado primeiro' },
-  { id: 'price_asc', label: 'Preço: Menor para Maior', hint: 'Menor preço de atacado primeiro' },
-  { id: 'name_asc', label: 'Nome: A a Z', hint: 'Ordem alfabética de produtos' },
+const ADMIN_SORT_OPTIONS: Array<{
+  id: string;
+  label: string;
+  hint: string;
+  iconName: 'flame' | 'trending_down' | 'trending_up' | 'az';
+}> = [
+  { id: 'default', label: 'Ordem Padrão', hint: 'Lançamentos e mais recentes', iconName: 'flame' },
+  { id: 'price_desc', label: 'Preço: Maior para Menor', hint: 'Maior preço de atacado primeiro', iconName: 'trending_down' },
+  { id: 'price_asc', label: 'Preço: Menor para Maior', hint: 'Menor preço de atacado primeiro', iconName: 'trending_up' },
+  { id: 'name_asc', label: 'Nome: A a Z', hint: 'Ordem alfabética de produtos', iconName: 'az' },
 ];
 
 export default function AdminDashboardPage() {
@@ -2181,7 +2190,7 @@ export default function AdminDashboardPage() {
                       setVisibleProductsCount(ITEMS_PER_PAGE);
                     }}
                     placeholder="Pesquisar por nome ou SKU..."
-                    className="w-full pl-10 pr-9 py-2 sm:py-2.5 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    className="w-full h-10 pl-10 pr-9 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                   {productSearch && (
                     <button
@@ -2204,12 +2213,12 @@ export default function AdminDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setIsCampaignModalOpen(true)}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 sm:py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
+                      className="h-10 inline-flex items-center justify-center gap-1.5 px-3 sm:px-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300/80 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 active:scale-95 cursor-pointer"
                       title="Configurar campanha promocional e importar planilha de preços"
                     >
-                      <span className="text-sm">{activeCampaignEmoji}</span>
-                      <span className="hidden sm:inline">{activeCampaignName}</span>
-                      <span className="sm:hidden">Campanha</span>
+                      <span className="text-sm leading-none">{activeCampaignEmoji}</span>
+                      <span className="hidden sm:inline leading-none">{activeCampaignName}</span>
+                      <span className="sm:hidden leading-none">Campanha</span>
                     </button>
                   );
                 })()}
@@ -2220,11 +2229,11 @@ export default function AdminDashboardPage() {
                     setEditingProduct(null);
                     setIsProductModalOpen(true);
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
+                  className="h-10 inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 bg-zeiq-black hover:bg-zeiq-charcoal text-white border border-transparent rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
                 >
-                  <Plus className="w-4 h-4 text-zeiq-orange" />
-                  <span className="hidden sm:inline">Cadastrar Novo Produto</span>
-                  <span className="sm:hidden">Novo</span>
+                  <Plus className="w-4 h-4 text-zeiq-orange shrink-0" />
+                  <span className="hidden sm:inline leading-none">Cadastrar Novo Produto</span>
+                  <span className="sm:hidden leading-none">Novo</span>
                 </button>
               </div>
 
@@ -2236,7 +2245,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
-                    className="w-full lg:w-auto px-3.5 py-2.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black flex items-center justify-between gap-2.5 transition-all shadow-2xs"
+                    className="w-full sm:w-auto h-10 px-3.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black flex items-center justify-between gap-2.5 transition-all shadow-2xs cursor-pointer"
                   >
                     <div className="flex items-center gap-2 truncate">
                       <Filter className="w-3.5 h-3.5 text-zeiq-orange shrink-0" />
@@ -2328,7 +2337,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setIsSortDropdownOpen((prev) => !prev)}
-                    className={`w-full sm:w-auto px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2.5 transition-all shadow-2xs cursor-pointer select-none active:scale-95 ${
+                    className={`w-full sm:w-auto h-10 px-3.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2.5 transition-all shadow-2xs cursor-pointer select-none active:scale-95 ${
                       productSortBy !== 'default'
                         ? 'bg-zeiq-black text-white border border-zeiq-black shadow-xs'
                         : 'bg-[#f8f9fa] hover:bg-slate-100 text-zeiq-black border border-slate-200'
@@ -2385,20 +2394,40 @@ export default function AdminDashboardPage() {
                                 setIsSortDropdownOpen(false);
                                 setVisibleProductsCount(ITEMS_PER_PAGE);
                               }}
-                              className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between gap-2.5 transition-all cursor-pointer group ${
+                              className={`w-full text-left p-2 rounded-xl text-xs flex items-center justify-between gap-3 transition-all cursor-pointer group ${
                                 isSelected
-                                  ? 'bg-zeiq-black text-white font-bold shadow-2xs'
-                                  : 'text-slate-700 hover:bg-slate-100 hover:text-zeiq-black'
+                                  ? 'bg-zeiq-black text-white font-bold shadow-xs'
+                                  : 'text-slate-700 hover:bg-slate-50 hover:text-zeiq-black'
                               }`}
                             >
-                              <div className="min-w-0">
-                                <span className="block truncate">{opt.label}</span>
-                                <span className={`block text-[10px] font-normal truncate ${
-                                  isSelected ? 'text-slate-300' : 'text-slate-400'
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                  isSelected
+                                    ? 'bg-white/20 text-zeiq-orange'
+                                    : opt.iconName === 'flame'
+                                    ? 'bg-amber-50 text-amber-600'
+                                    : opt.iconName === 'trending_down'
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : opt.iconName === 'trending_up'
+                                    ? 'bg-sky-50 text-sky-700'
+                                    : 'bg-purple-50 text-purple-700'
                                 }`}>
-                                  {opt.hint}
+                                  {opt.iconName === 'flame' && <Flame className="w-3.5 h-3.5 fill-current" />}
+                                  {opt.iconName === 'trending_down' && <TrendingDown className="w-3.5 h-3.5" />}
+                                  {opt.iconName === 'trending_up' && <TrendingUp className="w-3.5 h-3.5" />}
+                                  {opt.iconName === 'az' && <ArrowDownAZ className="w-3.5 h-3.5" />}
                                 </span>
+
+                                <div className="min-w-0">
+                                  <span className="block font-bold text-xs truncate leading-snug">{opt.label}</span>
+                                  <span className={`block text-[10px] font-normal truncate leading-tight ${
+                                    isSelected ? 'text-slate-300' : 'text-slate-400'
+                                  }`}>
+                                    {opt.hint}
+                                  </span>
+                                </div>
                               </div>
+
                               {isSelected ? (
                                 <Check className="w-4 h-4 text-zeiq-orange shrink-0" />
                               ) : (
@@ -3863,7 +3892,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => handleOpenCreateUserModal('reseller')}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-zeiq-black rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
+                  className="w-full sm:w-auto h-10 inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 bg-white hover:bg-slate-50 border border-slate-200 text-zeiq-black rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer whitespace-nowrap"
                   title="Cadastrar lojista parceiro para compras no atacado"
                 >
                   <Plus className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -3874,7 +3903,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={() => handleOpenCreateUserModal('representative')}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                    className="w-full sm:w-auto h-10 inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white border border-transparent rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
                     title="Cadastrar novo representante comercial ou membro da equipe"
                   >
                     <Briefcase className="w-4 h-4 text-zeiq-orange shrink-0" />
@@ -4320,7 +4349,7 @@ export default function AdminDashboardPage() {
 
                 <button
                   onClick={() => handleOpenCategoryModal(null)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
+                  className="w-full sm:w-auto h-10 inline-flex items-center justify-center gap-2 px-4 bg-zeiq-black hover:bg-zeiq-charcoal text-white border border-transparent rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   Nova Categoria
@@ -4556,7 +4585,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={handleAddBanner}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-zeiq-black border border-slate-300 text-xs font-bold transition-all shadow-2xs active:scale-95"
+                    className="h-10 inline-flex items-center gap-1.5 px-3.5 rounded-xl bg-white hover:bg-slate-50 text-zeiq-black border border-slate-300 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Adicionar Banner</span>
@@ -4567,7 +4596,7 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={handleSaveBanners}
                   disabled={savingBanners}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zeiq-black hover:bg-zeiq-charcoal text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95"
+                  className="h-10 inline-flex items-center gap-2 px-4 rounded-xl bg-zeiq-black hover:bg-zeiq-charcoal text-white border border-transparent text-xs font-bold transition-all shadow-xs disabled:opacity-50 active:scale-95 cursor-pointer"
                 >
                   {savingBanners ? (
                     <>
@@ -5279,7 +5308,7 @@ export default function AdminDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setQuickStockProduct(null)}
-                      className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                      className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex items-center justify-center"
                     >
                       Cancelar
                     </button>
@@ -5287,7 +5316,7 @@ export default function AdminDashboardPage() {
                       type="button"
                       onClick={handleSaveQuickStock}
                       disabled={savingQuickStock}
-                      className="px-5 py-2 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                      className="h-10 px-5 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                     >
                       {savingQuickStock ? (
                         <>
@@ -5423,7 +5452,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setTrackingModalOrder(null)}
-                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-zeiq-black"
+                  className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-zeiq-black flex items-center justify-center cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -5431,7 +5460,7 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={handleSaveTracking}
                   disabled={savingTracking}
-                  className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50"
+                  className="h-10 px-4 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center justify-center cursor-pointer"
                 >
                   {savingTracking ? 'Salvando...' : 'Salvar Rastreio'}
                 </button>
@@ -5575,14 +5604,14 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(false)}
-                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-zeiq-black"
+                  className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-zeiq-black flex items-center justify-center cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingCategory}
-                  className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 active:scale-95 transition-all shadow-xs"
+                  className="h-10 px-4 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 active:scale-95 transition-all shadow-xs flex items-center justify-center cursor-pointer"
                 >
                   {savingCategory ? 'Salvando...' : 'Salvar Categoria'}
                 </button>
@@ -5652,14 +5681,14 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsDeptModalOpen(false)}
-                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-zeiq-black"
+                  className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-zeiq-black flex items-center justify-center cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingDept}
-                  className="px-4 py-2 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50"
+                  className="h-10 px-4 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center justify-center cursor-pointer"
                 >
                   {savingDept ? 'Salvando...' : editingDept ? 'Salvar Alterações' : 'Criar Linha Esportiva'}
                 </button>
@@ -6078,14 +6107,14 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsClientModalOpen(false)}
-                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-zeiq-black rounded-xl cursor-pointer"
+                  className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-zeiq-black rounded-xl cursor-pointer flex items-center justify-center"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingClient}
-                  className="px-5 py-2.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer"
+                  className="h-10 px-5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer flex items-center justify-center"
                 >
                   {savingClient
                     ? (clientModalMode === 'create' ? 'Criando Conta...' : 'Salvando...')

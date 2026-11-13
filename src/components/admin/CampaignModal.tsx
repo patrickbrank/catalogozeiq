@@ -532,7 +532,7 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                className="h-10 px-4 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center justify-center"
               >
                 Cancelar
               </button>
@@ -540,7 +540,7 @@ export function CampaignModal({ isOpen, onClose, products, onSuccess }: Campaign
               <button
                 type="submit"
                 disabled={saving || (!useOfficialFile && parsedItems.length === 0)}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                className="h-10 px-5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
               >
                 {saving ? (
                   <>

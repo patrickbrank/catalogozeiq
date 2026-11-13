@@ -98,16 +98,25 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
             Esgotado
           </div>
         ) : pricing.isPromoActive ? (
-          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-black/90 backdrop-blur-md text-white border border-white/15 ring-1 ring-amber-500/20 shadow-[0_4px_16px_rgba(0,0,0,0.45),0_0_12px_rgba(255,140,0,0.15)] px-2.5 py-1 sm:px-3 sm:py-1 rounded-full z-20 flex items-center gap-1.5 select-none transition-transform group-hover:scale-105 duration-300">
-            <span className="text-xs sm:text-sm leading-none drop-shadow-[0_2px_4px_rgba(255,120,0,0.35)]">
-              {pricing.campaignEmoji || '🔥'}
-            </span>
-            <div className="flex items-baseline gap-1 leading-none">
-              <span className="text-white font-black text-xs sm:text-[13px] tracking-tight tabular-nums">
+          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20 flex items-center rounded-full overflow-hidden bg-black border border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.5)] select-none transition-transform group-hover:scale-105 duration-300">
+            {/* Gradiente quente de fundo com arcos em degradê escuro */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#4d1604] via-[#240a02] to-black pointer-events-none" />
+            <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#3b1203]/70 pointer-events-none" />
+
+            {/* Círculo da Chama com Relevo */}
+            <div className="relative z-10 flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-b from-[#5c1d05] to-[#2b0c01] border border-[#a63c0a]/50 shadow-inner ml-1 shrink-0">
+              <span className="text-xs sm:text-sm leading-none drop-shadow-[0_2px_4px_rgba(255,100,0,0.5)]">
+                {pricing.campaignEmoji || '🔥'}
+              </span>
+            </div>
+
+            {/* Texto: Percentual e OFF em Branco */}
+            <div className="relative z-10 flex items-baseline gap-1.5 pl-1.5 pr-3 sm:pr-3.5 py-1 leading-none font-sans">
+              <span className="text-white font-black text-xs sm:text-[13px] tracking-tight">
                 {pricing.discountPercentage ? `${pricing.discountPercentage}%` : 'PROMO'}
               </span>
               {pricing.discountPercentage != null && (
-                <span className="text-[10px] font-extrabold tracking-wider text-amber-400 uppercase font-sans">
+                <span className="text-white font-bold text-[10px] sm:text-[11px] tracking-wider uppercase opacity-95">
                   OFF
                 </span>
               )}
