@@ -52,6 +52,7 @@ import {
   Boxes,
   Minus,
   AlertTriangle,
+  ArrowDownWideNarrow,
   Briefcase,
   Send,
 } from 'lucide-react';
@@ -161,6 +162,7 @@ export default function AdminDashboardPage() {
   const [productSearch, setProductSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'campaign' | 'published' | 'draft' | 'low_stock' | 'out_of_stock'>('all');
+  const [productSortBy, setProductSortBy] = useState<'default' | 'price_desc' | 'price_asc' | 'name_asc'>('default');
   const [visibleProductsCount, setVisibleProductsCount] = useState(ITEMS_PER_PAGE);
 
   const handleLoadMoreProducts = () => {
@@ -1416,7 +1418,7 @@ export default function AdminDashboardPage() {
   }, [clients]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+    const list = products.filter((p) => {
       const matchesSearch =
         productSearch === '' ||
         p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -1438,7 +1440,38 @@ export default function AdminDashboardPage() {
 
       return matchesSearch && matchesCat && matchesStatus;
     });
-  }, [products, productSearch, filterCategory, filterStatus]);
+
+    return [...list].sort((a, b) => {
+      if (productSortBy === 'price_desc') {
+        const priceA = getProductEffectivePrice(a, undefined, true).effectivePrice ?? 0;
+        const priceB = getProductEffectivePrice(b, undefined, true).effectivePrice ?? 0;
+        if (priceA > 0 && priceB > 0) {
+          if (priceB !== priceA) return priceB - priceA;
+        } else if (priceA > 0 && priceB <= 0) {
+          return -1;
+        } else if (priceA <= 0 && priceB > 0) {
+          return 1;
+        }
+        return (new Date(b.created_at || 0).getTime()) - (new Date(a.created_at || 0).getTime());
+      }
+      if (productSortBy === 'price_asc') {
+        const priceA = getProductEffectivePrice(a, undefined, true).effectivePrice ?? 0;
+        const priceB = getProductEffectivePrice(b, undefined, true).effectivePrice ?? 0;
+        if (priceA > 0 && priceB > 0) {
+          if (priceA !== priceB) return priceA - priceB;
+        } else if (priceA > 0 && priceB <= 0) {
+          return -1;
+        } else if (priceA <= 0 && priceB > 0) {
+          return 1;
+        }
+        return (new Date(b.created_at || 0).getTime()) - (new Date(a.created_at || 0).getTime());
+      }
+      if (productSortBy === 'name_asc') {
+        return a.name.localeCompare(b.name, 'pt-BR');
+      }
+      return 0;
+    });
+  }, [products, productSearch, filterCategory, filterStatus, productSortBy]);
 
   // Produtos visíveis com carregamento progressivo contínuo (Carregar Mais)
   const paginatedProducts = useMemo(() => {
@@ -2183,10 +2216,11 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
-              {/* Linha 2: Filtros de Categoria e Segmented Control de Estoque */}
+              {/* Linha 2: Filtros de Categoria, Ordenação e Segmented Control de Estoque */}
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100">
-                {/* 1. Seletor Customizado de Categoria */}
-                <div ref={catDropdownRef} className="relative w-full lg:w-auto">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto">
+                  {/* 1. Seletor Customizado de Categoria */}
+                  <div ref={catDropdownRef} className="relative w-full sm:w-auto flex-1 sm:flex-none">
                   <button
                     type="button"
                     onClick={() => setIsCatDropdownOpen(!isCatDropdownOpen)}
@@ -2277,8 +2311,29 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* 2. Segmented Control de Status de Estoque com Rolagem Horizontal Suave */}
-                <div className="w-full lg:w-auto flex items-center overflow-x-auto no-scrollbar p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0 -mx-0.5">
+                {/* 2. Seletor de Ordenação */}
+                <div className="relative w-full sm:w-auto">
+                  <select
+                    value={productSortBy}
+                    onChange={(e) => {
+                      setProductSortBy(e.target.value as any);
+                      setVisibleProductsCount(ITEMS_PER_PAGE);
+                    }}
+                    className="appearance-none w-full sm:w-auto pl-8 pr-7 py-2.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    title="Ordenar produtos"
+                  >
+                    <option value="default">Ordem Padrão</option>
+                    <option value="price_desc">Preço: Maior para Menor</option>
+                    <option value="price_asc">Preço: Menor para Maior</option>
+                    <option value="name_asc">Nome: A - Z</option>
+                  </select>
+                  <ArrowDownWideNarrow className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
+                  <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                </div>
+              </div>
+
+              {/* 3. Segmented Control de Status de Estoque com Rolagem Horizontal Suave */}
+              <div className="w-full lg:w-auto flex items-center overflow-x-auto no-scrollbar p-1 bg-[#f8f9fa] border border-slate-200 rounded-xl gap-1 shrink-0 -mx-0.5">
                   <button
                     type="button"
                     onClick={() => { setFilterStatus('all'); setVisibleProductsCount(ITEMS_PER_PAGE); }}

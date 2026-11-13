@@ -11,8 +11,11 @@ import { Footer } from '@/components/Footer';
 import { Product, Category, BannerItem, StoreSettings } from '@/types';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { DEPARTMENTS, Department, findDepartmentForCategory } from '@/lib/data/departments';
-import { Search, ArrowDown, X, ShieldAlert, Tag } from 'lucide-react';
+import { Search, ArrowDown, X, ShieldAlert, Tag, ArrowDownWideNarrow } from 'lucide-react';
 import { isProductOutOfStock } from '@/lib/utils/sizes';
+import { getProductEffectivePrice } from '@/lib/utils/pricing';
+
+export type ProductSortOption = 'featured' | 'price_desc' | 'price_asc' | 'name_asc';
 
 export function normalizeSearchText(text: string | null | undefined): string {
   if (!text) return '';
@@ -49,6 +52,7 @@ export function CatalogClient({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [hideOutOfStock, setHideOutOfStock] = useState(false);
+  const [sortBy, setSortBy] = useState<ProductSortOption>('featured');
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [adminNotice, setAdminNotice] = useState<string | null>(null);
@@ -250,24 +254,52 @@ export function CatalogClient({
       result = result.filter((p) => !isProductOutOfStock(p));
     }
 
-    // 7. Ordenação estrita por lançamentos e data: do mais recente para o mais antigo
+    // 7. Ordenação dos produtos
     return [...result].sort((a, b) => {
-      // Prioriza produtos marcados como destaque ou com tag de lançamento
+      if (sortBy === 'price_desc') {
+        const priceA = getProductEffectivePrice(a, undefined, adminPromoPreview).effectivePrice ?? 0;
+        const priceB = getProductEffectivePrice(b, undefined, adminPromoPreview).effectivePrice ?? 0;
+        if (priceA > 0 && priceB > 0) {
+          if (priceB !== priceA) return priceB - priceA;
+        } else if (priceA > 0 && priceB <= 0) {
+          return -1;
+        } else if (priceA <= 0 && priceB > 0) {
+          return 1;
+        }
+        return (new Date(b.created_at || 0).getTime()) - (new Date(a.created_at || 0).getTime());
+      }
+
+      if (sortBy === 'price_asc') {
+        const priceA = getProductEffectivePrice(a, undefined, adminPromoPreview).effectivePrice ?? 0;
+        const priceB = getProductEffectivePrice(b, undefined, adminPromoPreview).effectivePrice ?? 0;
+        if (priceA > 0 && priceB > 0) {
+          if (priceA !== priceB) return priceA - priceB;
+        } else if (priceA > 0 && priceB <= 0) {
+          return -1;
+        } else if (priceA <= 0 && priceB > 0) {
+          return 1;
+        }
+        return (new Date(b.created_at || 0).getTime()) - (new Date(a.created_at || 0).getTime());
+      }
+
+      if (sortBy === 'name_asc') {
+        return a.name.localeCompare(b.name, 'pt-BR');
+      }
+
+      // 'featured' (Padrão: Lançamentos e data mais recente)
       const aLanc = isProductLancamento(a) ? 1 : 0;
       const bLanc = isProductLancamento(b) ? 1 : 0;
       if (bLanc !== aLanc) return bLanc - aLanc;
 
-      // Ordena por data mais recente
       const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
       if (timeB !== timeA) return timeB - timeA;
 
-      // Desempate por ID legado mais recente
       const idA = parseInt(a.legacy_id || '0', 10) || 0;
       const idB = parseInt(b.legacy_id || '0', 10) || 0;
       return idB - idA;
     });
-  }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, selectedTag, searchQuery, hideOutOfStock]);
+  }, [initialProducts, categories, departments, selectedDepartment, selectedCategory, selectedTag, searchQuery, hideOutOfStock, sortBy, adminPromoPreview]);
 
   // Produtos visíveis na página
   const visibleProducts = useMemo(() => {
@@ -396,7 +428,7 @@ export function CatalogClient({
       ? activeDepartmentObj.name
       : 'Todos os Equipamentos e Vestuário';
 
-  const isAnyFilterActive = selectedDepartment !== 'all' || selectedCategory !== null || selectedTag !== null || searchQuery !== '' || hideOutOfStock;
+  const isAnyFilterActive = selectedDepartment !== 'all' || selectedCategory !== null || selectedTag !== null || searchQuery !== '' || hideOutOfStock || sortBy !== 'featured';
 
   return (
     <div className="flex-1 flex flex-col">
@@ -467,6 +499,15 @@ export function CatalogClient({
               {hideOutOfStock && (
                 <span className="text-emerald-700 font-semibold"> (apenas disponíveis)</span>
               )}
+              {sortBy === 'price_desc' && (
+                <span className="text-zeiq-black font-semibold"> (maior para menor preço)</span>
+              )}
+              {sortBy === 'price_asc' && (
+                <span className="text-zeiq-black font-semibold"> (menor para maior preço)</span>
+              )}
+              {sortBy === 'name_asc' && (
+                <span className="text-zeiq-black font-semibold"> (nome: A - Z)</span>
+              )}
               {searchQuery && <span> para busca "{searchQuery}"</span>}
               {selectedTag && (
                 <span className="inline-flex items-center gap-1 font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/70">
@@ -486,6 +527,38 @@ export function CatalogClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            {/* Seletor de Ordenação */}
+            <div className="relative inline-flex items-center">
+              <label htmlFor="product-sort-select" className="sr-only">Ordenar produtos</label>
+              <div className="relative">
+                <select
+                  id="product-sort-select"
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as ProductSortOption);
+                    setVisibleCount(ITEMS_PER_PAGE);
+                  }}
+                  className={`appearance-none pl-8 pr-8 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs cursor-pointer select-none focus:outline-none focus:ring-1 focus:ring-zeiq-black ${
+                    sortBy !== 'featured'
+                      ? 'bg-zeiq-black text-white border-zeiq-black shadow-xs'
+                      : 'bg-white text-slate-700 hover:text-zeiq-black hover:bg-slate-50 border-slate-200'
+                  }`}
+                  title="Ordenar catálogo de produtos"
+                >
+                  <option value="featured" className="bg-white text-slate-800">Lançamentos / Destaques</option>
+                  <option value="price_desc" className="bg-white text-slate-800">Preço: Maior para Menor</option>
+                  <option value="price_asc" className="bg-white text-slate-800">Preço: Menor para Maior</option>
+                  <option value="name_asc" className="bg-white text-slate-800">Nome: A - Z</option>
+                </select>
+                <ArrowDownWideNarrow className={`w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                  sortBy !== 'featured' ? 'text-zeiq-orange' : 'text-slate-500'
+                }`} />
+                <ArrowDown className={`w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                  sortBy !== 'featured' ? 'text-white' : 'text-slate-400'
+                }`} />
+              </div>
+            </div>
+
             {/* Botão de Alternância: Ocultar Esgotados */}
             <button
               type="button"
@@ -513,6 +586,7 @@ export function CatalogClient({
                   setSelectedTag(null);
                   setSearchQuery('');
                   setHideOutOfStock(false);
+                  setSortBy('featured');
                   setVisibleCount(ITEMS_PER_PAGE);
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-zeiq-black hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer active:scale-95"
