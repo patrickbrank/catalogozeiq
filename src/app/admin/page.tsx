@@ -78,6 +78,13 @@ function isMasterEmail(email?: string | null): boolean {
   return clean === 'marketing@zeiq.com.br' || clean === 'patrickbrank@outlook.com';
 }
 
+const ADMIN_SORT_OPTIONS = [
+  { id: 'default', label: 'Ordem Padrão', hint: 'Lançamentos e mais recentes' },
+  { id: 'price_desc', label: 'Preço: Maior para Menor', hint: 'Maior preço de atacado primeiro' },
+  { id: 'price_asc', label: 'Preço: Menor para Maior', hint: 'Menor preço de atacado primeiro' },
+  { id: 'name_asc', label: 'Nome: A a Z', hint: 'Ordem alfabética de produtos' },
+];
+
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -175,10 +182,12 @@ export default function AdminDashboardPage() {
   const [quickDefaultStock, setQuickDefaultStock] = useState<number>(0);
   const [savingQuickStock, setSavingQuickStock] = useState(false);
 
-  // Dropdown Customizado de Categorias
+  // Dropdown Customizado de Categorias e Ordenação
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [catFilterSearch, setCatFilterSearch] = useState('');
   const catDropdownRef = useRef<HTMLDivElement>(null);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
 
   // Popover de Status do Pedido
   const [openStatusOrderId, setOpenStatusOrderId] = useState<string | null>(null);
@@ -432,6 +441,9 @@ export default function AdminDashboardPage() {
     const handleOutsideClick = (e: MouseEvent) => {
       if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
         setIsCatDropdownOpen(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setIsSortDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -2311,24 +2323,93 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* 2. Seletor de Ordenação */}
-                <div className="relative w-full sm:w-auto">
-                  <select
-                    value={productSortBy}
-                    onChange={(e) => {
-                      setProductSortBy(e.target.value as any);
-                      setVisibleProductsCount(ITEMS_PER_PAGE);
-                    }}
-                    className="appearance-none w-full sm:w-auto pl-8 pr-7 py-2.5 bg-[#f8f9fa] hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-zeiq-black cursor-pointer shadow-2xs focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                    title="Ordenar produtos"
+                {/* 2. Seletor Customizado de Ordenação (Zero kit padrão de navegador) */}
+                <div ref={sortDropdownRef} className="relative w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsSortDropdownOpen((prev) => !prev)}
+                    className={`w-full sm:w-auto px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2.5 transition-all shadow-2xs cursor-pointer select-none active:scale-95 ${
+                      productSortBy !== 'default'
+                        ? 'bg-zeiq-black text-white border border-zeiq-black shadow-xs'
+                        : 'bg-[#f8f9fa] hover:bg-slate-100 text-zeiq-black border border-slate-200'
+                    }`}
+                    title="Ordenar produtos na tabela"
+                    aria-expanded={isSortDropdownOpen}
                   >
-                    <option value="default">Ordem Padrão</option>
-                    <option value="price_desc">Preço: Maior para Menor</option>
-                    <option value="price_asc">Preço: Menor para Maior</option>
-                    <option value="name_asc">Nome: A - Z</option>
-                  </select>
-                  <ArrowDownWideNarrow className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
-                  <ChevronDown className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                    <div className="flex items-center gap-2 truncate">
+                      <ArrowDownWideNarrow className={`w-3.5 h-3.5 shrink-0 ${
+                        productSortBy !== 'default' ? 'text-zeiq-orange' : 'text-slate-500'
+                      }`} />
+                      <span className="truncate max-w-[200px]">
+                        {ADMIN_SORT_OPTIONS.find((o) => o.id === productSortBy)?.label || 'Ordenar'}
+                      </span>
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                      isSortDropdownOpen ? 'rotate-180' : ''
+                    } ${
+                      productSortBy !== 'default' ? 'text-white' : 'text-slate-400'
+                    }`} />
+                  </button>
+
+                  {/* Menu Flutuante Customizado */}
+                  {isSortDropdownOpen && (
+                    <div className="absolute right-0 sm:right-auto sm:left-0 mt-1.5 w-64 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200 shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Ordenar produtos
+                        </span>
+                        {productSortBy !== 'default' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProductSortBy('default');
+                              setIsSortDropdownOpen(false);
+                              setVisibleProductsCount(ITEMS_PER_PAGE);
+                            }}
+                            className="text-[10px] font-semibold text-zeiq-orange hover:underline cursor-pointer"
+                          >
+                            Padrão
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-0.5">
+                        {ADMIN_SORT_OPTIONS.map((opt) => {
+                          const isSelected = productSortBy === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                setProductSortBy(opt.id as any);
+                                setIsSortDropdownOpen(false);
+                                setVisibleProductsCount(ITEMS_PER_PAGE);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between gap-2.5 transition-all cursor-pointer group ${
+                                isSelected
+                                  ? 'bg-zeiq-black text-white font-bold shadow-2xs'
+                                  : 'text-slate-700 hover:bg-slate-100 hover:text-zeiq-black'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <span className="block truncate">{opt.label}</span>
+                                <span className={`block text-[10px] font-normal truncate ${
+                                  isSelected ? 'text-slate-300' : 'text-slate-400'
+                                }`}>
+                                  {opt.hint}
+                                </span>
+                              </div>
+                              {isSelected ? (
+                                <Check className="w-4 h-4 text-zeiq-orange shrink-0" />
+                              ) : (
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-slate-300 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

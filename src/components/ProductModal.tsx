@@ -321,8 +321,9 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
                           <span className="text-xs font-bold tracking-tight">{pricing.campaignName || 'Campanha Promocional'}</span>
                         </div>
                         {pricing.discountPercentage != null && (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-white/20 text-white border border-white/20 backdrop-blur-xs">
-                            {pricing.discountPercentage}% OFF
+                          <span className="inline-flex items-baseline gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-black/80 text-white border border-white/20 ring-1 ring-amber-500/25 shadow-xs backdrop-blur-md">
+                            <span className="tabular-nums font-mono text-white">{pricing.discountPercentage}%</span>
+                            <span className="text-[10px] font-extrabold tracking-wider text-amber-400 font-sans uppercase">OFF</span>
                           </span>
                         )}
                       </div>

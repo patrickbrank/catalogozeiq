@@ -98,11 +98,20 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
             Esgotado
           </div>
         ) : pricing.isPromoActive ? (
-          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-gradient-to-b from-zinc-900 via-zinc-950 to-black text-white border border-white/20 shadow-[0_4px_14px_rgba(0,0,0,0.22)] px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full z-20 flex items-center gap-1.5 select-none animate-in fade-in">
-            <span className="text-sm sm:text-base leading-none drop-shadow-xs">{pricing.campaignEmoji || '🔥'}</span>
-            <span className="text-white font-black text-xs sm:text-[13px] tracking-tight">
-              {pricing.discountPercentage ? `${pricing.discountPercentage}% OFF` : 'PROMO'}
+          <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-black/90 backdrop-blur-md text-white border border-white/15 ring-1 ring-amber-500/20 shadow-[0_4px_16px_rgba(0,0,0,0.45),0_0_12px_rgba(255,140,0,0.15)] px-2.5 py-1 sm:px-3 sm:py-1 rounded-full z-20 flex items-center gap-1.5 select-none transition-transform group-hover:scale-105 duration-300">
+            <span className="text-xs sm:text-sm leading-none drop-shadow-[0_2px_4px_rgba(255,120,0,0.35)]">
+              {pricing.campaignEmoji || '🔥'}
             </span>
+            <div className="flex items-baseline gap-1 leading-none">
+              <span className="text-white font-black text-xs sm:text-[13px] tracking-tight tabular-nums">
+                {pricing.discountPercentage ? `${pricing.discountPercentage}%` : 'PROMO'}
+              </span>
+              {pricing.discountPercentage != null && (
+                <span className="text-[10px] font-extrabold tracking-wider text-amber-400 uppercase font-sans">
+                  OFF
+                </span>
+              )}
+            </div>
           </div>
         ) : null}
       </div>
