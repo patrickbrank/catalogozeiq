@@ -1544,7 +1544,7 @@ export default function AdminDashboardPage() {
           : userRoleFilter === 'stock'
           ? c.role === 'stock'
           : userRoleFilter === 'admin'
-          ? (c.role === 'admin' || c.role === 'master' || c.is_master)
+          ? (c.role === 'admin' || c.role === 'master' || c.is_master || c.role === 'stock')
           : c.role === userRoleFilter);
 
       const matchesApproval =
@@ -2009,10 +2009,10 @@ export default function AdminDashboardPage() {
             >
               <Users className="w-4 h-4" />
               <span className="sm:hidden">
-                {isCurrentUserRepresentative ? 'Lojistas' : 'Clientes'}
+                {isCurrentUserRepresentative ? 'Lojistas' : 'Cadastros'}
               </span>
               <span className="hidden sm:inline">
-                {isCurrentUserRepresentative ? 'Meus Lojistas B2B' : 'Clientes & Lojistas'}
+                {isCurrentUserRepresentative ? 'Meus Lojistas B2B' : 'Cadastros'}
               </span>
               {pendingClients.length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
@@ -2045,28 +2045,6 @@ export default function AdminDashboardPage() {
                 activeTab === 'categories' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
               }`}>
                 {categories.length}
-              </span>
-            </button>
-          )}
-
-          {/* Aba Revendedores: Apenas Admin/Master */}
-          {isCurrentUserAdminOrMaster && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('resellers')}
-              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer ${
-                activeTab === 'resellers'
-                  ? 'bg-zeiq-black text-white shadow-xs'
-                  : 'text-slate-600 hover:text-zeiq-black hover:bg-slate-100'
-              }`}
-            >
-              <Briefcase className="w-4 h-4" />
-              <span className="sm:hidden">Revendedores</span>
-              <span className="hidden sm:inline">Revendedores</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-xs font-mono font-bold ${
-                activeTab === 'resellers' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-              }`}>
-                {adminResellers.length}
               </span>
             </button>
           )}
@@ -3821,9 +3799,12 @@ export default function AdminDashboardPage() {
                     <>
                       <button
                         type="button"
-                        onClick={() => setUserRoleFilter('representative')}
+                        onClick={() => {
+                          setUserRoleFilter('representative');
+                          setUserApprovalFilter('all');
+                        }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                          userRoleFilter === 'representative'
+                          userRoleFilter === 'representative' && userApprovalFilter === 'all'
                             ? 'bg-white text-sky-800 shadow-2xs'
                             : 'text-slate-600 hover:text-zeiq-black'
                         }`}
@@ -3832,25 +3813,17 @@ export default function AdminDashboardPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setUserRoleFilter('stock')}
+                        onClick={() => {
+                          setUserRoleFilter('admin');
+                          setUserApprovalFilter('all');
+                        }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                          userRoleFilter === 'stock'
-                            ? 'bg-white text-blue-800 shadow-2xs'
-                            : 'text-slate-600 hover:text-zeiq-black'
-                        }`}
-                      >
-                        Estoque ({clients.filter((c) => c.role === 'stock').length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setUserRoleFilter('admin')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                          userRoleFilter === 'admin'
+                          userRoleFilter === 'admin' && userApprovalFilter === 'all'
                             ? 'bg-white text-amber-900 shadow-2xs'
                             : 'text-slate-600 hover:text-zeiq-black'
                         }`}
                       >
-                        Admins ({clients.filter((c) => c.role === 'admin' || c.is_master).length})
+                        Equipe & Master ({clients.filter((c) => c.role === 'admin' || c.is_master || c.role === 'stock').length})
                       </button>
                     </>
                   )}
@@ -3874,10 +3847,10 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={() => handleOpenCreateUserModal('representative')}
                     className="w-full sm:w-auto h-10 inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 bg-zeiq-black hover:bg-zeiq-charcoal text-white border border-transparent rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                    title="Cadastrar novo representante comercial ou membro da equipe"
+                    title="Cadastrar novo representante comercial da Zeiq"
                   >
                     <Briefcase className="w-4 h-4 text-zeiq-orange shrink-0" />
-                    <span>Novo Membro</span>
+                    <span>Novo Representante</span>
                   </button>
                 )}
               </div>
@@ -3894,7 +3867,7 @@ export default function AdminDashboardPage() {
                 ) : (
                   filteredClients.map((client) => {
                     const cleanPhone = (client.phone || '').replace(/\D/g, '');
-                    const isMaster = client.is_master || isMasterEmail(client.email);
+                    const isMaster = client.is_master || client.role === 'master' || isMasterEmail(client.email);
                     const isSelf = client.id === user?.id || client.email?.toLowerCase().trim() === user?.email?.toLowerCase().trim();
                     const effectiveAvatar = isSelf ? resolveAvatarId(adminAvatarId) : resolveAvatarId(client.avatar_url);
 
@@ -4028,7 +4001,7 @@ export default function AdminDashboardPage() {
                     ) : (
                       filteredClients.map((client) => {
                         const cleanPhone = (client.phone || '').replace(/\D/g, '');
-                        const isMaster = client.is_master || isMasterEmail(client.email);
+                        const isMaster = client.is_master || client.role === 'master' || isMasterEmail(client.email);
                         const isSelf = client.id === user?.id || client.email?.toLowerCase().trim() === user?.email?.toLowerCase().trim();
                         const effectiveAvatar = isSelf ? resolveAvatarId(adminAvatarId) : resolveAvatarId(client.avatar_url);
 
@@ -5776,8 +5749,7 @@ export default function AdminDashboardPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5 whitespace-nowrap">
                           🏪 Lojista B2B
                         </span>
                         {clientRole === 'reseller' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
@@ -5798,8 +5770,7 @@ export default function AdminDashboardPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-sky-950 flex items-center gap-1.5">
-                          <Briefcase className="w-3.5 h-3.5 text-sky-600" />
+                        <span className="text-xs font-bold text-sky-950 flex items-center gap-1.5 whitespace-nowrap">
                           💼 Representante Comercial
                         </span>
                         {clientRole === 'representative' && <Check className="w-3.5 h-3.5 text-sky-600" />}
@@ -5820,8 +5791,7 @@ export default function AdminDashboardPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
-                          <Boxes className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5 whitespace-nowrap">
                           📦 Controle de Estoque
                         </span>
                         {clientRole === 'stock' && <Check className="w-3.5 h-3.5 text-blue-600" />}
@@ -5845,8 +5815,7 @@ export default function AdminDashboardPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5 whitespace-nowrap">
                           🛡️ Administrador
                         </span>
                         {clientRole === 'admin' && <Check className="w-3.5 h-3.5 text-amber-600" />}
@@ -5929,21 +5898,31 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {clientRole === 'admin' ? 'Identificação / Setor *' : 'Nome da Loja / Arena *'}
+                    {clientRole === 'admin'
+                      ? 'Identificação / Setor *'
+                      : clientRole === 'representative'
+                      ? 'Área / Identificação Comercial *'
+                      : 'Nome da Loja / Arena *'}
                   </label>
                   <input
                     type="text"
                     required
                     value={newClientStore}
                     onChange={(e) => setNewClientStore(e.target.value)}
-                    placeholder={clientRole === 'admin' ? 'Ex: Equipe Comercial Zeiq' : 'Ex: Arena Beach Point'}
+                    placeholder={
+                      clientRole === 'admin'
+                        ? 'Ex: Equipe Comercial Zeiq'
+                        : clientRole === 'representative'
+                        ? 'Ex: Zeiq Interior SP ou Nome Fantasia'
+                        : 'Ex: Arena Beach Point'
+                    }
                     className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nome do Responsável *
+                    {clientRole === 'representative' ? 'Nome do Representante Comercial *' : 'Nome do Responsável *'}
                   </label>
                   <input
                     type="text"
@@ -5959,7 +5938,7 @@ export default function AdminDashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    WhatsApp com DDD *
+                    {clientRole === 'representative' ? 'WhatsApp Comercial (Recebe Pedidos) *' : 'WhatsApp com DDD *'}
                   </label>
                   <input
                     type="tel"
@@ -6089,7 +6068,13 @@ export default function AdminDashboardPage() {
                   {savingClient
                     ? (clientModalMode === 'create' ? 'Criando Conta...' : 'Salvando...')
                     : (clientModalMode === 'create'
-                        ? (clientRole === 'admin' ? 'Cadastrar Administrador' : 'Cadastrar Lojista B2B')
+                        ? (clientRole === 'representative'
+                            ? 'Cadastrar Representante Comercial'
+                            : clientRole === 'admin'
+                            ? 'Cadastrar Administrador'
+                            : clientRole === 'stock'
+                            ? 'Cadastrar Membro de Estoque'
+                            : 'Cadastrar Lojista B2B')
                         : 'Salvar Alterações')}
                 </button>
               </div>

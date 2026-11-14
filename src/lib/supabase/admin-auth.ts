@@ -27,7 +27,7 @@ export async function verifyAdmin(): Promise<{ isAdmin: boolean; isMaster: boole
     }
 
     const email = user.email?.toLowerCase().trim();
-    const isMaster = isMasterEmail(email);
+    const isMaster = isMasterEmail(email) || user.app_metadata?.role === 'master' || user.user_metadata?.role === 'master' || user.user_metadata?.is_master === true;
 
     if (isMaster) {
       return { isAdmin: true, isMaster: true, user, role: 'master' };

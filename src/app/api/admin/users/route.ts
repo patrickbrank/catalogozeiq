@@ -25,13 +25,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, users: [] });
     }
 
-    // 1. Busca todos os usuários do Supabase Auth
-    const { data: authData, error: authErr } = await adminSupabase.auth.admin.listUsers({
-      perPage: 250,
-    });
+    // 1. Busca todos os usuários do Supabase Auth com paginação completa (sem limite de 250)
+    let allAuthUsers: any[] = [];
+    let page = 1;
+    const perPage = 500;
+    while (true) {
+      const { data: pageData, error: authErr } = await adminSupabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
 
-    if (authErr) {
-      return NextResponse.json({ success: false, error: authErr.message }, { status: 500 });
+      if (authErr) {
+        return NextResponse.json({ success: false, error: authErr.message }, { status: 500 });
+      }
+
+      if (!pageData || !pageData.users || pageData.users.length === 0) {
+        break;
+      }
+
+      allAuthUsers.push(...pageData.users);
+
+      if (pageData.users.length < perPage) {
+        break;
+      }
+
+      page++;
     }
 
     // 2. Busca dados da tabela profiles
@@ -63,11 +81,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Monta lista unificada de usuários com seus dados e cargos
-    let formattedUsers = authData.users.map((u) => {
+    let formattedUsers = allAuthUsers.map((u) => {
       const p = profilesMap[u.id] || {};
       const meta = u.user_metadata || {};
       const appMeta = u.app_metadata || {};
-      const isMaster = isMasterEmail(u.email);
+      const isMaster = isMasterEmail(u.email) || p.is_master === true || meta.is_master === true || appMeta.role === 'master' || p.role === 'master' || meta.role === 'master';
       const authRole = appMeta.role || meta.role;
       let userRole = isMaster ? 'master' : (p.role || authRole || 'reseller');
 
@@ -75,13 +93,13 @@ export async function GET(request: NextRequest) {
       if (userRole === 'marketing') userRole = 'admin';
       if (userRole === 'ROLE_RESELLER') userRole = 'representative';
 
-      // Se o usuário está cadastrado na tabela oficial de representantes (resellers), garante o cargo apenas se o profile não definiu explicitamente
+      // Se o usuário está cadastrado na tabela de representantes comerciais, garante cargo
       const isOfficialRep =
         resellersUserIds.has(u.id) ||
         (u.email && resellersEmails.has(u.email.toLowerCase().trim())) ||
         p.store_name === 'Representação Comercial Zeiq';
 
-      if (!isMaster && userRole !== 'admin' && !p.role && isOfficialRep) {
+      if (!isMaster && userRole !== 'admin' && (isOfficialRep || userRole === 'representative')) {
         userRole = 'representative';
       }
 
