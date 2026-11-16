@@ -2610,7 +2610,7 @@ export default function AdminDashboardPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-[#f8f9fa] border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                      <th className="py-2.5 pl-4 pr-2 w-14 text-center">Foto</th>
+                      <th className="py-2.5 pl-4 pr-2 w-20 text-center">Foto</th>
                       <th className="py-2.5 px-3 min-w-[200px]">Produto & SKU</th>
                       <th className="py-2.5 px-3 whitespace-nowrap">Categoria</th>
                       <th className="py-2.5 px-3 whitespace-nowrap">Preço Atacado</th>
@@ -2632,12 +2632,12 @@ export default function AdminDashboardPage() {
                         const cover = prod.images?.find((i) => i.is_cover)?.public_url || prod.images?.[0]?.public_url;
                         return (
                           <tr key={prod.id} className="hover:bg-slate-50/80 transition-colors align-top">
-                            <td className="py-3 pl-4 pr-2 w-14 text-center">
-                              <div className="w-10 h-10 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 mx-auto">
+                            <td className="py-3 pl-4 pr-2 w-20 text-center">
+                              <div className="w-14 h-16 rounded-xl bg-[#f8f9fa] border border-slate-200/90 overflow-hidden flex items-center justify-center shrink-0 mx-auto shadow-2xs group-hover:border-slate-300 transition-colors">
                                 {cover ? (
                                   <img src={cover} alt="" className="w-full h-full object-cover object-top" />
                                 ) : (
-                                  <ImageIcon className="w-4 h-4 text-slate-300" />
+                                  <ImageIcon className="w-5 h-5 text-slate-300" />
                                 )}
                               </div>
                             </td>
@@ -2673,25 +2673,30 @@ export default function AdminDashboardPage() {
                                 const isPromo = Boolean(pricing.promotionalPrice && pricing.promotionalPrice > 0 && pricing.isPromoActive);
                                 if (isPromo && pricing.promotionalPrice != null) {
                                   return (
-                                    <div>
+                                    <div className="flex flex-col">
                                       <div className="min-h-8 flex items-center gap-1.5">
-                                        <span className="font-bold text-emerald-700 text-xs">
+                                        <span className="font-black text-emerald-700 text-sm tracking-tight">
                                           R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
                                         <span 
-                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/25 shadow-2xs shrink-0 select-none"
-                                          title={pricing.discountPercentage ? `Campanha Ativa: ${pricing.discountPercentage}% OFF` : 'Campanha Ativa'}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200/90 shadow-2xs shrink-0 select-none"
+                                          title={pricing.discountPercentage ? `Campanha Promocional: ${pricing.discountPercentage}% OFF` : 'Campanha Promocional Ativa'}
                                         >
-                                          <span className="text-sm sm:text-base leading-none">🔥</span>
-                                          {pricing.discountPercentage != null && pricing.discountPercentage > 0 && (
-                                            <span className="font-bold text-amber-800 text-[10px] leading-none">-{pricing.discountPercentage}%</span>
+                                          <span className="text-xs leading-none">🔥</span>
+                                          {pricing.discountPercentage != null && pricing.discountPercentage > 0 ? (
+                                            <span className="leading-none">-{pricing.discountPercentage}%</span>
+                                          ) : (
+                                            <span className="leading-none">PROMO</span>
                                           )}
                                         </span>
                                       </div>
                                       {prod.price != null && prod.price > 0 && (
-                                        <span className="text-[10px] text-slate-400 line-through block mt-1">
-                                          De: R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </span>
+                                        <div className="text-[11px] text-slate-400 font-medium -mt-1 flex items-center gap-1">
+                                          <span className="text-[10px] font-semibold text-slate-400">De:</span>
+                                          <span className="line-through text-slate-400">
+                                            R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </span>
+                                        </div>
                                       )}
                                     </div>
                                   );
@@ -2727,57 +2732,94 @@ export default function AdminDashboardPage() {
                               {(() => {
                                 const breakdown = getProductStockBreakdown(prod);
                                 const hasSizes = breakdown && breakdown.length > 0;
-                                return (
-                                  <div className="flex flex-col items-center whitespace-nowrap mx-auto">
-                                    <div className="min-h-8 flex items-center justify-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenQuickStock(prod)}
-                                        className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-lg text-xs font-bold font-mono transition-all border shadow-2xs cursor-pointer active:scale-95 ${
+
+                                if (hasSizes) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenQuickStock(prod)}
+                                      className={`group inline-flex flex-col items-center justify-center p-1.5 px-2.5 rounded-xl border transition-all active:scale-95 cursor-pointer shadow-2xs text-center ${
+                                        prod.total_stock != null && prod.total_stock > 5
+                                          ? 'bg-white hover:bg-slate-50 border-slate-200/90 hover:border-slate-300'
+                                          : prod.total_stock != null && prod.total_stock > 0
+                                          ? 'bg-amber-50/40 hover:bg-amber-50/80 border-amber-200/90 hover:border-amber-300'
+                                          : prod.total_stock === 0
+                                          ? 'bg-rose-50/40 hover:bg-rose-50/80 border-rose-200/90 hover:border-rose-300'
+                                          : 'bg-white hover:bg-slate-50 border-slate-200'
+                                      }`}
+                                      title="Clique para abrir o ajuste rápido de estoque por tamanho"
+                                    >
+                                      {/* Linha Superior: Total e Ícone */}
+                                      <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
+                                        <Boxes className={`w-3.5 h-3.5 ${
                                           prod.total_stock != null && prod.total_stock > 5
-                                            ? 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-700 border-slate-200'
+                                            ? 'text-slate-400 group-hover:text-slate-600'
                                             : prod.total_stock != null && prod.total_stock > 0
-                                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
-                                            : prod.total_stock === 0
-                                            ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                                            : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
-                                        }`}
-                                        title="Clique para abrir o ajuste rápido de estoque"
-                                      >
-                                        <Boxes className="w-3.5 h-3.5 opacity-60" />
-                                        <span>
+                                            ? 'text-amber-600'
+                                            : 'text-rose-500'
+                                        }`} />
+                                        <span className={
+                                          prod.total_stock != null && prod.total_stock > 5
+                                            ? 'text-slate-800'
+                                            : prod.total_stock != null && prod.total_stock > 0
+                                            ? 'text-amber-800'
+                                            : 'text-rose-700'
+                                        }>
                                           {typeof prod.total_stock === 'number'
                                             ? prod.total_stock === 0
-                                              ? '0 un.'
+                                              ? '0 un. (Esgotado)'
                                               : `${prod.total_stock} un.`
                                             : 'Estoque'}
                                         </span>
-                                      </button>
-                                    </div>
+                                      </div>
 
-                                    {hasSizes && (
-                                      <div
-                                        onClick={() => handleOpenQuickStock(prod)}
-                                        className="flex items-center justify-center gap-1 flex-nowrap whitespace-nowrap mt-1.5 cursor-pointer"
-                                        title="Clique para abrir o ajuste rápido de estoque por tamanho"
-                                      >
+                                      {/* Linha Inferior: Grade contínua elegante em cápsula segmentada */}
+                                      <div className="mt-1 flex items-center divide-x divide-slate-200/90 rounded-md border border-slate-200/90 bg-white overflow-hidden font-mono text-[10px] shadow-2xs">
                                         {breakdown.map(({ size, quantity, isZero, isLow }) => (
-                                          <span
+                                          <div
                                             key={size}
-                                            className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-mono font-bold border whitespace-nowrap shrink-0 ${
+                                            className={`px-1.5 py-0.5 flex items-center gap-1 transition-colors ${
                                               isZero
-                                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                ? 'bg-rose-50 text-rose-700 font-black'
                                                 : isLow
-                                                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                                                ? 'bg-amber-50 text-amber-800 font-bold'
+                                                : 'bg-white text-slate-700 font-semibold'
                                             }`}
                                           >
-                                            <span className="opacity-70">{size}:</span>
+                                            <span className="opacity-60 text-[9px]">{size}</span>
                                             <span>{quantity}</span>
-                                          </span>
+                                          </div>
                                         ))}
                                       </div>
-                                    )}
+                                    </button>
+                                  );
+                                }
+
+                                return (
+                                  <div className="min-h-8 flex items-center justify-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenQuickStock(prod)}
+                                      className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-lg text-xs font-bold font-mono transition-all border shadow-2xs cursor-pointer active:scale-95 ${
+                                        prod.total_stock != null && prod.total_stock > 5
+                                          ? 'bg-[#f8f9fa] hover:bg-slate-100 text-slate-700 border-slate-200'
+                                          : prod.total_stock != null && prod.total_stock > 0
+                                          ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                                          : prod.total_stock === 0
+                                          ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                                          : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                                      }`}
+                                      title="Clique para abrir o ajuste rápido de estoque"
+                                    >
+                                      <Boxes className="w-3.5 h-3.5 opacity-60" />
+                                      <span>
+                                        {typeof prod.total_stock === 'number'
+                                          ? prod.total_stock === 0
+                                            ? '0 un.'
+                                            : `${prod.total_stock} un.`
+                                          : 'Estoque'}
+                                      </span>
+                                    </button>
                                   </div>
                                 );
                               })()}
@@ -2895,22 +2937,27 @@ export default function AdminDashboardPage() {
                             <div className="mt-1 font-mono font-bold text-xs flex flex-wrap items-center gap-1.5">
                               {canManageCampaigns && pricing.isPromoActive && pricing.promotionalPrice != null ? (
                                 <>
-                                  <span className="text-emerald-700 font-black text-sm">
+                                  <span className="text-emerald-700 font-black text-sm tracking-tight">
                                     R$ {pricing.promotionalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </span>
                                   <span 
-                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/25 shadow-2xs shrink-0 select-none"
-                                    title={pricing.discountPercentage ? `Campanha Ativa: ${pricing.discountPercentage}% OFF` : 'Campanha Ativa'}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200/90 shadow-2xs shrink-0 select-none"
+                                    title={pricing.discountPercentage ? `Campanha Promocional: ${pricing.discountPercentage}% OFF` : 'Campanha Promocional Ativa'}
                                   >
-                                    <span className="text-sm leading-none">🔥</span>
-                                    {pricing.discountPercentage != null && pricing.discountPercentage > 0 && (
-                                      <span className="font-bold text-amber-800 text-[10px] leading-none">-{pricing.discountPercentage}%</span>
+                                    <span className="text-xs leading-none">🔥</span>
+                                    {pricing.discountPercentage != null && pricing.discountPercentage > 0 ? (
+                                      <span className="leading-none">-{pricing.discountPercentage}%</span>
+                                    ) : (
+                                      <span className="leading-none">PROMO</span>
                                     )}
                                   </span>
                                   {prod.price != null && prod.price > 0 && (
-                                    <span className="text-slate-400 line-through text-[11px]">
-                                      De: R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
+                                    <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                                      <span className="text-[10px] font-semibold text-slate-400">De:</span>
+                                      <span className="line-through text-slate-400">
+                                        R$ {prod.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </span>
+                                    </div>
                                   )}
                                 </>
                               ) : prod.price != null && prod.price > 0 ? (
@@ -2929,32 +2976,30 @@ export default function AdminDashboardPage() {
                               )}
                             </div>
 
-                            {/* Detalhamento de estoque por tamanho no mobile */}
+                            {/* Detalhamento de estoque por tamanho no mobile em barra segmentada */}
                             {(() => {
                               const breakdown = getProductStockBreakdown(prod);
                               if (!breakdown || breakdown.length === 0) return null;
                               return (
                                 <div
                                   onClick={() => handleOpenQuickStock(prod)}
-                                  className="flex flex-wrap items-center gap-1 mt-1.5 cursor-pointer"
+                                  className="inline-flex items-center divide-x divide-slate-200/90 rounded-md border border-slate-200/90 bg-white overflow-hidden text-[10px] font-mono mt-1.5 shadow-2xs cursor-pointer active:scale-95"
                                   title="Clique para abrir o ajuste rápido de estoque por tamanho"
                                 >
                                   {breakdown.map(({ size, quantity, isZero, isLow }) => (
-                                    <span
+                                    <div
                                       key={size}
-                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                                      className={`px-1.5 py-0.5 flex items-center gap-1 transition-colors ${
                                         isZero
-                                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                          ? 'bg-rose-50 text-rose-700 font-black'
                                           : isLow
-                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                          : 'bg-slate-50 text-slate-600 border-slate-200/90'
+                                          ? 'bg-amber-50 text-amber-800 font-bold'
+                                          : 'bg-white text-slate-700 font-semibold'
                                       }`}
                                     >
-                                      <span className="opacity-75">{size}:</span>
-                                      <span className={isZero ? 'text-rose-700 font-black' : isLow ? 'text-amber-800 font-black' : 'text-slate-800'}>
-                                        {quantity}
-                                      </span>
-                                    </span>
+                                      <span className="opacity-60 text-[9px]">{size}</span>
+                                      <span>{quantity}</span>
+                                    </div>
                                   ))}
                                 </div>
                               );
