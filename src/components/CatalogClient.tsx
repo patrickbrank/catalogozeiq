@@ -73,7 +73,7 @@ interface CatalogClientProps {
   initialPromoPreview?: boolean;
 }
 
-const ITEMS_PER_PAGE = 30; // Mais itens por página aproveitando o layout widescreen
+const ITEMS_PER_PAGE = 20; // Lote inicial otimizado para reduzir tráfego de imagens no carregamento
 
 export function CatalogClient({
   initialProducts,

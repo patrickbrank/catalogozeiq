@@ -328,13 +328,13 @@ export default function ResellerPortalPage() {
     loadAllOrders(false);
   }, [loadAllOrders]);
 
-  // Polling periódico em segundo plano (25s) e revalidação ao alternar para a aba do navegador
+  // Polling periódico em segundo plano (90s) e revalidação ao alternar para a aba do navegador
   useEffect(() => {
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadAllOrders(true);
       }
-    }, 25000);
+    }, 90000);
 
     const handleVisibilityChange = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {

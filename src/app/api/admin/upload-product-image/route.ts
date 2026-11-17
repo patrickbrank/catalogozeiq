@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyAdmin, getAdminClient } from '@/lib/supabase/admin-auth';
+import {
+  optimizeProductImageBuffer,
+  STORAGE_CACHE_CONTROL,
+} from '@/lib/utils/server-image-optimizer';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,18 +36,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fileExt = file.name.split('.').pop() || 'jpg';
-    const cleanExt = fileExt.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${cleanExt}`;
-    const storagePath = `admin-uploads/${fileName}`;
-
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const inputBuffer = Buffer.from(arrayBuffer);
+    const baseName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    let mainBuffer: Buffer;
+    let thumbBuffer: Buffer | null = null;
+    let mainPath = `admin-uploads/${baseName}-opt.webp`;
+    let thumbPath = `admin-uploads/${baseName}-opt-thumb.webp`;
+    let contentType = 'image/webp';
+
+    try {
+      const optimized = await optimizeProductImageBuffer(inputBuffer);
+      mainBuffer = optimized.mainBuffer;
+      thumbBuffer = optimized.thumbBuffer;
+    } catch (optErr) {
+      console.warn('Fallback no processamento sharp (produto), mantendo arquivo original:', optErr);
+      const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      mainPath = `admin-uploads/${baseName}.${fileExt}`;
+      mainBuffer = inputBuffer;
+      contentType = file.type || 'image/jpeg';
+    }
 
     const { error: uploadError } = await adminSupabase.storage
       .from('produtos')
-      .upload(storagePath, buffer, {
-        contentType: file.type || 'image/jpeg',
+      .upload(mainPath, mainBuffer, {
+        contentType,
+        cacheControl: STORAGE_CACHE_CONTROL,
         upsert: true,
       });
 
@@ -53,14 +73,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let thumbUrl: string | undefined;
+    if (thumbBuffer) {
+      const { error: thumbErr } = await adminSupabase.storage
+        .from('produtos')
+        .upload(thumbPath, thumbBuffer, {
+          contentType: 'image/webp',
+          cacheControl: STORAGE_CACHE_CONTROL,
+          upsert: true,
+        });
+
+      if (!thumbErr) {
+        const { data: thumbUrlData } = adminSupabase.storage
+          .from('produtos')
+          .getPublicUrl(thumbPath);
+        thumbUrl = thumbUrlData.publicUrl;
+      }
+    }
+
     const { data: publicUrlData } = adminSupabase.storage
       .from('produtos')
-      .getPublicUrl(storagePath);
+      .getPublicUrl(mainPath);
 
     return NextResponse.json({
       success: true,
       publicUrl: publicUrlData.publicUrl,
-      storagePath,
+      storagePath: mainPath,
+      thumbUrl: thumbUrl || publicUrlData.publicUrl,
+      thumbStoragePath: thumbBuffer ? thumbPath : undefined,
+      originalBytes: inputBuffer.length,
+      optimizedBytes: mainBuffer.length,
     });
   } catch (err: any) {
     return NextResponse.json(

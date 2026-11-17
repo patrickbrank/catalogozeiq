@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { verifyAdmin } from '@/lib/supabase/admin-auth';
 import { getStoreSettings, saveStoreSettings } from '@/lib/data/settings';
 
@@ -31,6 +32,11 @@ export async function PUT(request: NextRequest) {
       contactEmail,
       siteName,
     });
+
+    try {
+      revalidatePath('/');
+      revalidatePath('/api/settings');
+    } catch {}
 
     return NextResponse.json({ success: true, settings: updated });
   } catch (err: any) {

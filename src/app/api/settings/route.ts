@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStoreSettings } from '@/lib/data/settings';
 
-export const revalidate = 30; // 30s cache
+export const revalidate = 300; // 5min cache (invalidado via revalidatePath/revalidateTag ao salvar no admin)
 
 export async function GET() {
   try {

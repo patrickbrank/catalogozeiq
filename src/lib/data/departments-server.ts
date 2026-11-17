@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { Department, DEFAULT_DEPARTMENTS } from './departments';
 
@@ -16,14 +17,7 @@ function getAdminSupabase() {
   });
 }
 
-let cachedDepartments: { data: Department[]; timestamp: number } | null = null;
-const CACHE_TTL_MS = 30 * 1000; // 30s cache
-
-export async function getDepartments(): Promise<Department[]> {
-  if (cachedDepartments && Date.now() - cachedDepartments.timestamp < CACHE_TTL_MS) {
-    return cachedDepartments.data;
-  }
-
+async function fetchDepartmentsUncached(): Promise<Department[]> {
   // 1. Tenta carregar do Supabase Storage
   try {
     const supabase = getAdminSupabase();
@@ -33,7 +27,6 @@ export async function getDepartments(): Promise<Department[]> {
         const text = await data.text();
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          cachedDepartments = { data: parsed, timestamp: Date.now() };
           return parsed;
         }
       }
@@ -47,13 +40,26 @@ export async function getDepartments(): Promise<Department[]> {
       const content = fs.readFileSync(localPath, 'utf8');
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedDepartments = { data: parsed, timestamp: Date.now() };
         return parsed;
       }
     }
   } catch {}
 
   return DEFAULT_DEPARTMENTS;
+}
+
+const getCachedDepartments = unstable_cache(
+  async () => fetchDepartmentsUncached(),
+  ['zeiq-departments-config'],
+  { revalidate: 300, tags: ['departments-config', 'catalog'] }
+);
+
+export async function getDepartments(): Promise<Department[]> {
+  try {
+    return await getCachedDepartments();
+  } catch {
+    return fetchDepartmentsUncached();
+  }
 }
 
 export async function saveDepartments(depts: Department[]): Promise<Department[]> {
@@ -65,6 +71,7 @@ export async function saveDepartments(depts: Department[]): Promise<Department[]
     if (supabase) {
       await supabase.storage.from('produtos').upload('config/departments.json', Buffer.from(jsonStr, 'utf8'), {
         contentType: 'application/json',
+        cacheControl: '60',
         upsert: true,
       });
     }
@@ -82,6 +89,10 @@ export async function saveDepartments(depts: Department[]): Promise<Department[]
     console.warn('Aviso: Gravação local em disco indisponível (ambiente serverless/read-only). Dados salvos com sucesso no Supabase.');
   }
 
-  cachedDepartments = { data: depts, timestamp: Date.now() };
+  try {
+    revalidateTag('departments-config');
+    revalidateTag('catalog');
+  } catch {}
+
   return depts;
 }

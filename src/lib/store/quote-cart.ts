@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { QuoteItem, Product } from '@/types';
 import { getProductEffectivePrice } from '@/lib/utils/pricing';
+import { getProductCoverThumbUrl } from '@/lib/utils/images';
 
 export interface CartLastAdded {
   id: string;
@@ -46,8 +47,8 @@ export const useQuoteCart = create<QuoteCartState>()(
       addItem: (product: Product, quantity = 1, selectedSize = '', notes = '') => {
         set((state) => {
           const existingIndex = state.items.findIndex((item) => item.productId === product.id);
-          const coverImage = product.images && product.images.length > 0 
-            ? (product.images.find(img => img.is_cover)?.public_url || product.images[0].public_url)
+          const coverImage = product.images && product.images.length > 0
+            ? getProductCoverThumbUrl(product)
             : undefined;
 
           const itemSku = selectedSize
@@ -123,8 +124,8 @@ export const useQuoteCart = create<QuoteCartState>()(
 
           if (totalQty === 0) return state;
 
-          const coverImage = product.images && product.images.length > 0 
-            ? (product.images.find(img => img.is_cover)?.public_url || product.images[0].public_url)
+          const coverImage = product.images && product.images.length > 0
+            ? getProductCoverThumbUrl(product)
             : undefined;
 
           const lastAdded: CartLastAdded = {

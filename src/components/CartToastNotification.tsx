@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import gsap from 'gsap';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { Check, ShoppingBag, X, ArrowRight } from 'lucide-react';
+import { getThumbImageUrl } from '@/lib/utils/images';
 
 export function CartToastNotification() {
   const lastAdded = useQuoteCart((state) => state.lastAdded);
@@ -109,7 +110,7 @@ export function CartToastNotification() {
           <div className="w-11 h-11 rounded-xl bg-zeiq-charcoal border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
             {lastAdded.coverImage ? (
               <img
-                src={lastAdded.coverImage}
+                src={getThumbImageUrl(lastAdded.coverImage)}
                 alt=""
                 className="w-full h-full object-cover object-top"
               />

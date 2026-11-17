@@ -293,11 +293,15 @@ export async function POST(request: NextRequest) {
         const imgInserts = images.map((img: any, idx: number) => ({
           product_id: productId,
           public_url: img.public_url || img.url,
+          thumb_url: img.thumb_url || null,
           storage_path: img.storage_path || `produtos/${productId}/foto-${idx + 1}.jpg`,
           sort_order: img.sort_order ?? idx,
           is_cover: !!img.is_cover || idx === 0,
         }));
-        await adminSupabase.from('product_images').insert(imgInserts);
+        const { error: imgErr } = await adminSupabase.from('product_images').insert(imgInserts);
+        if (imgErr && imgErr.message?.includes('thumb_url')) {
+          await adminSupabase.from('product_images').insert(imgInserts.map(({ thumb_url, ...rest }) => rest));
+        }
       } catch {}
     }
 
@@ -461,11 +465,15 @@ export async function PUT(request: NextRequest) {
           const imgInserts = images.map((img: any, idx: number) => ({
             product_id: id,
             public_url: img.public_url || img.url,
+            thumb_url: img.thumb_url || null,
             storage_path: img.storage_path || `produtos/${id}/foto-${idx + 1}.jpg`,
             sort_order: img.sort_order ?? idx,
             is_cover: !!img.is_cover || idx === 0,
           }));
-          await adminSupabase.from('product_images').insert(imgInserts);
+          const { error: imgErr } = await adminSupabase.from('product_images').insert(imgInserts);
+          if (imgErr && imgErr.message?.includes('thumb_url')) {
+            await adminSupabase.from('product_images').insert(imgInserts.map(({ thumb_url, ...rest }) => rest));
+          }
         }
       } catch {}
     }

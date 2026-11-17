@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { BannerItem } from '@/types';
 import { DEFAULT_BANNERS } from '@/lib/constants/store';
@@ -19,14 +20,7 @@ function getAdminSupabase() {
   });
 }
 
-let cachedBanners: { data: BannerItem[]; timestamp: number } | null = null;
-const CACHE_TTL_MS = 30 * 1000; // 30s cache
-
-export async function getBanners(): Promise<BannerItem[]> {
-  if (cachedBanners && Date.now() - cachedBanners.timestamp < CACHE_TTL_MS) {
-    return cachedBanners.data;
-  }
-
+async function fetchBannersUncached(): Promise<BannerItem[]> {
   // 1. Tenta carregar do Supabase Storage
   try {
     const supabase = getAdminSupabase();
@@ -36,7 +30,6 @@ export async function getBanners(): Promise<BannerItem[]> {
         const text = await data.text();
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          cachedBanners = { data: parsed, timestamp: Date.now() };
           return parsed;
         }
       }
@@ -50,13 +43,26 @@ export async function getBanners(): Promise<BannerItem[]> {
       const content = fs.readFileSync(localPath, 'utf8');
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedBanners = { data: parsed, timestamp: Date.now() };
         return parsed;
       }
     }
   } catch {}
 
   return DEFAULT_BANNERS;
+}
+
+const getCachedBanners = unstable_cache(
+  async () => fetchBannersUncached(),
+  ['zeiq-banners-config'],
+  { revalidate: 300, tags: ['banners-config', 'catalog'] }
+);
+
+export async function getBanners(): Promise<BannerItem[]> {
+  try {
+    return await getCachedBanners();
+  } catch {
+    return fetchBannersUncached();
+  }
 }
 
 export async function saveBanners(banners: BannerItem[]): Promise<BannerItem[]> {
@@ -74,6 +80,7 @@ export async function saveBanners(banners: BannerItem[]): Promise<BannerItem[]> 
     if (supabase) {
       await supabase.storage.from('produtos').upload('config/banners.json', Buffer.from(jsonStr, 'utf8'), {
         contentType: 'application/json',
+        cacheControl: '60',
         upsert: true,
       });
     }
@@ -91,6 +98,10 @@ export async function saveBanners(banners: BannerItem[]): Promise<BannerItem[]> 
     console.warn('Erro ao salvar banners localmente:', err);
   }
 
-  cachedBanners = { data: limited, timestamp: Date.now() };
+  try {
+    revalidateTag('banners-config');
+    revalidateTag('catalog');
+  } catch {}
+
   return limited;
 }

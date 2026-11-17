@@ -11,6 +11,7 @@ import { Product } from '@/types';
 import { normalizeSearchText } from '@/components/CatalogClient';
 import { createClient } from '@/lib/supabase/client';
 import { triggerCartImpact } from '@/lib/utils/cart-animation';
+import { getProductCoverThumbUrl } from '@/lib/utils/images';
 
 interface HeaderProps {
   searchQuery: string;
@@ -209,7 +210,7 @@ export function Header({ searchQuery, onSearchChange, products = [], onSelectPro
                 ) : (
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
                     {previewMatches.slice(0, 5).map((prod) => {
-                      const cover = prod.images && prod.images.length > 0 ? prod.images[0].public_url : '/placeholder-product.svg';
+                      const cover = getProductCoverThumbUrl(prod);
                       return (
                         <div
                           key={prod.id}

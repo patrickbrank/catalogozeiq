@@ -13,6 +13,7 @@ export interface ProductImage {
   legacy_url?: string;
   storage_path: string;
   public_url: string;
+  thumb_url?: string | null;
   sort_order: number;
   is_cover: boolean;
 }

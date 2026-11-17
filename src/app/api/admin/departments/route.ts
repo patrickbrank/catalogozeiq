@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { verifyAdmin } from '@/lib/supabase/admin-auth';
 import { Department } from '@/lib/data/departments';
 import { getDepartments, saveDepartments } from '@/lib/data/departments-server';
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
 
     const updated = [...current, newDept];
     await saveDepartments(updated);
+    try { revalidatePath('/'); } catch {}
 
     return NextResponse.json({ success: true, department: newDept, departments: updated });
   } catch (err: any) {
@@ -93,6 +95,7 @@ export async function PUT(request: NextRequest) {
       });
 
       await saveDepartments(current);
+      try { revalidatePath('/'); } catch {}
       return NextResponse.json({ success: true, departments: current });
     }
 
@@ -110,6 +113,7 @@ export async function PUT(request: NextRequest) {
     };
 
     await saveDepartments(current);
+    try { revalidatePath('/'); } catch {}
     return NextResponse.json({ success: true, department: current[index], departments: current });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -139,6 +143,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await saveDepartments(filtered);
+    try { revalidatePath('/'); } catch {}
     return NextResponse.json({ success: true, departments: filtered });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

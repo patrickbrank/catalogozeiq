@@ -10,7 +10,8 @@
     "migrate:images": "node scripts/migrate-images.js",
     "migrate:database": "node scripts/migrate-database.js",
     "migrate:all": "node scripts/migrate-images.js && node scripts/migrate-database.js",
-    "update:prices": "node scripts/update-prices.js"
+    "update:prices": "node scripts/update-prices.js",
+    "optimize:images": "node scripts/optimize-storage-images.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -22,6 +23,7 @@
     "next": "^15.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.35.5",
     "tailwind-merge": "^3.0.2",
     "zustand": "^5.0.3"
   },

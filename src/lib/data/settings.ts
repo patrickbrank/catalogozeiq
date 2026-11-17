@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { StoreSettings } from '@/types';
 import { DEFAULT_STORE_SETTINGS } from '@/lib/constants/store';
@@ -19,14 +20,7 @@ function getAdminSupabase() {
   });
 }
 
-let cachedSettings: { data: StoreSettings; timestamp: number } | null = null;
-const CACHE_TTL_MS = 30 * 1000; // 30s cache
-
-export async function getStoreSettings(): Promise<StoreSettings> {
-  if (cachedSettings && Date.now() - cachedSettings.timestamp < CACHE_TTL_MS) {
-    return cachedSettings.data;
-  }
-
+async function fetchStoreSettingsUncached(): Promise<StoreSettings> {
   // 1. Tenta carregar do Supabase Storage
   try {
     const supabase = getAdminSupabase();
@@ -36,12 +30,10 @@ export async function getStoreSettings(): Promise<StoreSettings> {
         const text = await data.text();
         const parsed = JSON.parse(text);
         if (parsed && typeof parsed === 'object') {
-          const finalSettings = {
+          return {
             ...DEFAULT_STORE_SETTINGS,
             ...parsed,
           };
-          cachedSettings = { data: finalSettings, timestamp: Date.now() };
-          return finalSettings;
         }
       }
     }
@@ -54,12 +46,10 @@ export async function getStoreSettings(): Promise<StoreSettings> {
       const content = fs.readFileSync(localPath, 'utf8');
       const parsed = JSON.parse(content);
       if (parsed && typeof parsed === 'object') {
-        const finalSettings = {
+        return {
           ...DEFAULT_STORE_SETTINGS,
           ...parsed,
         };
-        cachedSettings = { data: finalSettings, timestamp: Date.now() };
-        return finalSettings;
       }
     }
   } catch {}
@@ -67,8 +57,22 @@ export async function getStoreSettings(): Promise<StoreSettings> {
   return DEFAULT_STORE_SETTINGS;
 }
 
+const getCachedStoreSettings = unstable_cache(
+  async () => fetchStoreSettingsUncached(),
+  ['zeiq-store-settings'],
+  { revalidate: 300, tags: ['settings-config'] }
+);
+
+export async function getStoreSettings(): Promise<StoreSettings> {
+  try {
+    return await getCachedStoreSettings();
+  } catch {
+    return fetchStoreSettingsUncached();
+  }
+}
+
 export async function saveStoreSettings(settings: Partial<StoreSettings>): Promise<StoreSettings> {
-  const current = await getStoreSettings();
+  const current = await fetchStoreSettingsUncached();
   const updated: StoreSettings = {
     ...current,
     ...settings,
@@ -84,6 +88,7 @@ export async function saveStoreSettings(settings: Partial<StoreSettings>): Promi
     if (supabase) {
       await supabase.storage.from('produtos').upload('config/settings.json', Buffer.from(jsonStr, 'utf8'), {
         contentType: 'application/json',
+        cacheControl: '60',
         upsert: true,
       });
     }
@@ -101,6 +106,9 @@ export async function saveStoreSettings(settings: Partial<StoreSettings>): Promi
     console.warn('Erro ao salvar settings localmente:', err);
   }
 
-  cachedSettings = { data: updated, timestamp: Date.now() };
+  try {
+    revalidateTag('settings-config');
+  } catch {}
+
   return updated;
 }

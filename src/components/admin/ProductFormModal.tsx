@@ -7,6 +7,8 @@ import { COMMON_SIZES, parseProductSizes, findStockForSize } from '@/lib/utils/s
 import { parseProductSpecifications } from '@/lib/utils/specifications';
 import { formatISODateToYMD } from '@/lib/utils/pricing';
 import { Department, DEFAULT_DEPARTMENTS, findDepartmentForCategory } from '@/lib/data/departments';
+import { compressImageForUpload } from '@/lib/utils/client-image-compress';
+import { getThumbImageUrl } from '@/lib/utils/images';
 
 interface ProductFormModalProps {
   product: Product | null;
@@ -56,7 +58,7 @@ export function ProductFormModal({
     { label: '', value: '' },
     { label: '', value: '' },
   ]);
-  const [images, setImages] = useState<{ id?: string; public_url: string; storage_path: string; is_cover: boolean; sort_order: number }[]>([]);
+  const [images, setImages] = useState<{ id?: string; public_url: string; thumb_url?: string | null; storage_path: string; is_cover: boolean; sort_order: number }[]>([]);
   
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -116,6 +118,7 @@ export function ProductFormModal({
         product.images?.map((img, idx) => ({
           id: img.id,
           public_url: img.public_url,
+          thumb_url: img.thumb_url,
           storage_path: img.storage_path,
           is_cover: img.is_cover || idx === 0,
           sort_order: img.sort_order ?? idx,
@@ -258,7 +261,12 @@ export function ProductFormModal({
       const newUploadedImages: typeof images = [];
 
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+        const rawFile = files[i];
+        const file = await compressImageForUpload(rawFile, {
+          maxWidth: 1600,
+          maxHeight: 2000,
+          quality: 0.9,
+        });
         const formData = new FormData();
         formData.append('file', file);
 
@@ -274,6 +282,7 @@ export function ProductFormModal({
 
         newUploadedImages.push({
           public_url: data.publicUrl,
+          thumb_url: data.thumbUrl,
           storage_path: data.storagePath,
           is_cover: images.length === 0 && i === 0,
           sort_order: images.length + i,
@@ -419,6 +428,7 @@ export function ProductFormModal({
         category_ids: selectedCategoryIds,
         images: images.map((img, idx) => ({
           public_url: img.public_url,
+          thumb_url: img.thumb_url || null,
           storage_path: img.storage_path || `produtos/p-${product?.id || Date.now()}-${idx}.jpg`,
           is_cover: images.some((i) => i.is_cover) ? img.is_cover : idx === 0,
           sort_order: idx,
@@ -1195,8 +1205,9 @@ export function ProductFormModal({
                     }`}
                   >
                     <img
-                      src={img.public_url}
+                      src={getThumbImageUrl(img)}
                       alt=""
+                      loading="lazy"
                       className="w-full h-full object-cover object-top"
                     />
 

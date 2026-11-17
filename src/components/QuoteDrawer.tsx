@@ -8,6 +8,7 @@ import { useQuoteCart } from '@/lib/store/quote-cart';
 import { createClient } from '@/lib/supabase/client';
 import { ProductModal } from '@/components/ProductModal';
 import { Product } from '@/types';
+import { getThumbImageUrl } from '@/lib/utils/images';
 
 export function QuoteDrawer() {
   const [mounted, setMounted] = useState(false);
@@ -367,8 +368,9 @@ export function QuoteDrawer() {
                       >
                         {item.coverImage ? (
                           <img
-                            src={item.coverImage}
+                            src={getThumbImageUrl(item.coverImage)}
                             alt={cleanProductName}
+                            loading="lazy"
                             className="w-full h-full object-cover object-top group-hover/thumb:scale-105 transition-transform"
                           />
                         ) : (

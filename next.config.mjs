@@ -9,7 +9,7 @@ const nextConfig = {
   outputFileTracingRoot: __dirname,
   images: {
     // Desativa a otimização de imagens pelo servidor da Vercel (evita estourar o limite de 5.000 transformações/mês do plano Hobby)
-    // As fotos já estão no formato moderno .webp no Supabase Storage e são servidas diretamente via CDN
+    // As fotos são otimizadas automaticamente no upload (WebP 1200px + miniatura 480px via sharp) com Cache-Control de 1 ano
     unoptimized: true,
     remotePatterns: [
       {

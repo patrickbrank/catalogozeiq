@@ -73,6 +73,8 @@ import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPic
 import { AvatarIcon, ADMIN_AVATARS, resolveAvatarId } from '@/lib/constants/avatars';
 import { PanelFooter } from '@/components/PanelFooter';
 import { PanelLoadingScreen } from '@/components/PanelLoadingScreen';
+import { compressImageForUpload } from '@/lib/utils/client-image-compress';
+import { getProductCoverThumbUrl, getThumbImageUrl } from '@/lib/utils/images';
 
 const ITEMS_PER_PAGE = 25;
 
@@ -563,8 +565,13 @@ export default function AdminDashboardPage() {
   const handleUploadBannerFile = async (index: number, type: 'desktop' | 'mobile', file: File) => {
     setUploadingBannerIndex({ index, type });
     try {
+      const optimizedFile = await compressImageForUpload(file, {
+        maxWidth: type === 'desktop' ? 1920 : 1080,
+        maxHeight: 1200,
+        quality: 0.92,
+      });
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', optimizedFile);
       formData.append('type', type);
 
       const res = await fetch('/api/admin/upload-banner', {
@@ -2629,13 +2636,13 @@ export default function AdminDashboardPage() {
                       </tr>
                     ) : (
                       paginatedProducts.map((prod) => {
-                        const cover = prod.images?.find((i) => i.is_cover)?.public_url || prod.images?.[0]?.public_url;
+                        const cover = prod.images && prod.images.length > 0 ? getProductCoverThumbUrl(prod) : null;
                         return (
                           <tr key={prod.id} className="hover:bg-slate-50/80 transition-colors align-top">
                             <td className="py-3 pl-4 pr-2 w-20 text-center">
                               <div className="w-14 h-16 rounded-xl bg-[#f8f9fa] border border-slate-200/90 overflow-hidden flex items-center justify-center shrink-0 mx-auto shadow-2xs group-hover:border-slate-300 transition-colors">
                                 {cover ? (
-                                  <img src={cover} alt="" className="w-full h-full object-cover object-top" />
+                                  <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover object-top" />
                                 ) : (
                                   <ImageIcon className="w-5 h-5 text-slate-300" />
                                 )}
@@ -2898,7 +2905,7 @@ export default function AdminDashboardPage() {
                   </div>
                 ) : (
                   paginatedProducts.map((prod) => {
-                    const cover = prod.images?.find((i) => i.is_cover)?.public_url || prod.images?.[0]?.public_url;
+                    const cover = prod.images && prod.images.length > 0 ? getProductCoverThumbUrl(prod) : null;
                     const pricing = getProductEffectivePrice(prod);
                     return (
                       <div key={prod.id} className="p-3.5 space-y-3 transition-colors hover:bg-slate-50/50">
@@ -2906,7 +2913,7 @@ export default function AdminDashboardPage() {
                           {/* Imagem Proporção Vertical 4:5 */}
                           <div className="w-16 h-20 rounded-xl bg-slate-50 border border-slate-200/90 overflow-hidden flex items-center justify-center shrink-0 relative shadow-2xs">
                             {cover ? (
-                              <img src={cover} alt="" className="w-full h-full object-cover object-top" />
+                              <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover object-top" />
                             ) : (
                               <ImageIcon className="w-5 h-5 text-slate-300" />
                             )}
@@ -5375,7 +5382,7 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                       {it.coverImage ? (
-                        <img src={it.coverImage} alt="" className="w-full h-full object-cover object-top" />
+                        <img src={getThumbImageUrl(it.coverImage)} alt="" loading="lazy" className="w-full h-full object-cover object-top" />
                       ) : (
                         <Package className="w-4 h-4 text-slate-400" />
                       )}

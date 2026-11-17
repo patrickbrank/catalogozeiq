@@ -8,6 +8,7 @@ import { parseProductSizes, isProductOutOfStock as checkProductOutOfStock, isSiz
 import { getProductEffectivePrice } from '@/lib/utils/pricing';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
 import { flyToCartAnimation } from '@/lib/utils/cart-animation';
+import { getThumbImageUrl } from '@/lib/utils/images';
 
 interface ProductModalProps {
   product: Product | null;
@@ -153,7 +154,7 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
     const startEl = e?.currentTarget || (document.getElementById('modal-add-button') as HTMLElement);
     flyToCartAnimation({
       startElement: startEl,
-      imageUrl: currentImage?.public_url,
+      imageUrl: getThumbImageUrl(currentImage),
       count: hasSizes ? totalGradePieces : simpleQuantity,
       onImpact: () => {
         // Fecha o modal em harmonia com a chegada do item na sacola
@@ -278,8 +279,9 @@ export function ProductModal({ product, onClose, forcePromoPreview }: ProductMod
                       }`}
                     >
                       <img
-                        src={img.public_url}
+                        src={getThumbImageUrl(img)}
                         alt=""
+                        loading="lazy"
                         className="w-full h-full object-cover object-top"
                       />
                     </button>

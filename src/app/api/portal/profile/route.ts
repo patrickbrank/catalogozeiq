@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import {
+  optimizeAvatarImageBuffer,
+  STORAGE_CACHE_CONTROL,
+} from '@/lib/utils/server-image-optimizer';
+
+export const runtime = 'nodejs';
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -226,15 +232,26 @@ export async function POST(request: NextRequest) {
     }
 
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const inputBuffer = Buffer.from(bytes);
 
-    const ext = file.name.split('.').pop() || 'png';
-    const filePath = `profiles/${user.id}-${Date.now()}.${ext}`;
+    let finalBuffer: Buffer;
+    let filePath = `profiles/${user.id}-${Date.now()}-opt.webp`;
+    let contentType = 'image/webp';
+
+    try {
+      finalBuffer = await optimizeAvatarImageBuffer(inputBuffer);
+    } catch {
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      filePath = `profiles/${user.id}-${Date.now()}.${ext}`;
+      finalBuffer = inputBuffer;
+      contentType = file.type || 'image/png';
+    }
 
     const { error: uploadError } = await admin.storage
       .from('produtos')
-      .upload(filePath, buffer, {
-        contentType: file.type || 'image/png',
+      .upload(filePath, finalBuffer, {
+        contentType,
+        cacheControl: STORAGE_CACHE_CONTROL,
         upsert: true,
       });
 

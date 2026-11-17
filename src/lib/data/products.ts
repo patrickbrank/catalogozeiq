@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import { Product, Category } from '@/types';
 import { Department, DEFAULT_DEPARTMENTS } from '@/lib/data/departments';
@@ -37,6 +38,9 @@ const CACHE_TTL_MS = 60 * 1000; // 60 segundos em memória
 export function invalidateCatalogCache() {
   cachedCatalog = null;
   cachedLocalCSV = null;
+  try {
+    revalidateTag('catalog');
+  } catch {}
 }
 
 function slugify(text: string) {
@@ -207,7 +211,81 @@ export function getLocalCSVProducts(): { products: Product[]; categories: Catego
   }
 }
 
-// Busca principal com conexão Supabase, cache e fallback
+async function fetchCatalogFromSupabase(): Promise<{ products: Product[]; categories: Category[]; departments: Department[] }> {
+  const departments = await getDepartments();
+  const supabase = getPublicSupabase();
+
+  // Tenta buscar categorias no Supabase
+  const { data: dbCategories, error: catError } = await supabase
+    .from('categories')
+    .select('*')
+    .order('display_order', { ascending: true });
+
+  // Tenta buscar produtos no Supabase
+  const { data: dbProducts, error: prodError } = await supabase
+    .from('products')
+    .select(`
+      *,
+      images:product_images(*),
+      categories:product_categories(
+        category:categories(*)
+      )
+    `)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false });
+
+  if (catError || prodError || !dbProducts || dbProducts.length === 0) {
+    throw new Error(catError?.message || prodError?.message || 'Catálogo vazio no Supabase');
+  }
+
+  const formattedProducts: Product[] = dbProducts
+    .map((p: any) => {
+      const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size, p.sku_by_size);
+      return {
+        ...p,
+        sizes: parsedSizes.sizes,
+        description: cleanProductDescription(p.description),
+        images: (p.images || []).sort((a: any, b: any) => {
+          if (a.is_cover && !b.is_cover) return -1;
+          if (!a.is_cover && b.is_cover) return 1;
+          return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        }),
+        categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
+      };
+    })
+    .sort((a, b) => {
+      // Lançamentos e destaques primeiro
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (bFeatured !== aFeatured) return bFeatured - aFeatured;
+
+      // Mais recente para o mais antigo por created_at
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+
+      // Desempate por legacy_id decrescente
+      const idA = parseInt(a.legacy_id || '0', 10) || 0;
+      const idB = parseInt(b.legacy_id || '0', 10) || 0;
+      return idB - idA;
+    });
+
+  const productsWithPromos = await mergePromotionsIntoProducts(formattedProducts);
+
+  return {
+    products: productsWithPromos,
+    categories: dbCategories || [],
+    departments,
+  };
+}
+
+const getCachedSupabaseCatalog = unstable_cache(
+  async () => fetchCatalogFromSupabase(),
+  ['zeiq-catalog-data'],
+  { revalidate: 60, tags: ['catalog'] }
+);
+
+// Busca principal com conexão Supabase, Data Cache compartilhado e fallback
 export async function getCatalogData(): Promise<{ products: Product[]; categories: Category[]; departments: Department[] }> {
   // Retorna instantaneamente se estiver no cache em memória
   if (cachedCatalog && Date.now() - cachedCatalog.timestamp < CACHE_TTL_MS) {
@@ -218,78 +296,13 @@ export async function getCatalogData(): Promise<{ products: Product[]; categorie
     };
   }
 
-  const departments = await getDepartments();
-
   try {
-    const supabase = getPublicSupabase();
-
-    // Tenta buscar categorias no Supabase
-    const { data: dbCategories, error: catError } = await supabase
-      .from('categories')
-      .select('*')
-      .order('display_order', { ascending: true });
-
-    // Tenta buscar produtos no Supabase
-    const { data: dbProducts, error: prodError } = await supabase
-      .from('products')
-      .select(`
-        *,
-        images:product_images(*),
-        categories:product_categories(
-          category:categories(*)
-        )
-      `)
-      .eq('is_published', true)
-      .order('created_at', { ascending: false });
-
-    if (!catError && !prodError && dbProducts && dbProducts.length > 0) {
-      const formattedProducts: Product[] = dbProducts
-        .map((p: any) => {
-          const parsedSizes = parseProductSizes(p.description, p.sizes, p.name, p.stock_by_size, p.sku_by_size);
-          return {
-            ...p,
-            sizes: parsedSizes.sizes,
-            description: cleanProductDescription(p.description),
-            images: (p.images || []).sort((a: any, b: any) => {
-              if (a.is_cover && !b.is_cover) return -1;
-              if (!a.is_cover && b.is_cover) return 1;
-              return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-            }),
-            categories: p.categories?.map((c: any) => c.category).filter(Boolean) || [],
-          };
-        })
-        .sort((a, b) => {
-          // Lançamentos e destaques primeiro
-          const aFeatured = a.is_featured ? 1 : 0;
-          const bFeatured = b.is_featured ? 1 : 0;
-          if (bFeatured !== aFeatured) return bFeatured - aFeatured;
-
-          // Mais recente para o mais antigo por created_at
-          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-          if (timeB !== timeA) return timeB - timeA;
-
-          // Desempate por legacy_id decrescente
-          const idA = parseInt(a.legacy_id || '0', 10) || 0;
-          const idB = parseInt(b.legacy_id || '0', 10) || 0;
-          return idB - idA;
-        });
-
-      const productsWithPromos = await mergePromotionsIntoProducts(formattedProducts);
-
-      cachedCatalog = {
-        products: productsWithPromos,
-        categories: dbCategories || [],
-        departments: departments,
-        timestamp: Date.now(),
-      };
-
-      return {
-        products: productsWithPromos,
-        categories: dbCategories || [],
-        departments: departments,
-      };
-    }
+    const result = await getCachedSupabaseCatalog();
+    cachedCatalog = {
+      ...result,
+      timestamp: Date.now(),
+    };
+    return result;
   } catch (e) {
     // Falha de conexão com o Supabase ou variáveis ainda não configuradas
   }

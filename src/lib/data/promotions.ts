@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import type { Product } from '@/types';
 import { cleanSkuKey } from '@/lib/utils/pricing';
@@ -28,14 +29,7 @@ function getAdminSupabase() {
   });
 }
 
-let cachedPromotions: { data: PromotionsMap; timestamp: number } | null = null;
-const CACHE_TTL_MS = 20 * 1000; // 20 segundos
-
-export async function getPromotionsMap(): Promise<PromotionsMap> {
-  if (cachedPromotions && Date.now() - cachedPromotions.timestamp < CACHE_TTL_MS) {
-    return cachedPromotions.data;
-  }
-
+async function fetchPromotionsMapUncached(): Promise<PromotionsMap> {
   // 1. Tenta carregar do Supabase Storage
   try {
     const supabase = getAdminSupabase();
@@ -45,7 +39,6 @@ export async function getPromotionsMap(): Promise<PromotionsMap> {
         const text = await data.text();
         const parsed = JSON.parse(text);
         if (parsed && typeof parsed === 'object') {
-          cachedPromotions = { data: parsed, timestamp: Date.now() };
           return parsed;
         }
       }
@@ -59,13 +52,26 @@ export async function getPromotionsMap(): Promise<PromotionsMap> {
       const content = fs.readFileSync(localPath, 'utf8');
       const parsed = JSON.parse(content);
       if (parsed && typeof parsed === 'object') {
-        cachedPromotions = { data: parsed, timestamp: Date.now() };
         return parsed;
       }
     }
   } catch {}
 
   return {};
+}
+
+const getCachedPromotionsMap = unstable_cache(
+  async () => fetchPromotionsMapUncached(),
+  ['zeiq-promotions-config'],
+  { revalidate: 300, tags: ['promotions-config', 'catalog'] }
+);
+
+export async function getPromotionsMap(): Promise<PromotionsMap> {
+  try {
+    return await getCachedPromotionsMap();
+  } catch {
+    return fetchPromotionsMapUncached();
+  }
 }
 
 export async function savePromotionsMap(map: PromotionsMap): Promise<PromotionsMap> {
@@ -77,6 +83,7 @@ export async function savePromotionsMap(map: PromotionsMap): Promise<PromotionsM
     if (supabase) {
       await supabase.storage.from('produtos').upload('config/promotions.json', Buffer.from(jsonStr, 'utf8'), {
         contentType: 'application/json',
+        cacheControl: '60',
         upsert: true,
       });
     }
@@ -94,7 +101,11 @@ export async function savePromotionsMap(map: PromotionsMap): Promise<PromotionsM
     console.warn('Erro ao salvar promotions localmente:', err);
   }
 
-  cachedPromotions = { data: map, timestamp: Date.now() };
+  try {
+    revalidateTag('promotions-config');
+    revalidateTag('catalog');
+  } catch {}
+
   return map;
 }
 

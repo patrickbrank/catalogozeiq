@@ -8,6 +8,7 @@ import { useQuoteCart } from '@/lib/store/quote-cart';
 import { parseProductSizes, isProductOutOfStock, isSizeOutOfStock } from '@/lib/utils/sizes';
 import { getProductEffectivePrice } from '@/lib/utils/pricing';
 import { flyToCartAnimation } from '@/lib/utils/cart-animation';
+import { getThumbImageUrl } from '@/lib/utils/images';
 
 interface ProductCardProps {
   product: Product;
@@ -24,14 +25,29 @@ function getCleanTitle(name: string): string {
 
 export function ProductCard({ product, onOpenDetails, forcePromoPreview }: ProductCardProps) {
   const [isAdded, setIsAdded] = useState(false);
+  const [shouldLoadSecondary, setShouldLoadSecondary] = useState(false);
+  const [coverErrorUrl, setCoverErrorUrl] = useState<string | null>(null);
+  const [secondaryErrorUrl, setSecondaryErrorUrl] = useState<string | null>(null);
   const addItem = useQuoteCart((state) => state.addItem);
 
   const images = product.images || [];
   const coverImg = images.find((img) => img.is_cover) || images[0];
   const secondaryImg = images.find((img) => img.id !== coverImg?.id) || images[1];
 
-  const coverUrl = coverImg?.public_url || '/placeholder-product.svg';
-  const secondaryUrl = secondaryImg?.public_url;
+  const thumbCoverUrl = getThumbImageUrl(coverImg);
+  const coverUrl =
+    coverErrorUrl === thumbCoverUrl && coverImg?.public_url && coverImg.public_url !== thumbCoverUrl
+      ? coverImg.public_url
+      : thumbCoverUrl;
+
+  const thumbSecondaryUrl = secondaryImg ? getThumbImageUrl(secondaryImg) : undefined;
+  const secondaryUrl =
+    thumbSecondaryUrl &&
+    secondaryErrorUrl === thumbSecondaryUrl &&
+    secondaryImg?.public_url &&
+    secondaryImg.public_url !== thumbSecondaryUrl
+      ? secondaryImg.public_url
+      : thumbSecondaryUrl;
 
   const { sizes } = parseProductSizes(product.description, product.sizes, product.name);
   const hasSizes = sizes && sizes.length > 0;
@@ -64,22 +80,30 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
   return (
     <div 
       onClick={() => onOpenDetails(product)}
+      onMouseEnter={() => {
+        if (secondaryUrl) setShouldLoadSecondary(true);
+      }}
       className="group bg-white rounded-xl border border-slate-200/90 overflow-hidden hover:border-slate-300 hover:shadow-md transition-all duration-300 flex flex-col h-full cursor-pointer select-none"
     >
       {/* Quadro da Foto amplo em proporção vertical 3:4 com foco no topo (preserva cabeça do modelo) */}
       <div className="relative aspect-[3/4] w-full bg-[#f8f9fa] overflow-hidden flex items-center justify-center p-0">
-        {/* Foto de Capa (Preenchendo 100% do espaço, ancorada no topo) */}
+        {/* Foto de Capa (Miniatura WebP otimizada, ancorada no topo) */}
         <Image
           src={coverUrl}
           alt={product.name}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           loading="lazy"
+          onError={() => {
+            if (coverUrl === thumbCoverUrl && coverImg?.public_url && coverImg.public_url !== thumbCoverUrl) {
+              setCoverErrorUrl(thumbCoverUrl);
+            }
+          }}
           className="w-full h-full object-cover object-top transition-transform duration-500 ease-out group-hover:scale-105"
         />
 
-        {/* Segunda Foto em camada superior com isolamento (Hover fluido exclusivo para telas com cursor/mouse) */}
-        {secondaryUrl && (
+        {/* Segunda Foto carregada apenas sob demanda no hover (reduz 50% do tráfego inicial) */}
+        {secondaryUrl && shouldLoadSecondary && (
           <div className="absolute inset-0 bg-[#f8f9fa] isolate opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 hidden sm:block">
             <Image
               src={secondaryUrl}
@@ -87,6 +111,16 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
               loading="lazy"
+              onError={() => {
+                if (
+                  thumbSecondaryUrl &&
+                  secondaryUrl === thumbSecondaryUrl &&
+                  secondaryImg?.public_url &&
+                  secondaryImg.public_url !== thumbSecondaryUrl
+                ) {
+                  setSecondaryErrorUrl(thumbSecondaryUrl);
+                }
+              }}
               className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500 ease-out"
             />
           </div>
