@@ -26,6 +26,7 @@ function getCleanTitle(name: string): string {
 export function ProductCard({ product, onOpenDetails, forcePromoPreview }: ProductCardProps) {
   const [isAdded, setIsAdded] = useState(false);
   const [shouldLoadSecondary, setShouldLoadSecondary] = useState(false);
+  const [secondaryLoadedUrl, setSecondaryLoadedUrl] = useState<string | null>(null);
   const [coverErrorUrl, setCoverErrorUrl] = useState<string | null>(null);
   const [secondaryErrorUrl, setSecondaryErrorUrl] = useState<string | null>(null);
   const addItem = useQuoteCart((state) => state.addItem);
@@ -48,6 +49,7 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
     secondaryImg.public_url !== thumbSecondaryUrl
       ? secondaryImg.public_url
       : thumbSecondaryUrl;
+  const isSecondaryReady = Boolean(secondaryUrl && secondaryLoadedUrl === secondaryUrl);
 
   const { sizes } = parseProductSizes(product.description, product.sizes, product.name);
   const hasSizes = sizes && sizes.length > 0;
@@ -102,15 +104,20 @@ export function ProductCard({ product, onOpenDetails, forcePromoPreview }: Produ
           className="w-full h-full object-cover object-top transition-transform duration-500 ease-out group-hover:scale-105"
         />
 
-        {/* Segunda Foto carregada apenas sob demanda no hover (reduz 50% do tráfego inicial) */}
+        {/* Segunda Foto carregada apenas sob demanda no hover e exibida só após concluir o download (sem flash branco) */}
         {secondaryUrl && shouldLoadSecondary && (
-          <div className="absolute inset-0 bg-[#f8f9fa] isolate opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 hidden sm:block">
+          <div
+            className={`absolute inset-0 isolate transition-opacity duration-300 pointer-events-none z-10 hidden sm:block ${
+              isSecondaryReady ? 'bg-[#f8f9fa] opacity-0 group-hover:opacity-100' : 'opacity-0'
+            }`}
+          >
             <Image
               src={secondaryUrl}
               alt=""
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-              loading="lazy"
+              loading="eager"
+              onLoad={() => setSecondaryLoadedUrl(secondaryUrl)}
               onError={() => {
                 if (
                   thumbSecondaryUrl &&
