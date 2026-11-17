@@ -70,7 +70,7 @@ import { CampaignModal } from '@/components/admin/CampaignModal';
 import { getProductEffectivePrice, parseNumberSafe } from '@/lib/utils/pricing';
 import { OrderStatusPopover, ORDER_STATUS_CONFIG } from '@/components/admin/OrderStatusPopover';
 import { BannerDestinationPicker } from '@/components/admin/BannerDestinationPicker';
-import { AvatarIcon, ADMIN_AVATARS, resolveAvatarId } from '@/lib/constants/avatars';
+import { AvatarIcon, ADMIN_AVATARS, formatPhoneBR, resolveAvatarId } from '@/lib/constants/avatars';
 import { PanelFooter } from '@/components/PanelFooter';
 import { PanelLoadingScreen } from '@/components/PanelLoadingScreen';
 import { compressImageForUpload } from '@/lib/utils/client-image-compress';
@@ -82,6 +82,13 @@ function isMasterEmail(email?: string | null): boolean {
   if (!email) return false;
   const clean = email.toLowerCase().trim();
   return clean === 'marketing@zeiq.com.br' || clean === 'patrickbrank@outlook.com';
+}
+
+function getRepInitials(name?: string | null): string {
+  if (!name) return 'RZ';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function formatOrderDateTime(isoString?: string | null): string {
@@ -261,6 +268,9 @@ export default function AdminDashboardPage() {
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [clientRole, setClientRole] = useState<'admin' | 'representative' | 'stock' | 'reseller'>('reseller');
   const [clientRepresentativeId, setClientRepresentativeId] = useState<string>('');
+  const [isClientRepDropdownOpen, setIsClientRepDropdownOpen] = useState(false);
+  const [clientRepSearch, setClientRepSearch] = useState('');
+  const clientRepDropdownRef = useRef<HTMLDivElement>(null);
   const [newClientName, setNewClientName] = useState('');
   const [newClientStore, setNewClientStore] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
@@ -467,6 +477,9 @@ export default function AdminDashboardPage() {
       }
       if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
         setIsSortDropdownOpen(false);
+      }
+      if (clientRepDropdownRef.current && !clientRepDropdownRef.current.contains(e.target as Node)) {
+        setIsClientRepDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -1147,6 +1160,8 @@ export default function AdminDashboardPage() {
     setNewClientEmail('');
     setNewClientPassword('');
     setClientRepresentativeId(isCurrentUserRepresentative ? user?.id || '' : '');
+    setIsClientRepDropdownOpen(false);
+    setClientRepSearch('');
     setClientApproved(true);
     setClientIsMaster(false);
     setClientError('');
@@ -1173,6 +1188,8 @@ export default function AdminDashboardPage() {
     setNewClientEmail(client.email || '');
     setNewClientPassword(''); // em branco = mantém a senha atual
     setClientRepresentativeId(client.representative_id || '');
+    setIsClientRepDropdownOpen(false);
+    setClientRepSearch('');
     setClientApproved(client.is_approved ?? true);
     setClientIsMaster(isMaster);
     setClientError('');
@@ -5911,36 +5928,196 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                {/* Representante Vinculado */}
-                {clientRole === 'reseller' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                      <span>Representante</span>
-                      {isCurrentUserRepresentative && (
-                        <span className="text-[10px] text-sky-700 font-medium">Sua carteira</span>
-                      )}
-                    </label>
-                    <div className="relative">
-                      <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <select
-                        value={clientRepresentativeId}
-                        onChange={(e) => setClientRepresentativeId(e.target.value)}
+                {/* Representante Vinculado (Seletor Customizado com Busca) */}
+                {clientRole === 'reseller' && (() => {
+                  const availableReps = clients.filter((c) => c.role === 'representative');
+                  const selectedRep = availableReps.find((rep) => rep.id === clientRepresentativeId);
+                  const filteredReps = availableReps.filter((rep) => {
+                    const q = clientRepSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    const repName = (rep.contact_name || rep.store_name || '').toLowerCase();
+                    const repPhone = (rep.phone || '').toLowerCase();
+                    const repEmail = (rep.email || '').toLowerCase();
+                    return repName.includes(q) || repPhone.includes(q) || repEmail.includes(q);
+                  });
+
+                  return (
+                    <div ref={clientRepDropdownRef} className="relative">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                        <span>Representante</span>
+                        {isCurrentUserRepresentative && (
+                          <span className="text-[10px] text-sky-700 font-medium">Sua carteira</span>
+                        )}
+                      </label>
+
+                      <button
+                        type="button"
                         disabled={isCurrentUserRepresentative}
-                        className="w-full h-10 pl-9 pr-8 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black appearance-none disabled:opacity-75 disabled:cursor-not-allowed"
+                        onClick={() => setIsClientRepDropdownOpen((prev) => !prev)}
+                        className={`w-full min-h-[44px] px-3 py-2 bg-[#f8f9fa] border rounded-xl text-left flex items-center justify-between gap-2.5 transition-all disabled:opacity-75 disabled:cursor-not-allowed cursor-pointer ${
+                          isClientRepDropdownOpen
+                            ? 'border-zeiq-black ring-2 ring-zeiq-black/10 bg-white'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
                       >
-                        <option value="">Atendimento Direto Zeiq</option>
-                        {clients
-                          .filter((c) => c.role === 'representative')
-                          .map((rep) => (
-                            <option key={rep.id} value={rep.id}>
-                              {rep.contact_name || rep.store_name} ({rep.phone || rep.email})
-                            </option>
-                          ))}
-                      </select>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {selectedRep ? (
+                            <>
+                              <div className="w-7 h-7 rounded-lg bg-sky-100 border border-sky-200 text-sky-800 font-bold text-[11px] flex items-center justify-center shrink-0">
+                                {getRepInitials(selectedRep.contact_name || selectedRep.store_name)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-bold text-zeiq-black truncate leading-tight">
+                                  {selectedRep.contact_name || selectedRep.store_name}
+                                </div>
+                                <div className="text-[11px] font-mono text-slate-500 truncate mt-0.5">
+                                  {formatPhoneBR(selectedRep.phone) || selectedRep.email}
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-7 h-7 rounded-lg bg-slate-200/70 border border-slate-300/60 text-slate-600 flex items-center justify-center shrink-0">
+                                <Building2 className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-semibold text-slate-800 truncate leading-tight">
+                                  Atendimento Direto Zeiq
+                                </div>
+                                <div className="text-[11px] text-slate-400 truncate">
+                                  Matriz / Sem representante
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <ChevronDown
+                          className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
+                            isClientRepDropdownOpen ? 'rotate-180 text-zeiq-black' : ''
+                          }`}
+                        />
+                      </button>
+
+                      {isClientRepDropdownOpen && !isCurrentUserRepresentative && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-[0_18px_42px_rgba(15,23,42,0.18)] z-30 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                          {availableReps.length > 4 && (
+                            <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+                              <div className="relative">
+                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={clientRepSearch}
+                                  onChange={(e) => setClientRepSearch(e.target.value)}
+                                  placeholder="Buscar por nome ou DDD..."
+                                  className="w-full h-8 pl-8 pr-3 bg-white border border-slate-200 rounded-lg text-base sm:text-xs text-zeiq-black placeholder:text-slate-400 focus:outline-none focus:border-zeiq-black"
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="max-h-56 overflow-y-auto p-1.5 space-y-1">
+                            {/* Opção Direta Zeiq */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setClientRepresentativeId('');
+                                setIsClientRepDropdownOpen(false);
+                                setClientRepSearch('');
+                              }}
+                              className={`w-full p-2 rounded-xl flex items-center justify-between gap-2.5 text-left transition-all cursor-pointer ${
+                                !clientRepresentativeId
+                                  ? 'bg-zeiq-black text-white shadow-xs'
+                                  : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                    !clientRepresentativeId
+                                      ? 'bg-white/15 text-zeiq-orange'
+                                      : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                  }`}
+                                >
+                                  <Building2 className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold truncate">Atendimento Direto Zeiq</div>
+                                  <div className={`text-[10px] truncate ${!clientRepresentativeId ? 'text-slate-300' : 'text-slate-400'}`}>
+                                    Matriz / Sem representante
+                                  </div>
+                                </div>
+                              </div>
+                              {!clientRepresentativeId && (
+                                <span className="w-5 h-5 rounded-full bg-zeiq-orange text-zeiq-black flex items-center justify-center shrink-0">
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                </span>
+                              )}
+                            </button>
+
+                            {/* Lista de Representantes */}
+                            {filteredReps.length === 0 ? (
+                              <div className="py-5 text-center text-xs text-slate-400">
+                                Nenhum representante encontrado.
+                              </div>
+                            ) : (
+                              filteredReps.map((rep) => {
+                                const isSelected = rep.id === clientRepresentativeId;
+                                const repTitle = rep.contact_name || rep.store_name || rep.email;
+                                const repPhone = formatPhoneBR(rep.phone);
+
+                                return (
+                                  <button
+                                    key={rep.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setClientRepresentativeId(rep.id);
+                                      setIsClientRepDropdownOpen(false);
+                                      setClientRepSearch('');
+                                    }}
+                                    className={`w-full p-2 rounded-xl flex items-center justify-between gap-2.5 text-left transition-all cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-sky-50 border border-sky-300 text-sky-950 shadow-2xs'
+                                        : 'border border-transparent hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                      <div
+                                        className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[11px] shrink-0 ${
+                                          isSelected
+                                            ? 'bg-sky-600 text-white shadow-2xs'
+                                            : 'bg-sky-50 text-sky-800 border border-sky-200/80'
+                                        }`}
+                                      >
+                                        {getRepInitials(repTitle)}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className={`text-xs font-bold truncate leading-tight ${isSelected ? 'text-sky-950' : 'text-zeiq-black'}`}>
+                                          {repTitle}
+                                        </div>
+                                        <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1.5 truncate mt-0.5">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                          <span className="truncate">{repPhone || rep.email}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {isSelected && (
+                                      <span className="w-5 h-5 rounded-full bg-sky-600 text-white flex items-center justify-center shrink-0">
+                                        <Check className="w-3 h-3 stroke-[3]" />
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Status da Conta */}
                 {clientModalMode === 'edit' && !clientIsMaster && (
