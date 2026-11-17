@@ -84,6 +84,18 @@ function isMasterEmail(email?: string | null): boolean {
   return clean === 'marketing@zeiq.com.br' || clean === 'patrickbrank@outlook.com';
 }
 
+function formatOrderDateTime(isoString?: string | null): string {
+  if (!isoString) return '—';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '—';
+  const datePart = d.toLocaleDateString('pt-BR');
+  const timePart = d.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${datePart} • ${timePart}`;
+}
+
 const ADMIN_SORT_OPTIONS: Array<{
   id: string;
   label: string;
@@ -3424,8 +3436,8 @@ export default function AdminDashboardPage() {
                           <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4 font-mono">
                               <span className="font-bold text-zeiq-black block">#{order.order_number}</span>
-                              <span className="text-xs text-slate-400">
-                                {new Date(order.created_at || '').toLocaleDateString('pt-BR')}
+                              <span className="text-xs text-slate-400 whitespace-nowrap">
+                                {formatOrderDateTime(order.created_at)}
                               </span>
                             </td>
 
@@ -3542,7 +3554,7 @@ export default function AdminDashboardPage() {
                           <div>
                             <span className="font-mono font-bold text-zeiq-black text-sm block">#{order.order_number}</span>
                             <span className="text-xs text-slate-400">
-                              {new Date(order.created_at || '').toLocaleDateString('pt-BR')} • {order.total_pieces} un. ({order.items?.length || 0} modelos)
+                              {formatOrderDateTime(order.created_at)} • {order.total_pieces} un. ({order.items?.length || 0} modelos)
                             </span>
                           </div>
 
@@ -5368,10 +5380,17 @@ export default function AdminDashboardPage() {
             </button>
 
             <div className="border-b border-slate-200 pb-4 mb-4">
-              <span className="text-xs font-mono font-bold text-zeiq-black block">
-                Pedido #{selectedOrderDetails.order_number}
-              </span>
-              <p className="text-xs text-slate-500">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-mono font-bold text-zeiq-black">
+                  Pedido #{selectedOrderDetails.order_number}
+                </span>
+                {selectedOrderDetails.created_at && (
+                  <span className="text-xs font-mono text-slate-400">
+                    ({formatOrderDateTime(selectedOrderDetails.created_at)})
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
                 Lojista: <strong>{selectedOrderDetails.buyer_company || selectedOrderDetails.buyer_name}</strong> • Total de peças: <strong>{selectedOrderDetails.total_pieces} un.</strong>
               </p>
             </div>
