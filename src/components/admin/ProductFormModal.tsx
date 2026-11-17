@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, Boxes, AlertTriangle, Tag, Calendar, Sparkles } from 'lucide-react';
+import { X, Upload, Trash2, Star, Loader2, Plus, Minus, Check, Search, Layers, Boxes, AlertTriangle, Tag, Calendar, Sparkles, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { Product, Category, ProductImage, ProductHighlight } from '@/types';
 import { COMMON_SIZES, parseProductSizes, findStockForSize } from '@/lib/utils/sizes';
 import { parseProductSpecifications } from '@/lib/utils/specifications';
@@ -58,7 +58,9 @@ export function ProductFormModal({
     { label: '', value: '' },
     { label: '', value: '' },
   ]);
-  const [images, setImages] = useState<{ id?: string; public_url: string; thumb_url?: string | null; storage_path: string; is_cover: boolean; sort_order: number }[]>([]);
+  const [images, setImages] = useState<{ uid: string; id?: string; public_url: string; thumb_url?: string | null; storage_path: string; is_cover: boolean; sort_order: number }[]>([]);
+  const [draggedImageIdx, setDraggedImageIdx] = useState<number | null>(null);
+  const [dragOverImageIdx, setDragOverImageIdx] = useState<number | null>(null);
   
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -114,15 +116,21 @@ export function ProductFormModal({
       setIsFeatured(product.is_featured ?? false);
       setSelectedCategoryIds(product.categories?.map((c) => c.id) || []);
       setTagsInput(product.tags ? product.tags.join(', ') : '');
+      const sortedProductImages = [...(product.images || [])].sort((a, b) => {
+        if (a.is_cover && !b.is_cover) return -1;
+        if (!a.is_cover && b.is_cover) return 1;
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      });
       setImages(
-        product.images?.map((img, idx) => ({
+        sortedProductImages.map((img, idx) => ({
+          uid: img.id || `${img.storage_path || img.public_url}-${idx}`,
           id: img.id,
           public_url: img.public_url,
           thumb_url: img.thumb_url,
           storage_path: img.storage_path,
-          is_cover: img.is_cover || idx === 0,
-          sort_order: img.sort_order ?? idx,
-        })) || []
+          is_cover: idx === 0,
+          sort_order: idx,
+        }))
       );
     } else {
       setName('');
@@ -154,6 +162,8 @@ export function ProductFormModal({
     }
     setCatDeptFilter('all');
     setCatSearchQuery('');
+    setDraggedImageIdx(null);
+    setDragOverImageIdx(null);
     setErrorMsg('');
   }, [product, isOpen]);
 
@@ -281,6 +291,7 @@ export function ProductFormModal({
         }
 
         newUploadedImages.push({
+          uid: `upload-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
           public_url: data.publicUrl,
           thumb_url: data.thumbUrl,
           storage_path: data.storagePath,
@@ -289,7 +300,13 @@ export function ProductFormModal({
         });
       }
 
-      setImages((prev) => [...prev, ...newUploadedImages]);
+      setImages((prev) =>
+        [...prev, ...newUploadedImages].map((img, idx) => ({
+          ...img,
+          is_cover: idx === 0,
+          sort_order: idx,
+        }))
+      );
     } catch (err: any) {
       setErrorMsg(`Erro ao fazer upload da imagem: ${err.message}`);
     } finally {
@@ -298,22 +315,36 @@ export function ProductFormModal({
     }
   };
 
+  const normalizeImageList = (
+    list: { uid: string; id?: string; public_url: string; thumb_url?: string | null; storage_path: string; is_cover: boolean; sort_order: number }[]
+  ) =>
+    list.map((img, idx) => ({
+      ...img,
+      is_cover: idx === 0,
+      sort_order: idx,
+    }));
+
+  const handleMoveImage = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setImages((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length || toIndex < 0 || toIndex >= prev.length) {
+        return prev;
+      }
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return normalizeImageList(next);
+    });
+  };
+
   const handleSetCover = (index: number) => {
-    setImages((prev) =>
-      prev.map((img, idx) => ({
-        ...img,
-        is_cover: idx === index,
-      }))
-    );
+    handleMoveImage(index, 0);
   };
 
   const handleRemoveImage = (index: number) => {
     setImages((prev) => {
       const filtered = prev.filter((_, idx) => idx !== index);
-      if (filtered.length > 0 && !filtered.some((img) => img.is_cover)) {
-        filtered[0] = { ...filtered[0], is_cover: true };
-      }
-      return filtered;
+      return normalizeImageList(filtered);
     });
   };
 
@@ -430,7 +461,7 @@ export function ProductFormModal({
           public_url: img.public_url,
           thumb_url: img.thumb_url || null,
           storage_path: img.storage_path || `produtos/p-${product?.id || Date.now()}-${idx}.jpg`,
-          is_cover: images.some((i) => i.is_cover) ? img.is_cover : idx === 0,
+          is_cover: idx === 0,
           sort_order: idx,
         })),
       };
@@ -1164,11 +1195,18 @@ export function ProductFormModal({
 
           {/* Imagens & Upload */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-slate-700">
-                Imagens do Produto (Supabase Storage)
-              </label>
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Imagens do Produto (Supabase Storage)
+                </label>
+                {images.length > 1 && (
+                  <span className="text-[11px] text-slate-400">
+                    Arraste as fotos ou use as setas para mudar a ordem (a 1ª foto é sempre a Capa)
+                  </span>
+                )}
+              </div>
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zeiq-black hover:bg-zeiq-orange hover:text-zeiq-black text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-xs shrink-0">
                 {uploading ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1197,50 +1235,183 @@ export function ProductFormModal({
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                {images.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className={`relative group aspect-square rounded-xl bg-white border overflow-hidden ${
-                      img.is_cover ? 'border-zeiq-black ring-2 ring-zeiq-black/20 shadow-xs' : 'border-slate-200'
-                    }`}
-                  >
-                    <img
-                      src={getThumbImageUrl(img)}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover object-top"
-                    />
+                {images.map((img, idx) => {
+                  const isDraggingThis = draggedImageIdx === idx;
+                  const isDropTarget = dragOverImageIdx === idx && draggedImageIdx !== null && draggedImageIdx !== idx;
 
-                    {/* Botões de Ação na Imagem */}
-                    <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleSetCover(idx)}
-                        title={img.is_cover ? 'Foto principal' : 'Definir como capa'}
-                        className={`p-1 rounded-lg text-xs ${
-                          img.is_cover ? 'bg-amber-500 text-white' : 'bg-white text-slate-700 hover:bg-amber-400 hover:text-white'
-                        }`}
-                      >
-                        <Star className="w-3.5 h-3.5" />
-                      </button>
+                  return (
+                    <div
+                      key={img.uid}
+                      draggable={images.length > 1}
+                      onDragStart={(e) => {
+                        setDraggedImageIdx(idx);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(idx));
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverImageIdx !== idx) {
+                          setDragOverImageIdx(idx);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverImageIdx === idx) {
+                          setDragOverImageIdx(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const rawFrom = e.dataTransfer.getData('text/plain');
+                        const fromIdx = draggedImageIdx !== null ? draggedImageIdx : parseInt(rawFrom, 10);
+                        if (!isNaN(fromIdx) && fromIdx !== idx) {
+                          handleMoveImage(fromIdx, idx);
+                        }
+                        setDraggedImageIdx(null);
+                        setDragOverImageIdx(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedImageIdx(null);
+                        setDragOverImageIdx(null);
+                      }}
+                      className={`relative group aspect-square rounded-xl bg-white border overflow-hidden transition-all select-none ${
+                        images.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''
+                      } ${
+                        isDraggingThis
+                          ? 'opacity-45 scale-95 border-dashed border-slate-400'
+                          : isDropTarget
+                          ? 'border-zeiq-orange ring-2 ring-zeiq-orange scale-[1.03] shadow-md'
+                          : idx === 0
+                          ? 'border-zeiq-black ring-2 ring-zeiq-black/20 shadow-xs'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <img
+                        src={getThumbImageUrl(img)}
+                        alt=""
+                        loading="lazy"
+                        draggable={false}
+                        className="w-full h-full object-cover object-top pointer-events-none"
+                      />
 
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        title="Remover"
-                        className="p-1 rounded-lg bg-white text-rose-600 hover:bg-rose-600 hover:text-white transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Badge de Posição / Capa */}
+                      {idx === 0 ? (
+                        <span className="absolute top-1 left-1 bg-zeiq-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm pointer-events-none">
+                          Capa
+                        </span>
+                      ) : (
+                        <span className="absolute top-1 left-1 bg-slate-900/70 text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow-sm pointer-events-none">
+                          #{idx + 1}
+                        </span>
+                      )}
+
+                      {/* Indicador visual de arraste */}
+                      {images.length > 1 && (
+                        <span
+                          className="absolute top-1 right-1 w-5 h-5 rounded-md bg-white/85 text-slate-500 flex items-center justify-center shadow-2xs pointer-events-none opacity-80 group-hover:opacity-100"
+                          title="Arrastar para reordenar"
+                        >
+                          <GripVertical className="w-3 h-3" />
+                        </span>
+                      )}
+
+                      {/* Botões de Ação no Desktop (Hover) */}
+                      <div className="hidden sm:flex absolute inset-0 bg-slate-900/65 opacity-0 group-hover:opacity-100 transition-opacity flex-col items-center justify-center gap-1.5 p-1">
+                        <div className="flex items-center justify-center gap-1">
+                          {idx > 0 && (
+                            <button
+                              type="button"
+                              draggable={false}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={() => handleMoveImage(idx, idx - 1)}
+                              title="Mover para esquerda"
+                              className="p-1 rounded-lg bg-white text-slate-700 hover:bg-zeiq-orange hover:text-zeiq-black transition-colors cursor-pointer"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            draggable={false}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={() => handleSetCover(idx)}
+                            title={idx === 0 ? 'Foto principal (Capa)' : 'Mover para Capa (1ª posição)'}
+                            className={`p-1 rounded-lg text-xs cursor-pointer transition-colors ${
+                              idx === 0 ? 'bg-amber-500 text-white' : 'bg-white text-slate-700 hover:bg-amber-400 hover:text-white'
+                            }`}
+                          >
+                            <Star className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            draggable={false}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={() => handleRemoveImage(idx)}
+                            title="Remover"
+                            className="p-1 rounded-lg bg-white text-rose-600 hover:bg-rose-600 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {idx < images.length - 1 && (
+                            <button
+                              type="button"
+                              draggable={false}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={() => handleMoveImage(idx, idx + 1)}
+                              title="Mover para direita"
+                              className="p-1 rounded-lg bg-white text-slate-700 hover:bg-zeiq-orange hover:text-zeiq-black transition-colors cursor-pointer"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Barra compacta para Mobile / Touch */}
+                      <div className="flex sm:hidden absolute bottom-0 inset-x-0 bg-slate-900/80 backdrop-blur-2xs px-1 py-1 items-center justify-between gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveImage(idx, idx - 1)}
+                          disabled={idx === 0}
+                          aria-label="Mover foto para esquerda"
+                          className="p-0.5 rounded text-white disabled:opacity-25 cursor-pointer"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSetCover(idx)}
+                            aria-label="Definir como capa"
+                            className={`p-0.5 rounded cursor-pointer ${idx === 0 ? 'text-amber-400' : 'text-white'}`}
+                          >
+                            <Star className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            aria-label="Remover foto"
+                            className="p-0.5 rounded text-rose-400 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveImage(idx, idx + 1)}
+                          disabled={idx === images.length - 1}
+                          aria-label="Mover foto para direita"
+                          className="p-0.5 rounded text-white disabled:opacity-25 cursor-pointer"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-
-                    {img.is_cover && (
-                      <span className="absolute top-1 left-1 bg-zeiq-black text-white text-xs font-bold px-1.5 py-0.5 rounded shadow-sm">
-                        Capa
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

@@ -290,13 +290,14 @@ export async function POST(request: NextRequest) {
     // Vincula imagens
     if (Array.isArray(images) && images.length > 0) {
       try {
+        const hasExplicitCover = images.some((img: any) => Boolean(img.is_cover));
         const imgInserts = images.map((img: any, idx: number) => ({
           product_id: productId,
           public_url: img.public_url || img.url,
           thumb_url: img.thumb_url || null,
           storage_path: img.storage_path || `produtos/${productId}/foto-${idx + 1}.jpg`,
           sort_order: img.sort_order ?? idx,
-          is_cover: !!img.is_cover || idx === 0,
+          is_cover: hasExplicitCover ? Boolean(img.is_cover) : idx === 0,
         }));
         const { error: imgErr } = await adminSupabase.from('product_images').insert(imgInserts);
         if (imgErr && imgErr.message?.includes('thumb_url')) {
@@ -462,13 +463,14 @@ export async function PUT(request: NextRequest) {
       try {
         await adminSupabase.from('product_images').delete().eq('product_id', id);
         if (images.length > 0) {
+          const hasExplicitCover = images.some((img: any) => Boolean(img.is_cover));
           const imgInserts = images.map((img: any, idx: number) => ({
             product_id: id,
             public_url: img.public_url || img.url,
             thumb_url: img.thumb_url || null,
             storage_path: img.storage_path || `produtos/${id}/foto-${idx + 1}.jpg`,
             sort_order: img.sort_order ?? idx,
-            is_cover: !!img.is_cover || idx === 0,
+            is_cover: hasExplicitCover ? Boolean(img.is_cover) : idx === 0,
           }));
           const { error: imgErr } = await adminSupabase.from('product_images').insert(imgInserts);
           if (imgErr && imgErr.message?.includes('thumb_url')) {
