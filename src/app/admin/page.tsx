@@ -5740,437 +5740,399 @@ export default function AdminDashboardPage() {
       {/* MODAL 6: CADASTRO E EDIÇÃO DE LOJISTA / ADMINISTRADOR   */}
       {/* ======================================================== */}
       {isClientModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-zeiq-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in zoom-in-95 my-8">
-            <button
-              type="button"
-              onClick={() => setIsClientModalOpen(false)}
-              className="absolute right-5 top-5 p-2 text-slate-400 hover:text-zeiq-black rounded-lg transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Cabeçalho do Modal */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
-                clientIsMaster
-                  ? 'bg-zinc-950 text-amber-300 border-amber-500/40'
-                  : clientRole === 'admin'
-                  ? 'bg-amber-50 text-amber-600 border-amber-200'
-                  : clientRole === 'representative'
-                  ? 'bg-sky-50 text-sky-600 border-sky-200'
-                  : clientRole === 'stock'
-                  ? 'bg-blue-50 text-blue-600 border-blue-200'
-                  : 'bg-emerald-50 text-emerald-600 border-emerald-200'
-              }`}>
-                {clientIsMaster ? (
-                  <span className="text-xl">👑</span>
-                ) : clientRole === 'admin' ? (
-                  <ShieldCheck className="w-5 h-5" />
-                ) : clientRole === 'representative' ? (
-                  <Briefcase className="w-5 h-5" />
-                ) : clientRole === 'stock' ? (
-                  <Boxes className="w-5 h-5" />
-                ) : (
-                  <Building2 className="w-5 h-5" />
-                )}
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-zeiq-black leading-tight">
-                  {clientModalMode === 'create'
-                    ? (clientRole === 'admin'
-                        ? 'Cadastrar Novo Administrador'
-                        : clientRole === 'representative'
-                        ? 'Cadastrar Representante Comercial'
-                        : clientRole === 'stock'
-                        ? 'Cadastrar Membro de Estoque'
-                        : 'Cadastrar Novo Lojista B2B')
-                    : (clientIsMaster
-                        ? 'Administrador Master Zeiq'
-                        : clientRole === 'admin'
-                        ? 'Editar Administrador'
-                        : clientRole === 'representative'
-                        ? 'Editar Representante Comercial'
-                        : clientRole === 'stock'
-                        ? 'Editar Membro do Estoque'
-                        : 'Editar Lojista B2B')}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {clientModalMode === 'create'
-                    ? 'Defina os dados de cadastro e permissões de acesso ao sistema.'
-                    : 'Atualize os dados cadastrais, cargo de acesso e status da conta.'}
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSaveClient} className="space-y-4">
-              {clientError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
-                  <span>{clientError}</span>
-                </div>
-              )}
-
-              {/* Seletor de Tipo de Acesso / Papel */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Tipo de Conta & Permissão de Acesso *
-                </label>
-                {clientIsMaster ? (
-                  <div className="p-3.5 bg-zinc-950 text-white rounded-2xl border border-amber-500/40 flex items-center justify-between text-xs shadow-md">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">👑</span>
-                      <div>
-                        <strong className="block text-amber-300 font-black text-sm">Administrador Master Zeiq</strong>
-                        <span className="text-xs text-zinc-400">Conta proprietária com privilégios irrestritos e permanente.</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : isCurrentUserRepresentative ? (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                    <strong className="block font-bold text-zeiq-black">Lojista B2B</strong>
-                    <span className="text-slate-500">Este lojista pertencerá à sua carteira de representação comercial.</span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* 1. Lojista B2B */}
-                    <button
-                      type="button"
-                      onClick={() => setClientRole('reseller')}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        clientRole === 'reseller'
-                          ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20'
-                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5 whitespace-nowrap">
-                          🏪 Lojista B2B
-                        </span>
-                        {clientRole === 'reseller' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-tight">
-                        Acesso exclusivo ao catálogo e cotações. Bloqueado neste painel.
-                      </p>
-                    </button>
-
-                    {/* 2. Representante Comercial */}
-                    <button
-                      type="button"
-                      onClick={() => setClientRole('representative')}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        clientRole === 'representative'
-                          ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
-                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-sky-950 flex items-center gap-1.5 whitespace-nowrap">
-                          💼 Representante Comercial
-                        </span>
-                        {clientRole === 'representative' && <Check className="w-3.5 h-3.5 text-sky-600" />}
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-tight">
-                        Administra seus lojistas, aprova cadastros e recebe pedidos no WhatsApp.
-                      </p>
-                    </button>
-
-                    {/* 3. Controle de Estoque */}
-                    <button
-                      type="button"
-                      onClick={() => setClientRole('stock')}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        clientRole === 'stock'
-                          ? 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20'
-                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-blue-950 flex items-center gap-1.5 whitespace-nowrap">
-                          📦 Controle de Estoque
-                        </span>
-                        {clientRole === 'stock' && <Check className="w-3.5 h-3.5 text-blue-600" />}
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-tight">
-                        Altera estoque, preços, produtos e banners. Sem acesso a pedidos ou clientes.
-                      </p>
-                    </button>
-
-                    {/* 4. Administrador */}
-                    <button
-                      type="button"
-                      disabled={!isCurrentUserMaster && clientRole !== 'admin'}
-                      onClick={() => setClientRole('admin')}
-                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                        clientRole === 'admin'
-                          ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20 cursor-pointer'
-                          : !isCurrentUserMaster
-                          ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
-                          : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100 cursor-pointer'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5 whitespace-nowrap">
-                          🛡️ Administrador
-                        </span>
-                        {clientRole === 'admin' && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                        {!isCurrentUserMaster && clientRole !== 'admin' && (
-                          <span className="text-[10px] text-slate-400 font-mono">Apenas Master</span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-tight">
-                        Acesso completo ao painel, clientes, pedidos e equipe.
-                      </p>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Se for Lojista B2B, exibe campo de vinculação ao Representante Comercial */}
-              {clientRole === 'reseller' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>Representante Comercial Vinculado</span>
-                    {isCurrentUserRepresentative && (
-                      <span className="text-[10px] text-sky-700 font-medium">Vinculado a você</span>
-                    )}
-                  </label>
-                  <div className="relative">
-                    <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <select
-                      value={clientRepresentativeId}
-                      onChange={(e) => setClientRepresentativeId(e.target.value)}
-                      disabled={isCurrentUserRepresentative}
-                      className="w-full pl-9 pr-8 py-2 text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black appearance-none disabled:opacity-75 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Nenhum representante (Atendimento Direto Zeiq)</option>
-                      {clients
-                        .filter((c) => c.role === 'representative')
-                        .map((rep) => (
-                          <option key={rep.id} value={rep.id}>
-                            {rep.contact_name || rep.store_name} ({rep.phone || rep.email})
-                          </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                </div>
-              )}
-
-              {/* Status da Conta (Aprovado / Aguardando Aprovação) */}
-              {clientModalMode === 'edit' && !clientIsMaster && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                  <div>
-                    <strong className="block text-xs font-semibold text-slate-800">Status do Acesso B2B</strong>
-                    <span className="text-xs text-slate-500">
-                      {clientApproved ? 'Conta ativa e liberada para login.' : 'Acesso aguardando aprovação ou bloqueado.'}
-                    </span>
-                  </div>
-                  <div className="inline-flex rounded-lg p-0.5 bg-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => setClientApproved(true)}
-                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                        clientApproved ? 'bg-white text-emerald-700 shadow-2xs' : 'text-slate-600'
-                      }`}
-                    >
-                      Aprovado
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClientApproved(false)}
-                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                        !clientApproved ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600'
-                      }`}
-                    >
-                      Aguardando
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Dados Cadastrais */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {clientRole === 'admin'
-                      ? 'Identificação / Setor *'
+        <div className="fixed inset-0 z-50 bg-zeiq-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-6">
+          <div className="relative w-full max-w-xl max-h-[92dvh] sm:max-h-[86vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border-t sm:border border-slate-200 overflow-hidden flex flex-col animate-in slide-in-from-bottom-3 sm:slide-in-from-bottom-0 sm:fade-in duration-200">
+            <form onSubmit={handleSaveClient} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              {/* Cabeçalho Fixo */}
+              <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                    clientIsMaster
+                      ? 'bg-zinc-950 text-amber-300 border-amber-500/40'
+                      : clientRole === 'admin'
+                      ? 'bg-amber-50 text-amber-600 border-amber-200'
                       : clientRole === 'representative'
-                      ? 'Área / Identificação Comercial *'
-                      : 'Nome da Loja / Arena *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newClientStore}
-                    onChange={(e) => setNewClientStore(e.target.value)}
-                    placeholder={
-                      clientRole === 'admin'
-                        ? 'Ex: Equipe Comercial Zeiq'
-                        : clientRole === 'representative'
-                        ? 'Ex: Zeiq Interior SP ou Nome Fantasia'
-                        : 'Ex: Arena Beach Point'
-                    }
-                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                  />
+                      ? 'bg-sky-50 text-sky-600 border-sky-200'
+                      : clientRole === 'stock'
+                      ? 'bg-blue-50 text-blue-600 border-blue-200'
+                      : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  }`}>
+                    {clientIsMaster ? (
+                      <span className="text-lg">👑</span>
+                    ) : clientRole === 'admin' ? (
+                      <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : clientRole === 'representative' ? (
+                      <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : clientRole === 'stock' ? (
+                      <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
+                    ) : (
+                      <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm sm:text-base font-bold text-zeiq-black leading-tight truncate">
+                      {clientModalMode === 'create'
+                        ? (clientRole === 'admin'
+                            ? 'Novo Administrador'
+                            : clientRole === 'representative'
+                            ? 'Novo Representante'
+                            : clientRole === 'stock'
+                            ? 'Novo Membro de Estoque'
+                            : 'Novo Lojista B2B')
+                        : (clientIsMaster
+                            ? 'Master Zeiq'
+                            : clientRole === 'admin'
+                            ? 'Editar Administrador'
+                            : clientRole === 'representative'
+                            ? 'Editar Representante'
+                            : clientRole === 'stock'
+                            ? 'Editar Estoque'
+                            : 'Editar Lojista B2B')}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {clientModalMode === 'create' ? 'Cadastro e acesso' : 'Dados e permissões'}
+                    </p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {clientRole === 'representative' ? 'Nome do Representante Comercial *' : 'Nome do Responsável *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
-                    placeholder="Ex: Carlos Silva"
-                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {clientRole === 'representative' ? 'WhatsApp Comercial (Recebe Pedidos) *' : 'WhatsApp com DDD *'}
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={newClientPhone}
-                    onChange={(e) => setNewClientPhone(e.target.value)}
-                    placeholder="Ex: 16 99123-4567"
-                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    CNPJ ou CPF (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={newClientCnpj}
-                    onChange={(e) => setNewClientCnpj(e.target.value)}
-                    placeholder="Ex: 00.000.000/0001-00"
-                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3.5">
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Cidade
-                  </label>
-                  <input
-                    type="text"
-                    value={newClientCity}
-                    onChange={(e) => setNewClientCity(e.target.value)}
-                    placeholder="Ex: Ribeirão Preto"
-                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    UF
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={2}
-                    value={newClientState}
-                    onChange={(e) => setNewClientState(e.target.value.toUpperCase())}
-                    placeholder="SP"
-                    className="w-full px-3.5 py-2 text-sm uppercase bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black text-center font-bold"
-                  />
-                </div>
-              </div>
-
-              {/* Credenciais de Acesso */}
-              <div className="pt-2 border-t border-slate-100 space-y-3">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Credenciais de Login ({clientRole === 'admin' ? 'Painel Administrativo' : 'Catálogo do Site'})
-                </p>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    E-mail de Acesso *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    disabled={clientModalMode === 'edit'}
-                    value={newClientEmail}
-                    onChange={(e) => setNewClientEmail(e.target.value)}
-                    placeholder="usuario@zeiq.com.br"
-                    className={`w-full px-3.5 py-2 text-sm border rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black ${
-                      clientModalMode === 'edit'
-                        ? 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'
-                        : 'bg-[#f8f9fa] border-slate-200'
-                    }`}
-                  />
-                  {clientModalMode === 'edit' && (
-                    <span className="text-xs text-slate-400 mt-1 block">
-                      O e-mail é a chave de login. Para alterá-lo, crie um novo cadastro.
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>
-                      {clientModalMode === 'create' ? 'Senha Inicial *' : 'Redefinir Senha (Opcional)'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const randomPwd = 'Zeiq@' + Math.floor(1000 + Math.random() * 9000);
-                        setNewClientPassword(randomPwd);
-                      }}
-                      className="text-xs text-zeiq-orange hover:underline font-bold cursor-pointer"
-                    >
-                      Gerar Senha
-                    </button>
-                  </label>
-                  <input
-                    type="text"
-                    required={clientModalMode === 'create'}
-                    minLength={6}
-                    value={newClientPassword}
-                    onChange={(e) => setNewClientPassword(e.target.value)}
-                    placeholder={clientModalMode === 'create' ? 'Mínimo 6 caracteres' : 'Deixar em branco para manter a senha atual'}
-                    className="w-full px-3.5 py-2 text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black font-mono text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Botões do Rodapé */}
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsClientModalOpen(false)}
-                  className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-zeiq-black rounded-xl cursor-pointer flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg hover:bg-slate-200/80 text-slate-400 hover:text-zeiq-black flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                  aria-label="Fechar modal"
+                >
+                  <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              </div>
+
+              {/* Conteúdo Rolável */}
+              <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 flex-1 overflow-y-auto">
+                {clientError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                    <span>{clientError}</span>
+                  </div>
+                )}
+
+                {/* Seletor de Tipo de Conta */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Tipo de Conta *
+                  </label>
+                  {clientIsMaster ? (
+                    <div className="p-3 bg-zinc-950 text-white rounded-xl border border-amber-500/40 flex items-center gap-3 text-xs">
+                      <span className="text-xl">👑</span>
+                      <div>
+                        <strong className="block text-amber-300 font-black">Master Zeiq</strong>
+                        <span className="text-[11px] text-zinc-400">Acesso irrestrito</span>
+                      </div>
+                    </div>
+                  ) : isCurrentUserRepresentative ? (
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+                      <strong className="font-bold text-zeiq-black">🏪 Lojista B2B</strong>
+                      <span className="text-[11px] text-slate-500">Sua carteira</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* 1. Lojista B2B */}
+                      <button
+                        type="button"
+                        onClick={() => setClientRole('reseller')}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          clientRole === 'reseller'
+                            ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20'
+                            : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-emerald-950 truncate">🏪 Lojista B2B</span>
+                          {clientRole === 'reseller' && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">Catálogo e cotações</p>
+                      </button>
+
+                      {/* 2. Representante */}
+                      <button
+                        type="button"
+                        onClick={() => setClientRole('representative')}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          clientRole === 'representative'
+                            ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
+                            : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-sky-950 truncate">💼 Representante</span>
+                          {clientRole === 'representative' && <Check className="w-3.5 h-3.5 text-sky-600 shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">Carteira e pedidos</p>
+                      </button>
+
+                      {/* 3. Estoque */}
+                      <button
+                        type="button"
+                        onClick={() => setClientRole('stock')}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          clientRole === 'stock'
+                            ? 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20'
+                            : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-blue-950 truncate">📦 Estoque</span>
+                          {clientRole === 'stock' && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">Produtos e preços</p>
+                      </button>
+
+                      {/* 4. Administrador */}
+                      <button
+                        type="button"
+                        disabled={!isCurrentUserMaster && clientRole !== 'admin'}
+                        onClick={() => setClientRole('admin')}
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          clientRole === 'admin'
+                            ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20 cursor-pointer'
+                            : !isCurrentUserMaster
+                            ? 'border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed'
+                            : 'border-slate-200 bg-[#f8f9fa] hover:bg-slate-100 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-amber-950 truncate">🛡️ Administrador</span>
+                          {clientRole === 'admin' && <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+                          {!isCurrentUserMaster && clientRole !== 'admin' && (
+                            <span className="text-[10px] text-slate-400 font-mono shrink-0">Master</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">Acesso total</p>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Representante Vinculado */}
+                {clientRole === 'reseller' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>Representante</span>
+                      {isCurrentUserRepresentative && (
+                        <span className="text-[10px] text-sky-700 font-medium">Sua carteira</span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <select
+                        value={clientRepresentativeId}
+                        onChange={(e) => setClientRepresentativeId(e.target.value)}
+                        disabled={isCurrentUserRepresentative}
+                        className="w-full h-10 pl-9 pr-8 text-base sm:text-xs bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black appearance-none disabled:opacity-75 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Atendimento Direto Zeiq</option>
+                        {clients
+                          .filter((c) => c.role === 'representative')
+                          .map((rep) => (
+                            <option key={rep.id} value={rep.id}>
+                              {rep.contact_name || rep.store_name} ({rep.phone || rep.email})
+                            </option>
+                          ))}
+                      </select>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Status da Conta */}
+                {clientModalMode === 'edit' && !clientIsMaster && (
+                  <div className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2">
+                    <strong className="text-xs font-semibold text-slate-800">Status do Acesso</strong>
+                    <div className="inline-flex rounded-lg p-0.5 bg-slate-200 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setClientApproved(true)}
+                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                          clientApproved ? 'bg-white text-emerald-700 shadow-2xs' : 'text-slate-600'
+                        }`}
+                      >
+                        Aprovado
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClientApproved(false)}
+                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                          !clientApproved ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-600'
+                        }`}
+                      >
+                        Aguardando
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Dados Cadastrais */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {clientRole === 'admin'
+                        ? 'Setor *'
+                        : clientRole === 'representative'
+                        ? 'Área / Região *'
+                        : 'Nome da Loja *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newClientStore}
+                      onChange={(e) => setNewClientStore(e.target.value)}
+                      placeholder={
+                        clientRole === 'admin'
+                          ? 'Ex: Comercial Zeiq'
+                          : clientRole === 'representative'
+                          ? 'Ex: Interior SP'
+                          : 'Ex: Arena Beach Point'
+                      }
+                      className="w-full h-10 px-3.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      {clientRole === 'representative' ? 'Representante *' : 'Responsável *'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      placeholder="Ex: Carlos Silva"
+                      className="w-full h-10 px-3.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      WhatsApp *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={newClientPhone}
+                      onChange={(e) => setNewClientPhone(e.target.value)}
+                      placeholder="16 99123-4567"
+                      className="w-full h-10 px-3.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      CNPJ / CPF
+                    </label>
+                    <input
+                      type="text"
+                      value={newClientCnpj}
+                      onChange={(e) => setNewClientCnpj(e.target.value)}
+                      placeholder="00.000.000/0001-00"
+                      className="w-full h-10 px-3.5 text-base sm:text-xs font-mono bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Cidade
+                    </label>
+                    <input
+                      type="text"
+                      value={newClientCity}
+                      onChange={(e) => setNewClientCity(e.target.value)}
+                      placeholder="Ribeirão Preto"
+                      className="w-full h-10 px-3.5 text-base sm:text-sm bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      UF
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={newClientState}
+                      onChange={(e) => setNewClientState(e.target.value.toUpperCase())}
+                      placeholder="SP"
+                      className="w-full h-10 px-3.5 text-base sm:text-sm uppercase bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black text-center font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Acesso e Senha */}
+                <div className="pt-2.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      E-mail *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      disabled={clientModalMode === 'edit'}
+                      value={newClientEmail}
+                      onChange={(e) => setNewClientEmail(e.target.value)}
+                      placeholder="usuario@zeiq.com.br"
+                      className={`w-full h-10 px-3.5 text-base sm:text-xs border rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black ${
+                        clientModalMode === 'edit'
+                          ? 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'
+                          : 'bg-[#f8f9fa] border-slate-200'
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                      <span>{clientModalMode === 'create' ? 'Senha *' : 'Nova Senha'}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const randomPwd = 'Zeiq@' + Math.floor(1000 + Math.random() * 9000);
+                          setNewClientPassword(randomPwd);
+                        }}
+                        className="text-[11px] text-zeiq-orange hover:underline font-bold cursor-pointer"
+                      >
+                        Gerar
+                      </button>
+                    </label>
+                    <input
+                      type="text"
+                      required={clientModalMode === 'create'}
+                      minLength={6}
+                      value={newClientPassword}
+                      onChange={(e) => setNewClientPassword(e.target.value)}
+                      placeholder={clientModalMode === 'create' ? 'Mínimo 6 dígitos' : 'Em branco para manter'}
+                      className="w-full h-10 px-3.5 text-base sm:text-xs font-mono bg-[#f8f9fa] border border-slate-200 rounded-xl text-zeiq-black focus:outline-none focus:ring-1 focus:ring-zeiq-black"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Rodapé Fixo */}
+              <div className="px-4 sm:px-6 py-3 sm:py-3.5 pb-safe bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsClientModalOpen(false)}
+                  className="h-10 px-4 text-xs font-semibold text-slate-600 hover:text-zeiq-black hover:bg-slate-200/60 rounded-xl cursor-pointer flex items-center justify-center transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingClient}
-                  className="h-10 px-5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer flex items-center justify-center"
+                  className="flex-1 sm:flex-initial h-10 px-5 bg-zeiq-black hover:bg-zeiq-charcoal text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-xs active:scale-95 cursor-pointer flex items-center justify-center"
                 >
                   {savingClient
-                    ? (clientModalMode === 'create' ? 'Criando Conta...' : 'Salvando...')
-                    : (clientModalMode === 'create'
-                        ? (clientRole === 'representative'
-                            ? 'Cadastrar Representante Comercial'
-                            : clientRole === 'admin'
-                            ? 'Cadastrar Administrador'
-                            : clientRole === 'stock'
-                            ? 'Cadastrar Membro de Estoque'
-                            : 'Cadastrar Lojista B2B')
-                        : 'Salvar Alterações')}
+                    ? (clientModalMode === 'create' ? 'Criando...' : 'Salvando...')
+                    : (clientModalMode === 'create' ? 'Cadastrar' : 'Salvar Alterações')}
                 </button>
               </div>
             </form>
