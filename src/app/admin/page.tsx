@@ -5418,7 +5418,16 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
                       {it.coverImage ? (
-                        <img src={getThumbImageUrl(it.coverImage)} alt="" loading="lazy" className="w-full h-full object-cover object-top" />
+                        <img
+                          src={getThumbImageUrl(it.coverImage)}
+                          alt=""
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/placeholder-product.svg';
+                          }}
+                          className="w-full h-full object-cover object-top"
+                        />
                       ) : (
                         <Package className="w-4 h-4 text-slate-400" />
                       )}

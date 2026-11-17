@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { QuoteItem, Product } from '@/types';
 import { getProductEffectivePrice } from '@/lib/utils/pricing';
-import { getProductCoverThumbUrl } from '@/lib/utils/images';
+import { getProductCoverThumbUrl, resolveStoredImageUrl } from '@/lib/utils/images';
 
 export interface CartLastAdded {
   id: string;
@@ -373,6 +373,14 @@ export const useQuoteCart = create<QuoteCartState>()(
       name: 'zeiq_quote_cart',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ items: state.items }),
+      onRehydrateStorage: () => (state) => {
+        if (state && Array.isArray(state.items)) {
+          state.items = state.items.map((item) => ({
+            ...item,
+            coverImage: item.coverImage ? resolveStoredImageUrl(item.coverImage, true) : item.coverImage,
+          }));
+        }
+      },
     }
   )
 );

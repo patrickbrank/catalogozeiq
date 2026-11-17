@@ -8,7 +8,7 @@ import { useQuoteCart } from '@/lib/store/quote-cart';
 import { createClient } from '@/lib/supabase/client';
 import { ProductModal } from '@/components/ProductModal';
 import { Product } from '@/types';
-import { getThumbImageUrl } from '@/lib/utils/images';
+import { getThumbImageUrl, resolveStoredImageUrl } from '@/lib/utils/images';
 
 export function QuoteDrawer() {
   const [mounted, setMounted] = useState(false);
@@ -214,9 +214,14 @@ export function QuoteDrawer() {
       if (data) {
         setSelectedProduct({
           ...data,
-          images: (data.images || []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+          images: (data.images || []).sort((a: any, b: any) => {
+            if (a.is_cover && !b.is_cover) return -1;
+            if (!a.is_cover && b.is_cover) return 1;
+            return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+          }),
         });
       } else {
+        const fallbackImg = item.coverImage ? resolveStoredImageUrl(item.coverImage, false) : '';
         setSelectedProduct({
           id: item.productId,
           name: item.productName,
@@ -224,10 +229,11 @@ export function QuoteDrawer() {
           code_sku: item.sku,
           description: item.notes || '',
           price: item.price,
-          images: item.coverImage ? [{ id: 'cov', product_id: item.productId, storage_path: item.coverImage, public_url: item.coverImage, is_cover: true }] : [],
+          images: fallbackImg ? [{ id: 'cov', product_id: item.productId, storage_path: fallbackImg, public_url: fallbackImg, is_cover: true }] : [],
         } as Product);
       }
     } catch {
+      const fallbackImg = item.coverImage ? resolveStoredImageUrl(item.coverImage, false) : '';
       setSelectedProduct({
         id: item.productId,
         name: item.productName,
@@ -235,7 +241,7 @@ export function QuoteDrawer() {
         code_sku: item.sku,
         description: item.notes || '',
         price: item.price,
-        images: item.coverImage ? [{ id: 'cov', product_id: item.productId, storage_path: item.coverImage, public_url: item.coverImage, is_cover: true }] : [],
+        images: fallbackImg ? [{ id: 'cov', product_id: item.productId, storage_path: fallbackImg, public_url: fallbackImg, is_cover: true }] : [],
       } as Product);
     } finally {
       setLoadingProduct(false);
@@ -371,6 +377,10 @@ export function QuoteDrawer() {
                             src={getThumbImageUrl(item.coverImage)}
                             alt={cleanProductName}
                             loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = '/placeholder-product.svg';
+                            }}
                             className="w-full h-full object-cover object-top group-hover/thumb:scale-105 transition-transform"
                           />
                         ) : (

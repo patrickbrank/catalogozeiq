@@ -44,6 +44,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useQuoteCart } from '@/lib/store/quote-cart';
 import { AvatarIcon, ADMIN_AVATARS, resolveAvatarId } from '@/lib/constants/avatars';
 import { Order, OrderStatus, QuoteItem, StoreSettings } from '@/types';
+import { getThumbImageUrl } from '@/lib/utils/images';
 
 // Mapeamento dos 5 estágios de pedidos B2B
 const STATUS_STEPS: { key: OrderStatus; label: string; description: string }[] = [
@@ -1210,8 +1211,13 @@ export default function ResellerPortalPage() {
                                     <div className="w-11 h-11 rounded-lg bg-[#f8f9fa] border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
                                       {item.coverImage ? (
                                         <img
-                                          src={item.coverImage}
+                                          src={getThumbImageUrl(item.coverImage)}
                                           alt={item.productName}
+                                          loading="lazy"
+                                          onError={(e) => {
+                                            e.currentTarget.onerror = null;
+                                            e.currentTarget.src = '/placeholder-product.svg';
+                                          }}
                                           className="w-full h-full object-cover object-top"
                                         />
                                       ) : (

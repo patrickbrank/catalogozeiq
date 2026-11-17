@@ -112,6 +112,10 @@ export function CartToastNotification() {
               <img
                 src={getThumbImageUrl(lastAdded.coverImage)}
                 alt=""
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = '/placeholder-product.svg';
+                }}
                 className="w-full h-full object-cover object-top"
               />
             ) : (
