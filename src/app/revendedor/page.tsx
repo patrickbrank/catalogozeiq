@@ -119,7 +119,7 @@ export default function ResellerDashboardPage() {
   // Carrega os dados do revendedor
   const loadResellerData = async () => {
     try {
-      const res = await fetch('/api/reseller/me');
+      const res = await fetch('/api/reseller/me', { cache: 'no-store' });
       const data = await res.json();
 
       if (!data.success || !data.reseller) {
@@ -133,8 +133,8 @@ export default function ResellerDashboardPage() {
 
       // Carrega pedidos e clientes em paralelo
       const [ordersRes, custRes] = await Promise.all([
-        fetch('/api/reseller/orders'),
-        fetch('/api/reseller/customers'),
+        fetch('/api/reseller/orders', { cache: 'no-store' }),
+        fetch('/api/reseller/customers', { cache: 'no-store' }),
       ]);
 
       const [ordersData, custData] = await Promise.all([

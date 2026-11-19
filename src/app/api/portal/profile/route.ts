@@ -5,8 +5,13 @@ import {
   optimizeAvatarImageBuffer,
   STORAGE_CACHE_CONTROL,
 } from '@/lib/utils/server-image-optimizer';
+import {
+  resolveLiveReseller,
+  syncRepresentativeResellerAndOrders,
+} from '@/lib/services/reseller-sync';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -35,53 +40,31 @@ export async function GET() {
       .maybeSingle();
 
     const meta = user.user_metadata || {};
-    const resellerId = profile?.reseller_id || meta.reseller_id || profile?.representative_id || meta.representative_id || null;
+    const appMeta = user.app_metadata || {};
+    const resellerId =
+      profile?.reseller_id ||
+      profile?.representative_id ||
+      appMeta.representative_id ||
+      meta.reseller_id ||
+      meta.representative_id ||
+      null;
 
     let resellerData = null;
     if (resellerId) {
-      try {
-        // Tenta buscar na tabela resellers
-        const { data: resTable } = await admin
-          .from('resellers')
-          .select('id, name, email, phone, whatsapp, status, notification_preference')
-          .eq('id', resellerId)
-          .maybeSingle();
-
-        if (resTable) {
-          resellerData = {
-            id: resTable.id,
-            name: resTable.name,
-            contact_name: resTable.name,
-            store_name: resTable.name,
-            email: resTable.email,
-            phone: resTable.phone || resTable.whatsapp,
-            whatsapp: resTable.whatsapp,
-            notification_preference: resTable.notification_preference,
-            status: resTable.status,
-          };
-        } else {
-          // Fallback para tabela profiles
-          const { data: rep } = await admin
-            .from('profiles')
-            .select('id, contact_name, store_name, phone, email')
-            .eq('id', resellerId)
-            .maybeSingle();
-
-          if (rep) {
-            resellerData = {
-              id: rep.id,
-              name: rep.contact_name || rep.store_name || rep.email,
-              contact_name: rep.contact_name,
-              store_name: rep.store_name,
-              phone: rep.phone,
-              whatsapp: (rep.phone || '').replace(/\D/g, ''),
-              email: rep.email,
-              notification_preference: 'both' as const,
-              status: 'ativo' as const,
-            };
-          }
-        }
-      } catch {}
+      const resolved = await resolveLiveReseller(admin, resellerId);
+      if (resolved.reseller) {
+        resellerData = {
+          id: resolved.reseller.id,
+          name: resolved.reseller.name,
+          contact_name: resolved.reseller.name,
+          store_name: resolved.reseller.name,
+          email: resolved.reseller.email,
+          phone: resolved.reseller.whatsapp || resolved.reseller.phone,
+          whatsapp: resolved.reseller.whatsapp,
+          notification_preference: resolved.reseller.notification_preference,
+          status: resolved.reseller.status,
+        };
+      }
     }
 
     const merged = {
@@ -193,6 +176,28 @@ export async function PUT(request: NextRequest) {
       }
     } catch (e) {
       console.warn('Aviso ao sincronizar user_metadata:', e);
+    }
+
+    // 3. Se o próprio representante alterar seu telefone/nome pelo perfil, sincroniza resellers e pedidos
+    const effectiveRole = finalProfile?.role || user.app_metadata?.role || user.user_metadata?.role;
+    const serviceAdmin = getAdminClient();
+    if (
+      serviceAdmin &&
+      effectiveRole === 'representative' &&
+      (phone !== undefined || contact_name !== undefined)
+    ) {
+      try {
+        await syncRepresentativeResellerAndOrders(serviceAdmin, {
+          userId: user.id,
+          email: user.email,
+          name: contact_name !== undefined ? contact_name?.trim() : finalProfile?.contact_name,
+          phone: phone !== undefined ? phone?.trim() : finalProfile?.phone,
+          whatsapp: phone !== undefined ? (phone || '').replace(/\D/g, '') : undefined,
+          updateOrders: true,
+        });
+      } catch (repSyncErr) {
+        console.warn('Aviso ao sincronizar representante após edição de perfil:', repSyncErr);
+      }
     }
 
     return NextResponse.json({

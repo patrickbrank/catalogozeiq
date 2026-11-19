@@ -5,6 +5,8 @@ import { invalidateCatalogCache } from '@/lib/data/products';
 import { normalizeCanonicalSize, parseProductSizes, findStockForSize, buildProductVariants, compactSku } from '@/lib/utils/sizes';
 import { getPromotionsMap, cleanSkuKey } from '@/lib/data/promotions';
 
+export const dynamic = 'force-dynamic';
+
 interface StockBySizeInput {
   [size: string]: number | string;
 }
@@ -888,12 +890,25 @@ export async function POST(request: NextRequest) {
         // CASO A: Grade completa de tamanhos informada como objeto
         if (stockBySize && Object.keys(stockBySize).length > 0) {
           delete entry.stockBySize['_padrao'];
-          entry.stockBySize = { ...entry.stockBySize, ...stockBySize };
+          for (const [k, v] of Object.entries(stockBySize)) {
+            const canon = normalizeCanonicalSize(k) || k.trim();
+            for (const existingKey of Object.keys(entry.stockBySize)) {
+              if (existingKey !== canon && (normalizeCanonicalSize(existingKey) || existingKey.trim()) === canon) {
+                delete entry.stockBySize[existingKey];
+              }
+            }
+            entry.stockBySize[canon] = v;
+          }
         }
         // CASO B: Atualização de tamanho pontual (ex: 2010.015/M ou 401.021/39/40 ou item.size: "39/40")
         else if (size) {
           const cleanSize = normalizeCanonicalSize(size) || size.trim();
           delete entry.stockBySize['_padrao'];
+          for (const existingKey of Object.keys(entry.stockBySize)) {
+            if (existingKey !== cleanSize && (normalizeCanonicalSize(existingKey) || existingKey.trim()) === cleanSize) {
+              delete entry.stockBySize[existingKey];
+            }
+          }
           entry.stockBySize[cleanSize] = quantity ?? 0;
         }
         // CASO C: Linha enviada sem tamanho (SKU principal ou produto simples)

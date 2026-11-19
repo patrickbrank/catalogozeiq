@@ -1,4 +1,4 @@
-import { Order, Reseller, Profile } from '@/types';
+import type { Order, Reseller, Profile } from '@/types';
 
 export interface NotificationResult {
   success: boolean;
@@ -13,13 +13,27 @@ export interface NotificationResult {
 }
 
 /**
+ * Verifica se um telefone/WhatsApp contém dígitos válidos (não vazio e não apenas zeros)
+ */
+export function isValidWhatsAppNumber(phone?: string | null): boolean {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 10 && !/^0+$/.test(digits);
+}
+
+/**
  * Normaliza o número de telefone/WhatsApp para formato com DDI (55 para Brasil)
  * e apenas dígitos.
  */
 export function sanitizeWhatsAppNumber(phone?: string | null): string {
   if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  if (!digits) return '';
+  let digits = phone.replace(/\D/g, '');
+  if (!digits || /^0+$/.test(digits)) return '';
+
+  // Remove zero à esquerda do DDD (ex: 016999999999 -> 16999999999)
+  if (digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
+    digits = digits.slice(1);
+  }
 
   // Se já começar com 55 e tiver tamanho de DDD+Número brasileiro (12 ou 13 dígitos)
   if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
@@ -32,6 +46,22 @@ export function sanitizeWhatsAppNumber(phone?: string | null): string {
   }
 
   return digits;
+}
+
+/**
+ * Atualiza o número de destino em um link https://wa.me/<numero>?text=... mantendo o texto intacto.
+ */
+export function replaceWhatsAppShareUrlPhone(
+  existingUrl?: string | null,
+  newPhone?: string | null
+): string | null {
+  if (!existingUrl) return null;
+  const cleanNumber = sanitizeWhatsAppNumber(newPhone);
+  if (!cleanNumber) return existingUrl;
+  if (/^https?:\/\/wa\.me\/\d+/i.test(existingUrl)) {
+    return existingUrl.replace(/^(https?:\/\/wa\.me\/)\d+/i, `$1${cleanNumber}`);
+  }
+  return existingUrl;
 }
 
 /**
@@ -313,7 +343,7 @@ export async function sendOrderToResellerWhatsapp(
   reseller: Reseller,
   customerProfile?: Partial<Profile> | null
 ): Promise<{ success: boolean; url: string; apiSent: boolean; message: string }> {
-  const cleanNumber = sanitizeWhatsAppNumber(reseller.whatsapp || reseller.phone);
+  const cleanNumber = sanitizeWhatsAppNumber(reseller.whatsapp) || sanitizeWhatsAppNumber(reseller.phone);
   const messageText = formatOrderWhatsAppMessage(order, reseller, customerProfile);
   const encoded = encodeURIComponent(messageText);
   const waUrl = cleanNumber ? `https://wa.me/${cleanNumber}?text=${encoded}` : '';

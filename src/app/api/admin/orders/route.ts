@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient, verifyAdmin } from '@/lib/supabase/admin-auth';
+import { enrichOrdersWithLiveResellers } from '@/lib/services/reseller-sync';
+import { updateOrderWithStockSync } from '@/lib/services/order-stock';
+import { OrderStatus } from '@/types';
+
+export const dynamic = 'force-dynamic';
 
 // GET: Lista pedidos para o painel administrativo conforme o cargo do usuário
 export async function GET(request: NextRequest) {
@@ -32,7 +37,8 @@ export async function GET(request: NextRequest) {
       const { data: resRecord } = await adminSupabase
         .from('resellers')
         .select('id')
-        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .or(`user_id.eq.${callerUser.id},email.ilike.${callerUser.email}`)
+        .limit(1)
         .maybeSingle();
 
       const resId = resRecord?.id;
@@ -67,9 +73,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const liveOrders = await enrichOrdersWithLiveResellers(adminSupabase, data || []);
+
     return NextResponse.json({
       success: true,
-      orders: data || [],
+      orders: liveOrders,
     });
   } catch (err: any) {
     return NextResponse.json({
@@ -77,57 +85,6 @@ export async function GET(request: NextRequest) {
       orders: [],
       error: err.message,
     });
-  }
-}
-
-// Função auxiliar para baixar ou estornar itens do estoque dos produtos
-async function processStockMovement(adminSupabase: any, items: any[], isDeduction: boolean) {
-  if (!items || !Array.isArray(items)) return;
-
-  for (const item of items) {
-    const prodId = item.productId;
-    if (!prodId) continue;
-
-    try {
-      const { data: prod } = await adminSupabase
-        .from('products')
-        .select('id, stock_by_size, total_stock')
-        .eq('id', prodId)
-        .maybeSingle();
-
-      if (!prod) continue;
-
-      const currentStock: Record<string, number> = { ...(prod.stock_by_size || {}) };
-      const multiplier = isDeduction ? -1 : 1;
-
-      if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
-        Object.entries(item.sizeBreakdown).forEach(([sz, qty]) => {
-          const numQty = Number(qty) || 0;
-          const prevQty = currentStock[sz] ?? 0;
-          currentStock[sz] = Math.max(0, prevQty + (numQty * multiplier));
-        });
-      } else if (item.selectedSize) {
-        const numQty = Number(item.quantity) || 1;
-        const prevQty = currentStock[item.selectedSize] ?? 0;
-        currentStock[item.selectedSize] = Math.max(0, prevQty + (numQty * multiplier));
-      } else {
-        const numQty = Number(item.quantity) || 1;
-        const prevQty = currentStock['_padrao'] ?? (prod.total_stock ?? 0);
-        currentStock['_padrao'] = Math.max(0, prevQty + (numQty * multiplier));
-      }
-
-      const newTotal = Object.values(currentStock).reduce((sum, val) => sum + (Number(val) || 0), 0);
-
-      await adminSupabase
-        .from('products')
-        .update({
-          stock_by_size: currentStock,
-          total_stock: newTotal,
-        })
-        .eq('id', prodId);
-    } catch (e) {
-      console.warn(`Erro ao processar estoque do produto ${prodId}:`, e);
-    }
   }
 }
 
@@ -175,7 +132,8 @@ export async function PATCH(request: NextRequest) {
       const { data: resRecord } = await adminSupabase
         .from('resellers')
         .select('id')
-        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .or(`user_id.eq.${callerUser.id},email.ilike.${callerUser.email}`)
+        .limit(1)
         .maybeSingle();
 
       const resId = resRecord?.id;
@@ -214,52 +172,30 @@ export async function PATCH(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    if (status) updates.status = status;
+    const validStatuses: OrderStatus[] = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const validatedStatus = status && validStatuses.includes(status) ? (status as OrderStatus) : undefined;
+    if (validatedStatus) updates.status = validatedStatus;
     if (tracking_code !== undefined) updates.tracking_code = tracking_code?.trim() || null;
     if (tracking_url !== undefined) updates.tracking_url = tracking_url?.trim() || null;
     if (commercial_notes !== undefined) updates.commercial_notes = commercial_notes?.trim() || null;
 
-    // Se mudou status, atualiza estoque se necessário
-    if (status) {
-      const isCurrentlyDeducted = !!existingOrder.stock_deducted;
-      const isMovingToApproved = status === 'approved' || status === 'processing';
-      const isMovingToCancelled = status === 'cancelled';
-
-      if (!isCurrentlyDeducted && isMovingToApproved) {
-        await processStockMovement(adminSupabase, existingOrder.items, true);
-        updates.stock_deducted = true;
-      } else if (isCurrentlyDeducted && isMovingToCancelled) {
-        await processStockMovement(adminSupabase, existingOrder.items, false);
-        updates.stock_deducted = false;
-      }
-    }
-
-    let { data, error } = await adminSupabase
-      .from('orders')
-      .update(updates)
-      .eq('id', id)
-      .select('*')
-      .single();
-
-    if (error && error.message?.includes('stock_deducted')) {
-      delete updates.stock_deducted;
-      const retry = await adminSupabase
-        .from('orders')
-        .update(updates)
-        .eq('id', id)
-        .select('*')
-        .single();
-      data = retry.data;
-      error = retry.error;
-    }
+    const { order: data, error, stockAction } = await updateOrderWithStockSync(
+      adminSupabase,
+      existingOrder,
+      updates,
+      validatedStatus
+    );
 
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
+    const [enrichedOrder] = await enrichOrdersWithLiveResellers(adminSupabase, data ? [data] : []);
+
     return NextResponse.json({
       success: true,
-      order: data,
+      order: enrichedOrder || data,
+      stockAction,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

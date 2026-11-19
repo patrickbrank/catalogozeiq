@@ -242,7 +242,7 @@ export default function ResellerPortalPage() {
       // 2. Consulta API para buscar pedidos da conta autenticada
       let isAuthenticated = false;
       try {
-        const res = await fetch('/api/orders');
+        const res = await fetch('/api/orders', { cache: 'no-store' });
         const data = await res.json();
 
         if (data.authenticated && data.user) {
@@ -279,7 +279,7 @@ export default function ResellerPortalPage() {
 
         if (numbersToSync.length > 0) {
           try {
-            const syncRes = await fetch(`/api/orders?order_numbers=${encodeURIComponent(numbersToSync.join(','))}`);
+            const syncRes = await fetch(`/api/orders?order_numbers=${encodeURIComponent(numbersToSync.join(','))}`, { cache: 'no-store' });
             const syncData = await syncRes.json();
             if (syncData.success && Array.isArray(syncData.orders)) {
               syncData.orders.forEach((serverOrder: Order) => {
@@ -419,10 +419,20 @@ export default function ResellerPortalPage() {
 
   // WhatsApp comercial direto com o revendedor responsável pelo pedido
   const getWhatsAppOrderLink = (order: Order) => {
-    const rawPhone = order.reseller_whatsapp || profile?.reseller?.whatsapp || profile?.reseller?.phone;
+    const isSameCurrentReseller =
+      !order.reseller_id ||
+      !profile?.reseller?.id ||
+      order.reseller_id === profile.reseller.id;
+
+    const rawPhone = isSameCurrentReseller
+      ? (profile?.reseller?.whatsapp || profile?.reseller?.phone || order.reseller_whatsapp)
+      : (order.reseller_whatsapp || profile?.reseller?.whatsapp || profile?.reseller?.phone);
     if (!rawPhone) return null;
     let cleanPhone = rawPhone.replace(/\D/g, '');
-    if (!cleanPhone) return null;
+    if (!cleanPhone || /^0+$/.test(cleanPhone)) return null;
+    if (cleanPhone.startsWith('0') && (cleanPhone.length === 11 || cleanPhone.length === 12)) {
+      cleanPhone = cleanPhone.slice(1);
+    }
     if (!cleanPhone.startsWith('55') && (cleanPhone.length === 10 || cleanPhone.length === 11)) {
       cleanPhone = `55${cleanPhone}`;
     }

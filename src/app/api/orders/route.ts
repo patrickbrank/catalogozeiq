@@ -2,7 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { notifyResellerForOrder } from '@/lib/services/order-notification';
+import {
+  enrichOrdersWithLiveResellers,
+  resolveLiveReseller,
+} from '@/lib/services/reseller-sync';
 import { Reseller } from '@/types';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,8 +44,12 @@ export async function GET(request: NextRequest) {
         const serverSupabase = await createServerClient();
         const { data: { user: currentUser } } = await serverSupabase.auth.getUser();
 
+        const liveBatchOrders = adminSupabase
+          ? await enrichOrdersWithLiveResellers(adminSupabase, data || [])
+          : (data || []);
+
         // Proteção Anti-IDOR se for visitante anônimo
-        const safeOrders = (data || []).map((order: any) => {
+        const safeOrders = liveBatchOrders.map((order: any) => {
           const isOwner =
             currentUser &&
             (currentUser.id === order.user_id ||
@@ -69,6 +79,7 @@ export async function GET(request: NextRequest) {
             buyer_phone: maskedPhone,
             buyer_email: maskedEmail,
             commercial_notes: null,
+            whatsapp_share_url: null,
           };
         });
 
@@ -110,7 +121,10 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      const order = data[0];
+      const [enrichedSingle] = adminSupabase
+        ? await enrichOrdersWithLiveResellers(adminSupabase, [data[0]])
+        : [data[0]];
+      const order = enrichedSingle || data[0];
 
       // Checa se o usuário atual é dono do pedido ou admin
       const serverSupabase = await createServerClient();
@@ -156,6 +170,7 @@ export async function GET(request: NextRequest) {
           buyer_phone: maskedPhone,
           buyer_email: maskedEmail,
           commercial_notes: null, // Protege anotações comerciais internas contra scraping
+          whatsapp_share_url: null,
         };
 
         return NextResponse.json({
@@ -210,47 +225,28 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     let enrichedProfile = profile;
-    const targetResellerId = profile?.reseller_id || profile?.representative_id;
+    const targetResellerId =
+      profile?.reseller_id ||
+      profile?.representative_id ||
+      user.app_metadata?.representative_id ||
+      user.user_metadata?.reseller_id ||
+      user.user_metadata?.representative_id ||
+      null;
+
     if (profile && targetResellerId) {
-      try {
-        const { data: resTable } = await adminSupabase
-          .from('resellers')
-          .select('id, name, email, phone, whatsapp, status, notification_preference')
-          .or(`id.eq.${targetResellerId},user_id.eq.${targetResellerId}`)
-          .maybeSingle();
-
-        if (resTable) {
-          enrichedProfile = {
-            ...profile,
-            reseller: {
-              id: resTable.id,
-              name: resTable.name,
-              email: resTable.email,
-              phone: resTable.phone || resTable.whatsapp,
-              whatsapp: resTable.whatsapp,
-            },
-          };
-        } else {
-          const { data: legacyRep } = await adminSupabase
-            .from('profiles')
-            .select('id, contact_name, store_name, phone, email')
-            .eq('id', targetResellerId)
-            .maybeSingle();
-
-          if (legacyRep) {
-            enrichedProfile = {
-              ...profile,
-              reseller: {
-                id: legacyRep.id,
-                name: legacyRep.contact_name || legacyRep.store_name || legacyRep.email,
-                email: legacyRep.email,
-                phone: legacyRep.phone,
-                whatsapp: (legacyRep.phone || '').replace(/\D/g, ''),
-              },
-            };
-          }
-        }
-      } catch {}
+      const resolved = await resolveLiveReseller(adminSupabase, targetResellerId);
+      if (resolved.reseller) {
+        enrichedProfile = {
+          ...profile,
+          reseller: {
+            id: resolved.reseller.id,
+            name: resolved.reseller.name,
+            email: resolved.reseller.email,
+            phone: resolved.reseller.whatsapp || resolved.reseller.phone,
+            whatsapp: resolved.reseller.whatsapp,
+          },
+        };
+      }
     }
 
     // Monta filtros abrangentes para encontrar pedidos do cliente
@@ -274,12 +270,17 @@ export async function GET(request: NextRequest) {
       .or(orFilters.join(','))
       .order('created_at', { ascending: false });
 
-    // Enriquecimento retrocompatível dos pedidos com dados do revendedor
-    const formatOrdersWithReseller = (ordersList: any[]) => {
-      return ordersList.map((o) => ({
+    // Enriquecimento retrocompatível dos pedidos com dados ATUAIS do revendedor
+    const formatOrdersWithReseller = async (ordersList: any[]) => {
+      const liveList = await enrichOrdersWithLiveResellers(adminSupabase, ordersList);
+      return liveList.map((o) => ({
         ...o,
         reseller_name: o.reseller_name || enrichedProfile?.reseller?.name || null,
-        reseller_whatsapp: o.reseller_whatsapp || enrichedProfile?.reseller?.whatsapp || enrichedProfile?.reseller?.phone || null,
+        reseller_whatsapp:
+          o.reseller_whatsapp ||
+          enrichedProfile?.reseller?.whatsapp ||
+          enrichedProfile?.reseller?.phone ||
+          null,
       }));
     };
 
@@ -299,7 +300,7 @@ export async function GET(request: NextRequest) {
           email: user.email,
           profile: enrichedProfile || null,
         },
-        orders: formatOrdersWithReseller(fallbackData || []),
+        orders: await formatOrdersWithReseller(fallbackData || []),
       });
     }
 
@@ -311,7 +312,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         profile: enrichedProfile || null,
       },
-      orders: formatOrdersWithReseller(data || []),
+      orders: await formatOrdersWithReseller(data || []),
     });
   } catch (err: any) {
     return NextResponse.json({
@@ -371,6 +372,15 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch {}
+
+      if (!targetResellerId) {
+        targetResellerId =
+          user.app_metadata?.representative_id ||
+          user.user_metadata?.reseller_id ||
+          user.user_metadata?.representative_id ||
+          clientSentResellerId ||
+          null;
+      }
     }
 
     // Fallback: Se não estava logado via sessão de cookie, busca por e-mail ou telefone para resgatar o representante do lojista
@@ -399,60 +409,16 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
-    // 2. Busca dados completos do revendedor vinculado e resolve chaves estrangeiras
+    // 2. Busca dados atuais do revendedor vinculado e resolve chaves estrangeiras
     let resellerRecord: Reseller | null = null;
     let resolvedResellerId: string | null = null;
     let resolvedRepresentativeUserId: string | null = null;
 
     if (targetResellerId) {
-      try {
-        // Tenta buscar na tabela 'resellers' por id ou por user_id
-        const { data: resData } = await client
-          .from('resellers')
-          .select('*')
-          .or(`id.eq.${targetResellerId},user_id.eq.${targetResellerId}`)
-          .maybeSingle();
-
-        if (resData) {
-          resellerRecord = resData as Reseller;
-          resolvedResellerId = resData.id;
-          resolvedRepresentativeUserId = resData.user_id;
-        } else {
-          // Fallback para perfis com role 'representative'
-          const { data: legacyRep } = await client
-            .from('profiles')
-            .select('*')
-            .eq('id', targetResellerId)
-            .maybeSingle();
-
-          if (legacyRep) {
-            resolvedRepresentativeUserId = legacyRep.id;
-
-            // Busca na tabela resellers pelo email ou user_id
-            const { data: resByProf } = await client
-              .from('resellers')
-              .select('*')
-              .or(`user_id.eq.${legacyRep.id},email.eq.${legacyRep.email}`)
-              .maybeSingle();
-
-            if (resByProf) {
-              resellerRecord = resByProf as Reseller;
-              resolvedResellerId = resByProf.id;
-            } else {
-              resellerRecord = {
-                id: legacyRep.id,
-                name: legacyRep.contact_name || legacyRep.store_name || legacyRep.email,
-                email: legacyRep.email,
-                phone: legacyRep.phone,
-                whatsapp: (legacyRep.phone || '').replace(/\D/g, ''),
-                status: 'ativo',
-                notification_preference: 'both',
-                user_id: legacyRep.id,
-              };
-            }
-          }
-        }
-      } catch {}
+      const resolved = await resolveLiveReseller(client, targetResellerId);
+      resellerRecord = resolved.reseller;
+      resolvedResellerId = resolved.resellerId;
+      resolvedRepresentativeUserId = resolved.representativeUserId;
     }
 
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);

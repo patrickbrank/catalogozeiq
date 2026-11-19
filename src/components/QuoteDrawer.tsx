@@ -44,20 +44,19 @@ export function QuoteDrawer() {
   const [contactEmail, setContactEmail] = useState(process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@zeiq.com.br');
   const [assignedRep, setAssignedRep] = useState<{ id?: string; name?: string; phone?: string } | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
+  const syncUserAndAssignedRep = React.useCallback(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        if (user.email) setBuyerEmail(user.email);
+        if (user.email) setBuyerEmail((prev) => prev || user.email || '');
         const meta = user.user_metadata || {};
-        if (meta.contact_name) setBuyerName(meta.contact_name);
-        else if (user.email) setBuyerName(user.email.split('@')[0]);
-        if (meta.store_name) setBuyerCompany(meta.store_name);
-        if (meta.phone) setBuyerPhone(meta.phone);
+        if (meta.contact_name) setBuyerName((prev) => prev || meta.contact_name);
+        else if (user.email) setBuyerName((prev) => prev || user.email!.split('@')[0]);
+        if (meta.store_name) setBuyerCompany((prev) => prev || meta.store_name);
+        if (meta.phone) setBuyerPhone((prev) => prev || meta.phone);
 
-        // Busca dados de perfil e revendedor comercial vinculado
-        fetch('/api/portal/profile')
+        // Busca dados atualizados de perfil e revendedor comercial vinculado
+        fetch('/api/portal/profile', { cache: 'no-store' })
           .then((res) => res.json())
           .then((profData) => {
             if (profData.success) {
@@ -79,7 +78,7 @@ export function QuoteDrawer() {
         // Tenta recuperar revendedor por link de indicação salvo no navegador (?rep= ou ?reseller=)
         const refId = typeof window !== 'undefined' ? localStorage.getItem('zeiq_referral_reseller') : null;
         if (refId) {
-          fetch('/api/resellers')
+          fetch('/api/resellers', { cache: 'no-store' })
             .then((res) => res.json())
             .then((data) => {
               if (data.success && Array.isArray(data.resellers)) {
@@ -104,8 +103,13 @@ export function QuoteDrawer() {
         }
       }
     });
+  }, []);
 
-    fetch('/api/settings')
+  useEffect(() => {
+    setMounted(true);
+    syncUserAndAssignedRep();
+
+    fetch('/api/settings', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.settings) {
@@ -113,7 +117,7 @@ export function QuoteDrawer() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [syncUserAndAssignedRep]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -122,12 +126,13 @@ export function QuoteDrawer() {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleKeyDown);
+      syncUserAndAssignedRep();
     }
     return () => {
       document.body.style.overflow = 'auto';
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, setIsOpen]);
+  }, [isOpen, setIsOpen, syncUserAndAssignedRep]);
 
   if (!mounted || !isOpen) return null;
 

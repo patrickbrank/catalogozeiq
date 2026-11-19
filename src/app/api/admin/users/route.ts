@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAdminClient, verifyAdmin, isMasterEmail } from '@/lib/supabase/admin-auth';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import {
+  pickEffectiveWhatsApp,
+  syncRepresentativeResellerAndOrders,
+} from '@/lib/services/reseller-sync';
+
+export const dynamic = 'force-dynamic';
 
 const VALID_ROLES = ['admin', 'representative', 'stock', 'reseller'] as const;
 type UserRole = typeof VALID_ROLES[number];
@@ -65,15 +71,28 @@ export async function GET(request: NextRequest) {
       // Ignora se tabela profiles ainda não foi migrada
     }
 
-    // 2.1 Busca dados da tabela resellers para identificar representantes comerciais oficiais
+    // 2.1 Busca dados da tabela resellers para identificar representantes comerciais oficiais e seus números vigentes
     const resellersUserIds = new Set<string>();
     const resellersEmails = new Set<string>();
+    const resellerByUserId: Record<string, any> = {};
+    const resellerByEmail: Record<string, any> = {};
+    const resellerById: Record<string, any> = {};
     try {
-      const { data: resellersList } = await adminSupabase.from('resellers').select('id, user_id, email, name');
+      const { data: resellersList } = await adminSupabase
+        .from('resellers')
+        .select('id, user_id, email, name, whatsapp, phone, status, notification_preference');
       if (resellersList) {
         resellersList.forEach((r: any) => {
-          if (r.user_id) resellersUserIds.add(r.user_id);
-          if (r.email) resellersEmails.add(r.email.toLowerCase().trim());
+          if (r.id) resellerById[r.id] = r;
+          if (r.user_id) {
+            resellersUserIds.add(r.user_id);
+            resellerByUserId[r.user_id] = r;
+          }
+          if (r.email) {
+            const cleanMail = r.email.toLowerCase().trim();
+            resellersEmails.add(cleanMail);
+            resellerByEmail[cleanMail] = r;
+          }
         });
       }
     } catch {
@@ -93,18 +112,22 @@ export async function GET(request: NextRequest) {
       if (userRole === 'marketing') userRole = 'admin';
       if (userRole === 'ROLE_RESELLER') userRole = 'representative';
 
+      const cleanUserEmail = u.email?.toLowerCase().trim() || '';
+      const matchedReseller = resellerByUserId[u.id] || (cleanUserEmail ? resellerByEmail[cleanUserEmail] : null);
+
       // Se o usuário está cadastrado na tabela de representantes comerciais, garante cargo
       const isOfficialRep =
         resellersUserIds.has(u.id) ||
-        (u.email && resellersEmails.has(u.email.toLowerCase().trim())) ||
+        (cleanUserEmail && resellersEmails.has(cleanUserEmail)) ||
         p.store_name === 'Representação Comercial Zeiq';
 
       if (!isMaster && userRole !== 'admin' && (isOfficialRep || userRole === 'representative')) {
         userRole = 'representative';
       }
 
-      const repId = p.representative_id || meta.representative_id || null;
+      const repId = p.representative_id || p.reseller_id || meta.representative_id || meta.reseller_id || null;
       const repProfile = repId ? profilesMap[repId] : null;
+      const repReseller = repId ? (resellerById[repId] || resellerByUserId[repId]) : null;
 
       const defaultStore = isMaster
         ? 'Diretoria Zeiq (Master)'
@@ -116,12 +139,17 @@ export async function GET(request: NextRequest) {
         ? 'Estoque Zeiq'
         : 'Lojista B2B';
 
+      const resolvedPhone =
+        userRole === 'representative'
+          ? (pickEffectiveWhatsApp(matchedReseller, p.phone || meta.phone) || p.phone || meta.phone || '')
+          : (p.phone || meta.phone || '');
+
       return {
         id: u.id,
         email: u.email,
-        contact_name: p.contact_name || meta.contact_name || u.email?.split('@')[0],
+        contact_name: p.contact_name || meta.contact_name || matchedReseller?.name || u.email?.split('@')[0],
         store_name: p.store_name || meta.store_name || defaultStore,
-        phone: p.phone || meta.phone || '',
+        phone: resolvedPhone,
         cnpj_cpf: p.cnpj_cpf || meta.cnpj_cpf || '',
         city: p.city || meta.city || '',
         state: p.state || meta.state || '',
@@ -130,7 +158,7 @@ export async function GET(request: NextRequest) {
         is_master: isMaster,
         is_approved: p.is_approved ?? (appMeta.is_approved ?? meta.is_approved ?? true),
         representative_id: repId,
-        representative_name: repProfile?.contact_name || repProfile?.store_name || null,
+        representative_name: repProfile?.contact_name || repProfile?.store_name || repReseller?.name || null,
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
         email_confirmed: !!u.email_confirmed_at,
@@ -142,7 +170,8 @@ export async function GET(request: NextRequest) {
       const { data: resRecord } = await adminSupabase
         .from('resellers')
         .select('id')
-        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .or(`user_id.eq.${callerUser.id},email.ilike.${callerUser.email}`)
+        .limit(1)
         .maybeSingle();
 
       const resId = resRecord?.id;
@@ -289,24 +318,24 @@ export async function POST(request: NextRequest) {
 
       // Se for cadastrado com cargo de representante comercial, sincroniza na tabela resellers
       if (cleanRole === 'representative') {
-        const cleanWhatsapp = (phone || '').replace(/\D/g, '');
         try {
-          await adminSupabase.from('resellers').upsert({
-            name: contact_name?.trim() || cleanEmail.split('@')[0],
+          await syncRepresentativeResellerAndOrders(adminSupabase, {
+            userId: newUserId,
             email: cleanEmail,
-            whatsapp: cleanWhatsapp || '00000000000',
+            name: contact_name?.trim() || cleanEmail.split('@')[0],
             phone: phone?.trim() || null,
+            whatsapp: (phone || '').replace(/\D/g, ''),
             status: 'ativo',
-            notification_preference: 'both',
-            user_id: newUserId,
-          }, { onConflict: 'email' });
+            notificationPreference: 'both',
+            updateOrders: false,
+          });
         } catch (resErr) {
           console.warn('Aviso ao sincronizar tabela resellers:', resErr);
         }
       } else {
         // Se NÃO for representante, remove qualquer registro residual da tabela resellers
         try {
-          await adminSupabase.from('resellers').delete().or(`user_id.eq.${newUserId},email.eq.${cleanEmail}`);
+          await adminSupabase.from('resellers').delete().or(`user_id.eq.${newUserId},email.ilike.${cleanEmail}`);
         } catch {}
       }
     } catch (e) {
@@ -392,7 +421,8 @@ export async function DELETE(request: NextRequest) {
       const { data: resRecord } = await adminSupabase
         .from('resellers')
         .select('id')
-        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .or(`user_id.eq.${callerUser.id},email.ilike.${callerUser.email}`)
+        .limit(1)
         .maybeSingle();
 
       const resId = resRecord?.id;
@@ -511,7 +541,8 @@ async function handleUpdateUser(request: NextRequest) {
       const { data: resRecord } = await adminSupabase
         .from('resellers')
         .select('id')
-        .or(`user_id.eq.${callerUser.id},email.eq.${callerUser.email}`)
+        .or(`user_id.eq.${callerUser.id},email.ilike.${callerUser.email}`)
+        .limit(1)
         .maybeSingle();
 
       const resId = resRecord?.id;
@@ -615,26 +646,38 @@ async function handleUpdateUser(request: NextRequest) {
         await adminSupabase.from('profiles').upsert(profileData);
       }
 
-      // Sincroniza tabela resellers: adiciona se for representante, remove se for outro cargo
+      // Sincroniza tabela resellers e pedidos existentes:
+      // Garante que qualquer alteração de telefone/WhatsApp ou nome do representante reflita em resellers e orders
       const targetEmail = targetUser.email || '';
-      if (targetRole === 'representative' && targetEmail) {
-        const cleanWhatsapp = (phone || updatedUserMeta.phone || '').replace(/\D/g, '');
+      const effectiveRole = targetRole || targetProfileRole;
+      if (effectiveRole === 'representative' && targetEmail) {
         try {
-          await adminSupabase.from('resellers').upsert({
-            name: contact_name?.trim() || updatedUserMeta.contact_name || targetEmail.split('@')[0],
-            email: targetEmail.toLowerCase().trim(),
-            whatsapp: cleanWhatsapp || '00000000000',
-            phone: phone?.trim() || updatedUserMeta.phone || null,
-            status: 'ativo',
-            notification_preference: 'both',
-            user_id: id,
-          }, { onConflict: 'email' });
+          await syncRepresentativeResellerAndOrders(adminSupabase, {
+            userId: id,
+            email: targetEmail,
+            name:
+              contact_name !== undefined
+                ? contact_name.trim()
+                : updatedUserMeta.contact_name || targetEmail.split('@')[0],
+            phone: phone !== undefined ? phone.trim() : updatedUserMeta.phone || null,
+            whatsapp:
+              phone !== undefined
+                ? phone.replace(/\D/g, '')
+                : (updatedUserMeta.phone || '').replace(/\D/g, ''),
+            status:
+              targetApproved === false
+                ? 'inativo'
+                : targetApproved === true
+                ? 'ativo'
+                : undefined,
+            updateOrders: true,
+          });
         } catch (repErr) {
-          console.warn('Aviso ao sincronizar tabela resellers:', repErr);
+          console.warn('Aviso ao sincronizar tabela resellers/orders:', repErr);
         }
       } else if (targetRole && targetRole !== 'representative') {
         try {
-          const filter = targetEmail ? `user_id.eq.${id},email.eq.${targetEmail}` : `user_id.eq.${id}`;
+          const filter = targetEmail ? `user_id.eq.${id},email.ilike.${targetEmail.toLowerCase().trim()}` : `user_id.eq.${id}`;
           await adminSupabase.from('resellers').delete().or(filter);
         } catch (delResErr) {
           console.warn('Aviso ao remover da tabela resellers:', delResErr);

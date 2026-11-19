@@ -404,7 +404,7 @@ export default function AdminDashboardPage() {
 
       // 3. Busca Pedidos via API Admin
       try {
-        const orderRes = await fetch('/api/admin/orders');
+        const orderRes = await fetch('/api/admin/orders', { cache: 'no-store' });
         const orderData = await orderRes.json();
         if (orderData.success && Array.isArray(orderData.orders)) {
           setOrders(orderData.orders);
@@ -415,7 +415,7 @@ export default function AdminDashboardPage() {
 
       // 4. Busca Usuários/Clientes cadastrados via API Admin
       try {
-        const userRes = await fetch('/api/admin/users');
+        const userRes = await fetch('/api/admin/users', { cache: 'no-store' });
         const userData = await userRes.json();
         if (userData.success && Array.isArray(userData.users)) {
           setClients(userData.users);
@@ -426,7 +426,7 @@ export default function AdminDashboardPage() {
 
       // 5. Busca Banners da Página Inicial
       try {
-        const bannersRes = await fetch('/api/admin/banners');
+        const bannersRes = await fetch('/api/admin/banners', { cache: 'no-store' });
         const bannersData = await bannersRes.json();
         if (bannersData.success && Array.isArray(bannersData.banners)) {
           setBanners(bannersData.banners);
@@ -437,7 +437,7 @@ export default function AdminDashboardPage() {
 
       // 6. Busca Configurações Comerciais
       try {
-        const settingsRes = await fetch('/api/admin/settings');
+        const settingsRes = await fetch('/api/admin/settings', { cache: 'no-store' });
         const settingsData = await settingsRes.json();
         if (settingsData.success && settingsData.settings) {
           setSettings(settingsData.settings);
@@ -448,7 +448,7 @@ export default function AdminDashboardPage() {
 
       // 7. Busca Revendedores Comerciais via API Admin
       try {
-        const resRes = await fetch('/api/admin/resellers');
+        const resRes = await fetch('/api/admin/resellers', { cache: 'no-store' });
         const resData = await resRes.json();
         if (resData.success && Array.isArray(resData.resellers)) {
           setAdminResellers(resData.resellers);
@@ -875,6 +875,12 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
+        if (data.order) {
+          setOrders((prev) => prev.map((o) => (o.id === orderId ? data.order : o)));
+        }
+        if (data.stockAction === 'deducted' || data.stockAction === 'refunded') {
+          fetchDashboardData();
+        }
         showToast(`Status do pedido atualizado para "${statusLabel}".`);
       } else {
         alert(data.error || `Falha ao atualizar pedido para "${statusLabel}".`);

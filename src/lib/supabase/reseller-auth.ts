@@ -1,5 +1,6 @@
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { getAdminClient, isMasterEmail } from '@/lib/supabase/admin-auth';
+import { pickEffectiveWhatsApp } from '@/lib/services/reseller-sync';
 import { Reseller } from '@/types';
 
 export interface ResellerAuthResult {
@@ -64,6 +65,8 @@ export async function verifyReseller(): Promise<ResellerAuthResult> {
         .from('resellers')
         .select('*')
         .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (resByUserId) {
@@ -73,6 +76,8 @@ export async function verifyReseller(): Promise<ResellerAuthResult> {
           .from('resellers')
           .select('*')
           .ilike('email', email)
+          .order('updated_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         if (resByEmail) {
@@ -90,6 +95,18 @@ export async function verifyReseller(): Promise<ResellerAuthResult> {
       }
     } catch (e) {
       console.warn('Aviso ao consultar tabela resellers:', e);
+    }
+
+    if (resellerRecord) {
+      const effectiveWa =
+        pickEffectiveWhatsApp(resellerRecord, userProfile?.phone || user.user_metadata?.phone) ||
+        resellerRecord.whatsapp ||
+        '';
+      resellerRecord = {
+        ...resellerRecord,
+        whatsapp: effectiveWa,
+        phone: resellerRecord.phone || effectiveWa || null,
+      };
     }
 
     // Se for Master/Admin, pode visualizar o painel do revendedor se desejar

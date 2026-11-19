@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { verifyReseller } from '@/lib/supabase/reseller-auth';
 import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { formatOrderWhatsAppMessage, sanitizeWhatsAppNumber } from '@/lib/services/order-notification';
+import { enrichOrdersWithLiveResellers } from '@/lib/services/reseller-sync';
+import { updateOrderWithStockSync } from '@/lib/services/order-stock';
+import { OrderStatus } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,7 +82,9 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
-    const enrichedOrders = (orders || []).map((order) => {
+    const liveOrders = await enrichOrdersWithLiveResellers(adminSupabase, orders || []);
+
+    const enrichedOrders = liveOrders.map((order) => {
       const custId = order.customer_id || order.user_id;
       const custProfile = custId ? customerProfilesMap[custId] : null;
 
@@ -92,8 +97,12 @@ export async function GET(request: NextRequest) {
 
       // Gera mensagem do pedido formatada para o próprio revendedor reenviar se precisar
       const formattedOrderMsg = formatOrderWhatsAppMessage(order, auth.reseller, custProfile);
-      const resellerWhatsAppUrl = auth.reseller?.whatsapp
-        ? `https://wa.me/${sanitizeWhatsAppNumber(auth.reseller.whatsapp)}?text=${encodeURIComponent(formattedOrderMsg)}`
+      const resellerWaClean =
+        sanitizeWhatsAppNumber(order.reseller_whatsapp) ||
+        sanitizeWhatsAppNumber(auth.reseller?.whatsapp) ||
+        sanitizeWhatsAppNumber(auth.reseller?.phone);
+      const resellerWhatsAppUrl = resellerWaClean
+        ? `https://wa.me/${resellerWaClean}?text=${encodeURIComponent(formattedOrderMsg)}`
         : null;
 
       return {
@@ -185,11 +194,10 @@ export async function PATCH(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    if (status) {
-      const validStatuses = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled'];
-      if (validStatuses.includes(status)) {
-        updates.status = status;
-      }
+    const validStatuses: OrderStatus[] = ['pending', 'approved', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const validatedStatus = status && validStatuses.includes(status) ? (status as OrderStatus) : undefined;
+    if (validatedStatus) {
+      updates.status = validatedStatus;
     }
 
     if (commercial_notes !== undefined) {
@@ -205,20 +213,23 @@ export async function PATCH(request: NextRequest) {
       updates.tracking_url = tracking_url?.trim() || null;
     }
 
-    const { data: updatedOrder, error: updateErr } = await adminSupabase
-      .from('orders')
-      .update(updates)
-      .eq('id', id)
-      .select('*')
-      .single();
+    const { order: updatedOrder, error: updateErr, stockAction } = await updateOrderWithStockSync(
+      adminSupabase,
+      order,
+      updates,
+      validatedStatus
+    );
 
     if (updateErr) {
       return NextResponse.json({ success: false, error: updateErr.message }, { status: 400 });
     }
 
+    const [enrichedOrder] = await enrichOrdersWithLiveResellers(adminSupabase, updatedOrder ? [updatedOrder] : []);
+
     return NextResponse.json({
       success: true,
-      order: updatedOrder,
+      order: enrichedOrder || updatedOrder,
+      stockAction,
       message: 'Pedido atualizado com sucesso!',
     });
   } catch (err: any) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { pickEffectiveWhatsApp } from '@/lib/services/reseller-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,14 +22,17 @@ export async function GET() {
     if (!resErr && resellers && resellers.length > 0) {
       return NextResponse.json({
         success: true,
-        resellers: resellers.map((r) => ({
-          id: r.id,
-          name: r.name,
-          email: r.email,
-          phone: r.phone || r.whatsapp,
-          whatsapp: r.whatsapp,
-          notification_preference: r.notification_preference,
-        })),
+        resellers: resellers.map((r) => {
+          const wa = pickEffectiveWhatsApp(r);
+          return {
+            id: r.id,
+            name: r.name,
+            email: r.email,
+            phone: wa || r.phone || r.whatsapp,
+            whatsapp: wa || r.whatsapp,
+            notification_preference: r.notification_preference,
+          };
+        }),
       });
     }
 

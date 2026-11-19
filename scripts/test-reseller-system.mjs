@@ -3,7 +3,7 @@
  * Executa testes de segurança, isolamento de rotas e integridade dos formatadores.
  */
 
-import { formatOrderWhatsAppMessage, sanitizeWhatsAppNumber, formatOrderEmailHtml } from '../src/lib/services/order-notification.ts';
+import { formatOrderWhatsAppMessage, sanitizeWhatsAppNumber, formatOrderEmailHtml, replaceWhatsAppShareUrlPhone, isValidWhatsAppNumber } from '../src/lib/services/order-notification.ts';
 
 const ANSI_GREEN = '\x1b[32m';
 const ANSI_RED = '\x1b[31m';
@@ -33,6 +33,15 @@ async function runTests() {
   assert(sanitizeWhatsAppNumber('5562999999999') === '5562999999999', 'Mantém inalterado se já começar com 55 e tamanho 13 dígitos');
   assert(sanitizeWhatsAppNumber('1633334444') === '551633334444', 'Trata telefone fixo com DDD adicionando 55');
   assert(sanitizeWhatsAppNumber('') === '', 'Trata string vazia sem erros');
+  assert(sanitizeWhatsAppNumber('00000000000') === '', 'Ignora placeholder de zeros (00000000000)');
+  assert(sanitizeWhatsAppNumber('016995486060') === '5516995486060', 'Remove zero à esquerda do DDD e adiciona 55');
+  assert(isValidWhatsAppNumber('16995486060') === true, 'Valida telefone real com DDD');
+  assert(isValidWhatsAppNumber('00000000000') === false, 'Rejeita telefone inválido apenas de zeros');
+  assert(
+    replaceWhatsAppShareUrlPhone('https://wa.me/5516996655050?text=Pedido%20%23123', '16995486060') ===
+      'https://wa.me/5516995486060?text=Pedido%20%23123',
+    'Substitui telefone em whatsapp_share_url preservando o texto codificado'
+  );
 
   // 2. Teste do Formatador de Mensagem de WhatsApp (Regra 6.2 - Estética Obrigatória)
   console.log(`\n${ANSI_BOLD}[2. Formatação da Mensagem WhatsApp do Pedido (Regra 6.2)]${ANSI_RESET}`);
